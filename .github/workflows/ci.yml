@@ -1,0 +1,100 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend (Maven verify)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: backend/**/pom.xml
+
+      - name: Build and test (unit, integration, coverage gate)
+        run: mvn -B -f backend/pom.xml verify
+
+      - name: Upload corpus report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: corpus-report
+          path: backend/amber-test/target/corpus-report.md
+          if-no-files-found: warn
+
+      - name: Upload JaCoCo report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: jacoco-report
+          path: backend/amber-core/target/site/jacoco/
+          if-no-files-found: warn
+
+  desktop:
+    name: Desktop (type-check, lint, test, build)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    defaults:
+      run:
+        working-directory: ui/amber-desktop
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Check for the desktop project
+        id: project
+        working-directory: .
+        run: |
+          if [[ ! -f ui/amber-desktop/package.json ]]; then
+            echo "::notice title=Desktop job skipped::ui/amber-desktop/package.json does not exist yet; nothing to check."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if [[ ! -f ui/amber-desktop/package-lock.json ]]; then
+            echo "::error title=Missing lockfile::ui/amber-desktop/package-lock.json is required for npm ci. Run npm install in ui/amber-desktop and commit the lockfile."
+            exit 1
+          fi
+          echo "exists=true" >> "$GITHUB_OUTPUT"
+
+      - name: Set up Node 22
+        if: steps.project.outputs.exists == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/amber-desktop/package-lock.json
+
+      - name: Install dependencies
+        if: steps.project.outputs.exists == 'true'
+        run: npm ci
+
+      - name: Type-check
+        if: steps.project.outputs.exists == 'true'
+        run: npm run typecheck
+
+      - name: Lint
+        if: steps.project.outputs.exists == 'true'
+        run: npm run lint
+
+      - name: Unit tests
+        if: steps.project.outputs.exists == 'true'
+        run: npm test
+
+      - name: Build
+        if: steps.project.outputs.exists == 'true'
+        run: npm run build

@@ -1,0 +1,14 @@
+SELECT name, (SELECT COUNT(*) FROM dbo.Orders o WHERE o.customer_id = c.customer_id) AS order_count FROM dbo.Customers c;
+SELECT * FROM dbo.Orders WHERE customer_id IN (SELECT customer_id FROM dbo.Customers WHERE country = 'DE');
+SELECT * FROM dbo.Orders WHERE customer_id NOT IN (SELECT customer_id FROM dbo.Blocked WHERE customer_id IS NOT NULL);
+SELECT * FROM dbo.Customers c WHERE NOT EXISTS (SELECT * FROM dbo.Orders o WHERE o.customer_id = c.customer_id);
+SELECT d.dept, d.avg_sal FROM (SELECT dept, AVG(salary) AS avg_sal FROM hr.Employees GROUP BY dept) AS d WHERE d.avg_sal > 50000;
+SELECT * FROM hr.Employees e WHERE salary > (SELECT AVG(salary) FROM hr.Employees x WHERE x.dept = e.dept);
+SELECT TOP (1) WITH TIES * FROM dbo.Orders ORDER BY ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY order_date DESC);
+UPDATE dbo.Products SET price = (SELECT AVG(price) FROM dbo.Products WHERE category = 'X') WHERE price IS NULL;
+DELETE FROM dbo.Orders WHERE order_id IN (SELECT order_id FROM #orders_to_purge);
+SELECT CASE WHEN EXISTS (SELECT 1 FROM dbo.Config WHERE k = 'flag') THEN 1 ELSE 0 END AS has_flag;
+SELECT x.* FROM (SELECT o.*, ROW_NUMBER() OVER (ORDER BY amount DESC) AS rn FROM dbo.Orders o) x WHERE x.rn <= 10;
+IF EXISTS (SELECT 1 FROM sys.objects WHERE name = 'Orders' AND type = 'U') PRINT 'exists';
+IF (SELECT COUNT(*) FROM dbo.Orders) > 100 BEGIN PRINT 'many'; END ELSE PRINT 'few';
+SELECT * FROM dbo.Orders o WHERE o.amount = (SELECT MAX(amount) FROM dbo.Orders);

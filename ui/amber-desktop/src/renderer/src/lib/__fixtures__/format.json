@@ -1,0 +1,41 @@
+{
+ "before": "-- Weekly inventory reconciliation for a fictional warehouse (sample script, SQL Server)\nCREATE PROCEDURE dbo.usp_reconcile_inventory\n  @week_start DATE\nAS\nBEGIN\n  SET NOCOUNT ON;\n\n  CREATE TABLE #movements (\n    sku VARCHAR(32) NOT NULL,\n    qty INT NOT NULL\n  );\n\n  INSERT INTO #movements (sku, qty)\n  SELECT m.sku, SUM(m.qty)\n  FROM wh.stock_movements m\n  WHERE m.moved_on >= @week_start\n  GROUP BY m.sku;\n\n  IF EXISTS (SELECT 1 FROM #movements WHERE qty < 0)\n  BEGIN\n    INSERT INTO wh.alerts (sku, message)\n    SELECT sku, 'negative weekly movement' FROM #movements WHERE qty < 0;\n  END\n  ELSE\n  BEGIN\n    UPDATE wh.alerts SET resolved = 1 WHERE resolved = 0;\n  END\n\n  DECLARE @batch INT = 0;\n  WHILE @batch < 3\n  BEGIN\n    UPDATE s\n    SET s.on_hand = s.on_hand + mv.qty\n    FROM wh.stock s\n    JOIN #movements mv ON mv.sku = s.sku;\n    SET @batch = @batch + 1;\n  END\n\n  BEGIN TRY\n    INSERT INTO wh.audit_log (run_on, rows_moved)\n    SELECT GETDATE(), COUNT(*) FROM #movements;\n  END TRY\n  BEGIN CATCH\n    INSERT INTO wh.audit_log (run_on, rows_moved) VALUES (GETDATE(), -1);\n  END CATCH\n\n  DROP TABLE #movements;\nEND;\nGO\n\nEXEC dbo.usp_reconcile_inventory @week_start = '2026-01-05';\nGO\n",
+ "whole": {
+  "text": "-- Weekly inventory reconciliation for a fictional warehouse (sample script, SQL Server)\nCREATE PROCEDURE dbo.usp_reconcile_inventory @week_start DATE\nAS\nBEGIN\n    SET NOCOUNT ON;\n\n    CREATE TABLE #movements (\n        sku VARCHAR(32) NOT NULL,\n        qty INT NOT NULL\n    );\n\n    INSERT INTO #movements (sku, qty)\n    SELECT m.sku, SUM(m.qty)\n    FROM wh.stock_movements m\n    WHERE m.moved_on >= @week_start\n    GROUP BY m.sku;\n\n    IF EXISTS (SELECT 1 FROM #movements WHERE qty < 0)\n    BEGIN\n        INSERT INTO wh.alerts (sku, message)\n        SELECT sku, 'negative weekly movement'\n        FROM #movements\n        WHERE qty < 0;\n    END\n    ELSE\n    BEGIN\n        UPDATE wh.alerts\n        SET resolved = 1\n        WHERE resolved = 0;\n    END\n\n    DECLARE @batch INT = 0;\n    WHILE @batch < 3\n    BEGIN\n        UPDATE s\n        SET s.on_hand = s.on_hand + mv.qty\n        FROM wh.stock s\n        JOIN #movements mv ON mv.sku = s.sku;\n        SET @batch = @batch + 1;\n    END\n\n    BEGIN TRY\n        INSERT INTO wh.audit_log (run_on, rows_moved)\n        SELECT GETDATE(), COUNT(*)\n        FROM #movements;\n    END TRY\n    BEGIN CATCH\n        INSERT INTO wh.audit_log (run_on, rows_moved)\n        VALUES (GETDATE(), -1);\n    END CATCH\n\n    DROP TABLE #movements;\nEND;\nGO\n\nEXEC dbo.usp_reconcile_inventory @week_start = '2026-01-05';\nGO\n",
+  "changed": true,
+  "warnings": [],
+  "skipped": []
+ },
+ "selection": {
+  "start": 611,
+  "end": 616,
+  "result": {
+   "text": "-- Weekly inventory reconciliation for a fictional warehouse (sample script, SQL Server)\ncreate procedure dbo.usp_reconcile_inventory @week_start DATE\nas\nbegin\n  set nocount on;\n\n  create table #movements (\n    sku varchar(32) not null\n    , qty int not null\n  );\n\n  insert into #movements (sku, qty)\n  select m.sku, SUM(m.qty)\n  from wh.stock_movements m\n  where m.moved_on >= @week_start\n  group by m.sku;\n\n  if exists (select 1 from #movements where qty < 0)\n  begin\n    insert into wh.alerts (sku, message)\n    select sku, 'negative weekly movement'\n    from #movements\n    where qty < 0;\n  end\n  else\n  begin\n    update wh.alerts\n    set resolved = 1\n    where resolved = 0;\n  end\n\n  declare @batch int = 0;\n  while @batch < 3\n  begin\n    update s\n    set s.on_hand = s.on_hand + mv.qty\n    from wh.stock s\n    join #movements mv on mv.sku = s.sku;\n    set @batch = @batch + 1;\n  end\n\n  begin try\n    insert into wh.audit_log (run_on, rows_moved)\n    select GETDATE(), COUNT(*)\n    from #movements;\n  end try\n  begin catch\n    insert into wh.audit_log (run_on, rows_moved)\n    values (GETDATE(), -1);\n  end catch\n\n  drop table #movements;\nend;\nGO\n\nEXEC dbo.usp_reconcile_inventory @week_start = '2026-01-05';\nGO\n",
+   "changed": true,
+   "warnings": [],
+   "skipped": []
+  }
+ },
+ "badBefore": "select a,b from t where x=1;\nselect 'unterminated from t;\n",
+ "bad": {
+  "text": "SELECT a, b\nFROM t\nWHERE x = 1;\nselect 'unterminated from t;\n",
+  "changed": true,
+  "warnings": [
+   "Line 2: statement kept as written (unterminated string, quoted name or comment)"
+  ],
+  "skipped": [
+   {
+    "start": {
+     "offset": 29,
+     "line": 2,
+     "column": 1
+    },
+    "end": {
+     "offset": 57,
+     "line": 2,
+     "column": 29
+    }
+   }
+  ]
+ }
+}

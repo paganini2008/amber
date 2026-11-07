@@ -1,0 +1,12 @@
+CREATE SEQUENCE dbo.seq_invoice AS BIGINT START WITH 1000 INCREMENT BY 1 MINVALUE 1000 NO MAXVALUE CACHE 50;
+CREATE SEQUENCE dbo.seq_cycle START WITH 1 INCREMENT BY 1 MAXVALUE 10 CYCLE NO CACHE;
+SELECT NEXT VALUE FOR dbo.seq_invoice;
+INSERT INTO dbo.Invoices (invoice_no, amount) VALUES (NEXT VALUE FOR dbo.seq_invoice, 10);
+SELECT NEXT VALUE FOR dbo.seq_invoice OVER (ORDER BY order_id) AS inv, order_id FROM dbo.Orders;
+CREATE TABLE dbo.Tickets (ticket_id INT NOT NULL DEFAULT (NEXT VALUE FOR dbo.seq_cycle), title NVARCHAR(100));
+ALTER SEQUENCE dbo.seq_invoice RESTART WITH 5000 INCREMENT BY 5;
+DECLARE @first SQL_VARIANT;
+EXEC sys.sp_sequence_get_range @sequence_name = N'dbo.seq_invoice', @range_size = 10, @range_first_value = @first OUTPUT;
+DROP SEQUENCE IF EXISTS dbo.seq_cycle;
+SELECT IDENT_CURRENT('dbo.Customers'), SCOPE_IDENTITY(), @@IDENTITY;
+DBCC CHECKIDENT ('dbo.Customers', RESEED, 0);

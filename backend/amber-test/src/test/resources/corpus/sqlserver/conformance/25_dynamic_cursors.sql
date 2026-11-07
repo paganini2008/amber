@@ -1,0 +1,37 @@
+DECLARE @sql NVARCHAR(MAX), @params NVARCHAR(200) = N'@cid INT, @cnt INT OUTPUT', @out INT;
+SET @sql = N'SELECT @cnt = COUNT(*) FROM sales.Orders WHERE customer_id = @cid';
+EXEC sp_executesql @sql, @params, @cid = 5, @cnt = @out OUTPUT;
+EXEC sys.sp_executesql N'SELECT * FROM sales.Customers WHERE customer_id = @id', N'@id INT', 7;
+EXEC (N'TRUNCATE TABLE ' + N'staging.Orders');
+EXECUTE ('SELECT 1 AS one');
+EXEC ('SELECT * FROM inventory.Items') AT linked_srv;
+SET @sql = N'ALTER INDEX ALL ON ' + QUOTENAME(N'sales') + N'.' + QUOTENAME(N'Orders') + N' REBUILD;';
+EXEC (@sql);
+DECLARE @proc SYSNAME = N'dbo.usp_simple';
+EXEC @proc @p = N'x';
+DECLARE order_cursor CURSOR LOCAL FAST_FORWARD FOR SELECT order_id, amount FROM sales.Orders WHERE status = 'N';
+DECLARE @oid BIGINT, @amt MONEY;
+OPEN order_cursor;
+FETCH NEXT FROM order_cursor INTO @oid, @amt;
+WHILE @@FETCH_STATUS = 0
+BEGIN
+    UPDATE sales.Orders SET status = 'S' WHERE order_id = @oid;
+    FETCH NEXT FROM order_cursor INTO @oid, @amt;
+END;
+CLOSE order_cursor;
+DEALLOCATE order_cursor;
+DECLARE c2 CURSOR SCROLL KEYSET FOR SELECT name FROM sales.Customers FOR UPDATE OF name;
+OPEN c2;
+FETCH ABSOLUTE 5 FROM c2;
+FETCH PRIOR FROM c2;
+FETCH RELATIVE -2 FROM c2;
+FETCH LAST FROM c2;
+UPDATE sales.Customers SET name = UPPER(name) WHERE CURRENT OF c2;
+CLOSE c2;
+DEALLOCATE c2;
+DECLARE @cur CURSOR;
+SET @cur = CURSOR FORWARD_ONLY STATIC FOR SELECT 1;
+OPEN @cur;
+CLOSE @cur;
+DEALLOCATE @cur;
+DECLARE c3 INSENSITIVE SCROLL CURSOR FOR SELECT order_id FROM sales.Orders FOR READ ONLY;

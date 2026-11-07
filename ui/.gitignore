@@ -1,0 +1,33 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+out/
+release/
+*.tsbuildinfo
+
+# Branded development copy of the Electron binary (scripts/dev.mjs)
+amber-desktop/.dev/
+
+# Bundled engine, runtime and drivers (produced by the build, never committed)
+amber-desktop/resources/engine/
+amber-desktop/resources/runtime/
+
+# Logs and env
+npm-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+.env
+.env.*
+!.env.example
+
+# IDEs
+.idea/
+.vscode/
+
+# OS
+.DS_Store
+
+# Daily development logs (local notes for recalling context); never committed
+change_logs/

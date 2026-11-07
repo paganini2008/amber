@@ -1,0 +1,886 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Amber, for legacy SQL</title>
+<meta name="description" content="Amber is an open-source desktop app for maintaining legacy SQL: it helps developers read and understand large, tangled SQL scripts with outline, object lifecycle, data flow, column lineage and execution playback for 8 databases. Offline first; it never runs your SQL.">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#F4F5F7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#14171B" media="(prefers-color-scheme: dark)">
+<meta property="og:title" content="Amber, a SQL reader">
+<meta property="og:description" content="Understand a large SQL script without reading it line by line.">
+<meta property="og:image" content="https://paganini2008.github.io/amber/assets/logo-256.png">
+<link rel="icon" type="image/png" href="assets/favicon-64.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="assets/css/site.css">
+<script src="assets/js/theme.js"></script>
+<style>
+  /* Hero */
+  .hero {
+    padding: 64px 0 48px;
+    color: var(--chrome-ink);
+    background:
+      radial-gradient(ellipse 60% 70% at 12% 18%, rgba(255, 169, 40, 0.20), transparent 62%),
+      var(--chrome);
+  }
+  .hero h1 {
+    margin: 0;
+    max-width: 17ch;
+    font-size: clamp(2.25rem, 5.4vw, 3.75rem);
+    line-height: 1.04;
+    font-weight: 600;
+    letter-spacing: -0.028em;
+  }
+  .hero .lead {
+    margin: 20px 0 0;
+    max-width: 60ch;
+    font-size: var(--t20);
+    line-height: 1.5;
+    color: var(--chrome-muted);
+  }
+  .hero-actions {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 12px 20px;
+    margin-top: 28px;
+  }
+  .hero-actions .alt { font-size: var(--t14); color: var(--chrome-muted); }
+  .hero-actions .alt a { color: var(--chrome-ink); }
+  .hero .window { color: var(--ink); }
+  .hero-note { color: var(--chrome-muted); }
+
+  /* Screenshots */
+  .shots-lead { margin: 8px 0 28px; max-width: var(--measure); color: var(--ink-muted); font-size: var(--t16); }
+  .shot.shot-main { margin: 0 0 40px; }
+  .shot-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(min(100%, 340px), 1fr));
+    gap: 24px;
+  }
+  .shot { margin: 0; }
+  .shot a { display: block; border-radius: var(--radius-m); }
+  .shot img {
+    display: block;
+    width: 100%;
+    height: auto;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-m);
+    background: var(--surface);
+    box-shadow: 0 1px 2px rgba(15, 42, 51, 0.06), 0 12px 32px -18px rgba(15, 42, 51, 0.35);
+    transition: transform var(--motion) ease, box-shadow var(--motion) ease;
+  }
+  .shot a:hover img, .shot a:focus-visible img {
+    transform: translateY(-2px);
+    box-shadow: 0 2px 4px rgba(15, 42, 51, 0.08), 0 18px 40px -18px rgba(15, 42, 51, 0.45);
+  }
+  .shot figcaption { margin-top: 10px; font-size: var(--t14); color: var(--ink-muted); line-height: 1.5; }
+  .shot figcaption strong { display: block; color: var(--ink); font-size: var(--t16); font-weight: 600; }
+
+  /* App-like window with the traced example */
+  .window {
+    margin-left: 0; margin-right: 0;
+    margin-top: 48px;
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    overflow: hidden;
+  }
+  .window-bar {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--line);
+    font-size: var(--t13);
+    color: var(--ink-muted);
+  }
+  .window-bar .file { font-family: var(--mono); color: var(--ink); }
+  .window-bar .status { margin-left: auto; }
+  .window-body {
+    display: grid;
+    grid-template-columns: minmax(0, 5fr) minmax(0, 8fr);
+  }
+  @media (max-width: 900px) {
+    .window-body { grid-template-columns: minmax(0, 1fr); }
+  }
+
+  .sql {
+    margin: 0;
+    padding: 16px 0;
+    border-right: 1px solid var(--line);
+    background: var(--canvas);
+    font-family: var(--mono);
+    font-size: var(--t13);
+    line-height: 1.75;
+    overflow-x: auto;
+    counter-reset: line;
+  }
+  @media (max-width: 900px) {
+    .sql { border-right: 0; border-bottom: 1px solid var(--line); }
+  }
+  .sql code { display: block; white-space: normal; font: inherit; }
+  .sql .ln {
+    display: block;
+    padding-right: 16px;
+    white-space: pre;
+  }
+  .sql .ln::before {
+    counter-increment: line;
+    content: counter(line);
+    display: inline-block;
+    width: 3.2em;
+    padding-right: 1.2em;
+    text-align: right;
+    color: var(--ink-muted);
+    opacity: 0.7;
+    user-select: none;
+  }
+  .sql .kw { color: var(--ink-muted); }
+  .sql .str { color: var(--ink); }
+  .sql mark {
+    background: transparent;
+    color: inherit;
+    border-radius: 3px;
+    padding: 1px 0;
+    transition: background-color var(--motion), color var(--motion), box-shadow var(--motion);
+  }
+  .sql mark.lit {
+    background: var(--amber-wash);
+    color: var(--amber-ink);
+    font-weight: 600;
+    box-shadow: inset 0 -2px 0 var(--amber);
+  }
+  .sql mark.lit-indirect {
+    color: var(--ink);
+    background-image: linear-gradient(to right, var(--amber) 50%, transparent 50%);
+    background-size: 6px 1.5px;
+    background-repeat: repeat-x;
+    background-position: 0 100%;
+  }
+
+  .trace { padding: 16px 16px 20px; min-width: 0; }
+  .trace-controls {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 8px 10px;
+    font-size: var(--t14);
+    color: var(--ink-muted);
+  }
+  .trace-controls [role="group"] { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+  .chip {
+    font: 500 var(--t13)/1 var(--mono);
+    padding: 8px 10px;
+    min-height: 32px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-s);
+    background: var(--surface);
+    color: var(--ink);
+    cursor: pointer;
+  }
+  .chip:hover { border-color: var(--ink-muted); }
+  .chip[aria-pressed="true"] {
+    background: var(--amber);
+    border-color: var(--amber);
+    color: var(--on-amber);
+  }
+  .graph { display: block; width: 100%; height: auto; margin-top: 12px; }
+  .graph text { font-family: var(--mono); font-size: 12px; fill: var(--ink-muted); }
+  .graph .role { font-family: var(--sans); font-size: 11px; }
+  .graph .title { fill: var(--ink); font-weight: 500; }
+  .graph .node-box { fill: var(--surface); stroke: var(--line); }
+  .graph .node-head { fill: var(--node-head); }
+  .graph .row-bg { fill: transparent; transition: fill var(--motion); }
+  .graph .row.lit .row-bg { fill: var(--amber-wash); }
+  .graph .row.lit text { fill: var(--amber-ink); font-weight: 600; }
+  .graph .row.lit-indirect text { fill: var(--ink); }
+  .graph .row.pick { cursor: pointer; }
+  .graph .row.pick:focus { outline: none; }
+  .graph .row.pick:focus-visible .row-bg { stroke: var(--amber); stroke-width: 2; }
+  .graph .edge {
+    fill: none;
+    stroke: var(--edge-rest);
+    stroke-width: 1.25;
+    transition: stroke var(--motion), stroke-width var(--motion), opacity var(--motion);
+  }
+  .graph .edge.indirect { stroke-dasharray: 4 4; }
+  .graph.tracing .edge { opacity: 0.45; }
+  .graph .edge.lit { stroke: var(--amber); stroke-width: 2.5; opacity: 1; }
+  .graph .edge.lit.indirect { stroke-width: 1.5; }
+  .graph .edge-label { font-family: var(--sans); font-size: 11px; fill: var(--amber-ink); opacity: 0; transition: opacity var(--motion); }
+  .graph .edge-label.lit { opacity: 1; }
+  .graph .edge-label-bg { fill: var(--surface); opacity: 0; }
+  .graph .edge-label-bg.lit { opacity: 1; }
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px 20px;
+    margin: 8px 0 0;
+    padding: 0;
+    list-style: none;
+    font-size: var(--t12);
+    color: var(--ink-muted);
+  }
+  .legend svg { width: 28px; height: 8px; vertical-align: middle; margin-right: 6px; }
+  .caption {
+    margin: 14px 0 0;
+    max-width: 62ch;
+    font-size: var(--t14);
+    line-height: 1.55;
+  }
+  .caption code { color: var(--amber-ink); }
+  .hero-note { margin: 12px 0 0; font-size: var(--t13); color: var(--ink-muted); }
+
+  /* Sections */
+  .section { padding-top: 88px; }
+  .section > .wrap > h2 {
+    margin: 0 0 8px;
+    font-size: clamp(1.5rem, 3vw, 2rem);
+    line-height: 1.2;
+    letter-spacing: -0.015em;
+    font-weight: 600;
+  }
+  .section .intro { margin: 0; max-width: 62ch; color: var(--ink-muted); font-size: var(--t16); }
+
+  /* Views */
+  .views {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    gap: 48px;
+    margin-top: 36px;
+    align-items: start;
+  }
+  @media (max-width: 860px) { .views { grid-template-columns: minmax(0, 1fr); gap: 32px; } }
+  .view-list { margin: 0; }
+  .view-list dt { font-weight: 600; font-size: var(--t16); margin-top: 22px; }
+  .view-list dt:first-child { margin-top: 0; }
+  .view-list dd { margin: 4px 0 0; color: var(--ink-muted); max-width: 54ch; }
+
+  .matrix-wrap {
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    background: var(--surface);
+    padding: 16px;
+    overflow-x: auto;
+  }
+  .matrix-wrap h3 { margin: 0 0 4px; font-size: var(--t14); font-weight: 600; }
+  .matrix-wrap p { margin: 0 0 14px; font-size: var(--t13); color: var(--ink-muted); }
+  .matrix { border-collapse: collapse; width: 100%; font-size: var(--t13); }
+  .matrix th, .matrix td { padding: 8px 10px; border-bottom: 1px solid var(--line); text-align: left; white-space: nowrap; }
+  .matrix thead th { font-weight: 500; color: var(--ink-muted); }
+  .matrix tbody th { font-family: var(--mono); font-weight: 500; }
+  .matrix td.ev { font-family: var(--mono); text-align: center; }
+  .matrix td.ev span {
+    display: inline-block;
+    min-width: 4.5em;
+    padding: 2px 6px;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+  }
+  .matrix tr.focus td.ev span { border-color: var(--amber); background: var(--amber-wash); color: var(--amber-ink); }
+  .matrix td.role { color: var(--ink-muted); }
+  .matrix tr:last-child th, .matrix tr:last-child td { border-bottom: 0; }
+
+  /* Principles */
+  .principles {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 0 48px;
+    margin: 32px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  @media (max-width: 760px) { .principles { grid-template-columns: minmax(0, 1fr); } }
+  .principles li { padding: 20px 0; border-top: 1px solid var(--line); }
+  .principles h3 { margin: 0 0 6px; font-size: var(--t16); font-weight: 600; }
+  .principles p { margin: 0; color: var(--ink-muted); max-width: 52ch; }
+
+  .dbs {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin: 28px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+  .dbs li {
+    padding: 10px 16px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-s);
+    background: var(--surface);
+    font-weight: 500;
+  }
+
+  /* Downloads */
+  .downloads { margin-top: 32px; border-top: 1px solid var(--line); }
+  .dl {
+    display: grid;
+    grid-template-columns: minmax(0, 1.3fr) minmax(0, 1.4fr) auto;
+    gap: 8px 24px;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--line);
+  }
+  .dl.recommended .dl-name::after {
+    content: "Your system";
+    margin-left: 10px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    background: var(--amber-wash);
+    color: var(--amber-ink);
+    font-size: var(--t12);
+    font-weight: 500;
+    vertical-align: 2px;
+  }
+  .dl-name { font-weight: 600; }
+  .dl-name small { display: block; font-weight: 400; color: var(--ink-muted); font-size: var(--t14); }
+  .dl-file { font-family: var(--mono); font-size: var(--t13); color: var(--ink-muted); overflow-wrap: anywhere; }
+  @media (max-width: 680px) {
+    .dl { grid-template-columns: minmax(0, 1fr); }
+    .dl .btn { justify-self: start; }
+  }
+  .dl-meta { margin: 16px 0 0; font-size: var(--t14); color: var(--ink-muted); }
+
+  .install {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 32px;
+    margin-top: 48px;
+  }
+  @media (max-width: 960px) { .install { grid-template-columns: minmax(0, 1fr); gap: 24px; } }
+  .install h3 { margin: 0 0 8px; font-size: var(--t16); font-weight: 600; }
+  .install p, .install li { color: var(--ink-muted); font-size: var(--t14); }
+  .install p { margin: 0 0 10px; }
+  .install ol { margin: 0 0 10px; padding-left: 1.2em; }
+  .install pre {
+    margin: 0;
+    padding: 12px 14px;
+    border: 1px solid var(--line);
+    border-radius: var(--radius-s);
+    background: var(--surface);
+    font-size: var(--t13);
+    overflow-x: auto;
+    white-space: pre;
+  }
+
+  .docs-links {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 24px;
+    margin-top: 28px;
+  }
+  @media (max-width: 760px) { .docs-links { grid-template-columns: minmax(0, 1fr); } }
+  .docs-links a {
+    display: block;
+    padding: 18px 0 0;
+    border-top: 2px solid var(--line);
+    color: var(--ink);
+    text-decoration: none;
+  }
+  .docs-links a:hover { border-top-color: var(--amber); }
+  .docs-links strong { display: block; font-size: var(--t16); }
+  .docs-links span { display: block; margin-top: 4px; font-size: var(--t14); color: var(--ink-muted); }
+</style>
+</head>
+<body>
+<a class="skip" href="#main">Skip to content</a>
+
+<header class="site-header">
+  <div class="wrap">
+    <a class="brand" href="./"><img src="assets/logo-256.png" alt="" width="30" height="30">Amber</a>
+    <nav class="site-nav" aria-label="Main">
+      <a class="nav-optional" href="#views">Features</a>
+      <a class="nav-optional" href="#screenshots">Screenshots</a>
+      <a href="#download">Download</a>
+      <a class="nav-optional" href="design.html">Design</a>
+      <a href="https://github.com/paganini2008/amber">GitHub</a>
+      <button class="theme-toggle" type="button" aria-label="Switch theme">
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+      </button>
+    </nav>
+  </div>
+</header>
+
+<main id="main">
+  <section class="hero" aria-labelledby="hero-title">
+    <div class="wrap">
+      <h1 id="hero-title">Maintain the legacy SQL nobody wants to touch.</h1>
+      <p class="lead">Thousand-line batch jobs, procedures nobody documented, temp tables passed from
+        step to step. Amber parses the script and shows how it is organized, how data flows between
+        statements and where every result column comes from, so you can change it without fear.
+        It works offline and never runs your SQL.</p>
+      <div class="hero-actions">
+        <a class="btn btn-primary" id="hero-download" href="#download">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v12M7 10l5 5 5-5M5 21h14"/></svg>
+          <span>Download Amber</span>
+        </a>
+        <span class="alt">Free and open source under Apache-2.0. <a href="https://github.com/paganini2008/amber">Source on GitHub</a></span>
+      </div>
+
+      <figure class="window" aria-labelledby="trace-caption">
+        <div class="window-bar">
+          <span class="file">customer_revenue.sql</span>
+          <span>PostgreSQL</span>
+          <span class="status">3 statements, parsed</span>
+        </div>
+        <div class="window-body">
+<pre class="sql" aria-label="Example SQL script"><code><span class="ln"><span class="kw">CREATE TEMP TABLE</span> paid_orders <span class="kw">AS</span></span>
+<span class="ln"><span class="kw">SELECT</span> <mark data-m="s-oid">o.order_id</mark>, <mark data-m="s-ocid">o.customer_id</mark>, <mark data-m="s-oamt">o.amount</mark></span>
+<span class="ln"><span class="kw">FROM</span> sales.orders o</span>
+<span class="ln"><span class="kw">WHERE</span> <mark data-m="s-filter">o.status = <span class="str">'PAID'</span></mark>;</span>
+<span class="ln"></span>
+<span class="ln"><span class="kw">INSERT INTO</span> dw.customer_revenue</span>
+<span class="ln">       (<mark data-m="t-cid">customer_id</mark>, <mark data-m="t-tier">tier</mark>, <mark data-m="t-rev">revenue</mark>)</span>
+<span class="ln"><span class="kw">SELECT</span> <mark data-m="s-ccid">c.customer_id</mark>,</span>
+<span class="ln">       <mark data-m="s-ctier">c.tier</mark>,</span>
+<span class="ln">       <mark data-m="s-sum">SUM(p.amount)</mark> <span class="kw">AS</span> revenue</span>
+<span class="ln"><span class="kw">FROM</span> paid_orders p</span>
+<span class="ln"><span class="kw">JOIN</span> crm.customers c</span>
+<span class="ln">  <span class="kw">ON</span> <mark data-m="s-join">c.customer_id = p.customer_id</mark></span>
+<span class="ln"><span class="kw">GROUP BY</span> c.customer_id, c.tier;</span>
+<span class="ln"></span>
+<span class="ln"><span class="kw">DROP TABLE</span> paid_orders;</span></code></pre>
+          <div class="trace">
+            <div class="trace-controls">
+              <span id="trace-label">Trace a column of dw.customer_revenue</span>
+              <div role="group" aria-labelledby="trace-label">
+                <button class="chip" type="button" data-trace="revenue" aria-pressed="true">revenue</button>
+                <button class="chip" type="button" data-trace="tier" aria-pressed="false">tier</button>
+                <button class="chip" type="button" data-trace="customer_id" aria-pressed="false">customer_id</button>
+              </div>
+            </div>
+            <svg class="graph tracing" id="graph" viewBox="0 0 706 292" role="img" aria-labelledby="graph-desc">
+              <desc id="graph-desc">Column-level data flow of the example script: sales.orders feeds the temporary table paid_orders, which is joined with crm.customers and written to dw.customer_revenue.</desc>
+            </svg>
+            <ul class="legend">
+              <li><svg viewBox="0 0 28 8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="var(--amber)" stroke-width="2.5"/></svg>Value comes from</li>
+              <li><svg viewBox="0 0 28 8" aria-hidden="true"><line x1="0" y1="4" x2="28" y2="4" stroke="var(--amber)" stroke-width="1.5" stroke-dasharray="4 4"/></svg>Filters or joins the rows</li>
+            </ul>
+            <p class="caption" id="trace-caption" aria-live="polite"></p>
+            <noscript><p class="caption">The interactive trace needs JavaScript. In short: <code>revenue</code> is <code>SUM(amount)</code> over <code>paid_orders</code>, which copies <code>sales.orders.amount</code> for paid orders.</p></noscript>
+          </div>
+        </div>
+      </figure>
+      <p class="hero-note">An illustration of Amber's column lineage view, drawn for this page. In the app, the trace also follows CTEs, subqueries, procedures and dynamic SQL.</p>
+    </div>
+  </section>
+
+  <section class="section" id="legacy" aria-labelledby="legacy-title">
+    <div class="wrap">
+      <h2 id="legacy-title">Made for the scripts you inherited</h2>
+      <ul class="principles">
+        <li>
+          <h3>"Where does this column come from?"</h3>
+          <p>Trace any result column back through CTEs, subqueries, temp tables and earlier statements to the source tables, with every transformation on the way.</p>
+        </li>
+        <li>
+          <h3>"What breaks if I change this?"</h3>
+          <p>Impact analysis lists every column, table and statement downstream of the one you are about to touch.</p>
+        </li>
+        <li>
+          <h3>"What does step 37 depend on?"</h3>
+          <p>The lifecycle matrix shows where each temp and staging table is created, filled, read and dropped, across thousands of lines.</p>
+        </li>
+        <li>
+          <h3>"Which part is slow or risky?"</h3>
+          <p>Findings flag JOINs that multiply rows, repeated scans, cursor loops doing row-by-row DML and filters that defeat indexes.</p>
+        </li>
+        <li>
+          <h3>"Nobody wrote it down"</h3>
+          <p>Every statement gets a one-line summary, and execution playback replays the script in order so a new maintainer can follow it.</p>
+        </li>
+        <li>
+          <h3>"It spans three databases"</h3>
+          <p>Connect read-only to several data sources at once; Amber works out which database each object lives in.</p>
+        </li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" id="screenshots" aria-labelledby="screenshots-title">
+    <div class="wrap">
+      <h2 id="screenshots-title">See it on a real legacy script</h2>
+      <p class="shots-lead">Every screen below is the app itself, analyzing the bundled sample scripts. Click a picture for the full size.</p>
+      <figure class="shot shot-main">
+        <a href="assets/screenshots/outline.png"><img src="assets/screenshots/outline.png" alt="Outline of a 65-line nightly script: every statement with a one-line summary, the source, and the details of the selected statement" width="1500" height="950" loading="lazy" decoding="async"></a>
+        <figcaption><strong>Outline: what the script does, in order</strong>Every statement summarized in one line, nested through procedures, blocks and loops, next to the source and the details of the selected statement.</figcaption>
+      </figure>
+      <div class="shot-grid">
+        <figure class="shot">
+          <a href="assets/screenshots/structure.png"><img src="assets/screenshots/structure.png" alt="Structure and logical order: A monster query as nested boxes, and a step-through of the order SQL evaluates it: FROM, WHERE, GROUP BY, SELECT." width="1500" height="950" loading="lazy" decoding="async"></a>
+          <figcaption><strong>Structure and logical order</strong>A monster query as nested boxes, and a step-through of the order SQL evaluates it: FROM, WHERE, GROUP BY, SELECT.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="assets/screenshots/lineage.png"><img src="assets/screenshots/lineage.png" alt="Column lineage: Where a column comes from, through CTEs, subqueries and temp tables, with every transformation." width="1500" height="950" loading="lazy" decoding="async"></a>
+          <figcaption><strong>Column lineage</strong>Where a column comes from, through CTEs, subqueries and temp tables, with every transformation.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="assets/screenshots/diff.png"><img src="assets/screenshots/diff.png" alt="Change impact: Two versions compared by meaning: a DELETE that lost its WHERE, a column whose source changed, ranked by risk." width="1500" height="950" loading="lazy" decoding="async"></a>
+          <figcaption><strong>Change impact</strong>Two versions compared by meaning: a DELETE that lost its WHERE, a column whose source changed, ranked by risk.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="assets/screenshots/fix-preview.png"><img src="assets/screenshots/fix-preview.png" alt="Verified quick fixes: Clean up a legacy pattern with a before/after preview; edge cases are spelled out, never hidden." width="1500" height="950" loading="lazy" decoding="async"></a>
+          <figcaption><strong>Verified quick fixes</strong>Clean up a legacy pattern with a before/after preview; edge cases are spelled out, never hidden.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="assets/screenshots/references.png"><img src="assets/screenshots/references.png" alt="Find references: Every place a table or column is created, written and read, with Go to definition on F12." width="1500" height="950" loading="lazy" decoding="async"></a>
+          <figcaption><strong>Find references</strong>Every place a table or column is created, written and read, with Go to definition on F12.</figcaption>
+        </figure>
+        <figure class="shot">
+          <a href="assets/screenshots/start.png"><img src="assets/screenshots/start.png" alt="One sample per database: Legacy-style scripts for Oracle, SQL Server, PostgreSQL, MySQL, MariaDB, Db2, H2 and SQLite." width="1500" height="950" loading="lazy" decoding="async"></a>
+          <figcaption><strong>One sample per database</strong>Legacy-style scripts for Oracle, SQL Server, PostgreSQL, MySQL, MariaDB, Db2, H2 and SQLite.</figcaption>
+        </figure>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="views" aria-labelledby="views-title">
+    <div class="wrap">
+      <h2 id="views-title">From overview to a single column</h2>
+      <p class="intro">Amber opens on what the script does and lets you drill down only where you need to. Selecting
+        anything highlights its source in the editor, and moving the cursor selects the matching node.</p>
+      <div class="views">
+        <dl class="view-list">
+          <dt>Outline</dt>
+          <dd>Every statement in order with a one-line summary, grouped so a three-thousand-line script reads like a table of contents.</dd>
+          <dt>Lifecycle</dt>
+          <dd>Each table, temporary table and view, with the steps that create, write, read and drop it.</dd>
+          <dt>Data flow</dt>
+          <dd>A graph of which statement feeds which object, across the whole script.</dd>
+          <dt>Structure</dt>
+          <dd>One statement as nested boxes: CTEs, UNION branches, derived tables and IN, EXISTS and scalar subqueries, each with its tables, joins, filters and output columns. The ten-level query finally fits on one screen.</dd>
+          <dt>Column lineage</dt>
+          <dd>Pick a column and follow it back through CTEs, subqueries, temporary tables and earlier statements. Impact analysis runs the other way: what changes if this column does.</dd>
+          <dt>Execution playback</dt>
+          <dd>Replay the script in logical order and watch data move along the graph, step by step, without running anything. In procedures you choose which branch to follow.</dd>
+        </dl>
+        <div class="matrix-wrap">
+          <h3>Lifecycle of the example script</h3>
+          <p>Amber records what each statement does to each object and assigns a role.</p>
+          <table class="matrix">
+            <thead>
+              <tr><th scope="col">Object</th><th scope="col">Step 1</th><th scope="col">Step 2</th><th scope="col">Step 3</th><th scope="col">Role</th></tr>
+            </thead>
+            <tbody>
+              <tr><th scope="row">sales.orders</th><td class="ev"><span>read</span></td><td class="ev"></td><td class="ev"></td><td class="role">source</td></tr>
+              <tr class="focus"><th scope="row">paid_orders</th><td class="ev"><span>create</span></td><td class="ev"><span>read</span></td><td class="ev"><span>drop</span></td><td class="role">intermediate</td></tr>
+              <tr><th scope="row">crm.customers</th><td class="ev"></td><td class="ev"><span>read</span></td><td class="ev"></td><td class="role">source</td></tr>
+              <tr><th scope="row">dw.customer_revenue</th><td class="ev"></td><td class="ev"><span>insert</span></td><td class="ev"></td><td class="role">target</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="principles" aria-labelledby="principles-title">
+    <div class="wrap">
+      <h2 id="principles-title">Built for scripts you cannot afford to leak or break</h2>
+      <ul class="principles">
+        <li>
+          <h3>Never runs your SQL</h3>
+          <p>No console, no result grids, no EXPLAIN. Statements are parsed and analyzed, never sent to a database, including SQL suggested by AI.</p>
+        </li>
+        <li>
+          <h3>Offline first</h3>
+          <p>Every core view works without a network, a driver or a database. Connecting read-only to a database only adds table and column metadata.</p>
+        </li>
+        <li>
+          <h3>Deterministic, with sources</h3>
+          <p>Structure and lineage come from full ANTLR grammars and rules, so results are reproducible and each one points back to a range in your script. Anything Amber cannot resolve is labeled, not guessed.</p>
+        </li>
+        <li>
+          <h3>Optional AI, on your terms</h3>
+          <p>Ask for optimization ideas through Ollama on your own machine or any OpenAI-compatible API. Suggestions are checked against Amber's analysis and labeled as AI output.</p>
+        </li>
+        <li>
+          <h3>No telemetry</h3>
+          <p>Amber sends nothing about you or your scripts. The only network traffic is what you configure, plus an update check you can turn off.</p>
+        </li>
+        <li>
+          <h3>Nothing to install besides the app</h3>
+          <p>Each installer bundles the engine, a trimmed Java runtime and the JDBC drivers. You never handle a .jar.</p>
+        </li>
+      </ul>
+
+      <h2 id="databases-title" style="margin-top:72px">Eight databases, each with its own grammar</h2>
+      <p class="intro">Including stored procedures, triggers, packages and dynamic SQL where the dialect has them.</p>
+      <ul class="dbs" aria-labelledby="databases-title">
+        <li>Oracle</li>
+        <li>SQL Server</li>
+        <li>PostgreSQL</li>
+        <li>MySQL</li>
+        <li>MariaDB</li>
+        <li>Db2</li>
+        <li>H2</li>
+        <li>SQLite</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="section" id="download" aria-labelledby="download-title">
+    <div class="wrap">
+      <h2 id="download-title">Download</h2>
+      <p class="intro">Each link always points to the latest release on GitHub.</p>
+      <div class="downloads">
+        <div class="dl" data-platform="mac-arm64">
+          <div class="dl-name">macOS<small>Apple silicon (M1 and later)</small></div>
+          <div class="dl-file">Amber-macos-arm64.dmg</div>
+          <a class="btn" href="https://github.com/paganini2008/amber/releases/latest/download/Amber-macos-arm64.dmg">Download .dmg</a>
+        </div>
+        <div class="dl" data-platform="mac-x64">
+          <div class="dl-name">macOS<small>Intel</small></div>
+          <div class="dl-file">Amber-macos-x64.dmg</div>
+          <a class="btn" href="https://github.com/paganini2008/amber/releases/latest/download/Amber-macos-x64.dmg">Download .dmg</a>
+        </div>
+        <div class="dl" data-platform="windows">
+          <div class="dl-name">Windows<small>Windows 10 and 11, x64</small></div>
+          <div class="dl-file">Amber-windows-x64-setup.exe</div>
+          <a class="btn" href="https://github.com/paganini2008/amber/releases/latest/download/Amber-windows-x64-setup.exe">Download installer</a>
+        </div>
+        <div class="dl" data-platform="linux-deb">
+          <div class="dl-name">Linux<small>Debian, Ubuntu and derivatives, x64</small></div>
+          <div class="dl-file">Amber-linux-x64.deb</div>
+          <a class="btn" href="https://github.com/paganini2008/amber/releases/latest/download/Amber-linux-x64.deb">Download .deb</a>
+        </div>
+        <div class="dl" data-platform="linux-rpm">
+          <div class="dl-name">Linux<small>Fedora, RHEL, openSUSE and derivatives, x64</small></div>
+          <div class="dl-file">Amber-linux-x64.rpm</div>
+          <a class="btn" href="https://github.com/paganini2008/amber/releases/latest/download/Amber-linux-x64.rpm">Download .rpm</a>
+        </div>
+      </div>
+      <p class="dl-meta">Verify a download against <a href="https://github.com/paganini2008/amber/releases/latest/download/SHA256SUMS">SHA256SUMS</a>, or browse <a href="https://github.com/paganini2008/amber/releases">all releases</a>, including pre-releases.</p>
+
+      <div class="install">
+        <div>
+          <h3>Opening Amber on macOS</h3>
+          <p>Amber is not signed or notarized yet, so Gatekeeper blocks the first launch. After dragging Amber to Applications:</p>
+          <ol>
+            <li>Right-click (or Control-click) Amber in Applications and choose Open.</li>
+            <li>Choose Open again in the dialog. macOS remembers the choice.</li>
+          </ol>
+          <p>If macOS says the app is damaged, or there is no Open button, clear the quarantine flag in Terminal:</p>
+          <pre><code>xattr -dr com.apple.quarantine /Applications/Amber.app</code></pre>
+        </div>
+        <div>
+          <h3>Opening Amber on Windows</h3>
+          <p>The installer is not code-signed yet, so Microsoft Defender SmartScreen may stop it.</p>
+          <ol>
+            <li>In the "Windows protected your PC" dialog, select More info.</li>
+            <li>Select Run anyway.</li>
+          </ol>
+          <p>Check the file against SHA256SUMS first if you want to be sure it came from this project:</p>
+          <pre><code>Get-FileHash Amber-windows-x64-setup.exe</code></pre>
+        </div>
+        <div>
+          <h3>Installing on Linux</h3>
+          <p>Install the package with your package manager so dependencies are resolved:</p>
+          <pre><code>sudo apt install ./Amber-linux-x64.deb</code></pre>
+          <p style="margin-top:10px">or</p>
+          <pre><code>sudo dnf install ./Amber-linux-x64.rpm</code></pre>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="section" id="docs" aria-labelledby="docs-title">
+    <div class="wrap">
+      <h2 id="docs-title">Read more</h2>
+      <div class="docs-links">
+        <a href="design.html"><strong>Technical design</strong><span>Scope, architecture, parsing, analyzers, UI and release process.</span></a>
+        <a href="protocol.html"><strong>Engine protocol</strong><span>The JSON-RPC interface between the desktop app and the Java engine.</span></a>
+        <a href="https://github.com/paganini2008/amber"><strong>Source code</strong><span>Issues, releases and how to build Amber from source.</span></a>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">
+    <span>Amber is open source under the Apache License 2.0.</span>
+    <ul>
+      <li><a href="https://github.com/paganini2008/amber/blob/main/LICENSE">License</a></li>
+      <li><a href="https://github.com/paganini2008/amber/blob/main/THIRD-PARTY-NOTICES.md">Third-party notices</a></li>
+      <li><a href="https://github.com/paganini2008/amber/issues">Report an issue</a></li>
+    </ul>
+  </div>
+</footer>
+
+<script>
+(function () {
+  var NS = 'http://www.w3.org/2000/svg';
+  var COLX = [4, 253, 502], W = 200, HEAD = 28, ROW = 24;
+
+  var nodes = {
+    orders:    { name: 'sales.orders',        role: 'source',       col: 0, y: 12,  cols: ['order_id', 'customer_id', 'amount', 'status'] },
+    customers: { name: 'crm.customers',       role: 'source',       col: 0, y: 206, cols: ['customer_id', 'tier'] },
+    paid:      { name: 'paid_orders',         role: 'temp table',   col: 1, y: 36,  cols: ['order_id', 'customer_id', 'amount'] },
+    target:    { name: 'dw.customer_revenue', role: 'target',       col: 2, y: 128, cols: ['customer_id', 'tier', 'revenue'] }
+  };
+
+  // from/to: [node, column] or [node] for the table header.
+  var edges = {
+    e1: { from: ['orders', 'order_id'],    to: ['paid', 'order_id'] },
+    e2: { from: ['orders', 'customer_id'], to: ['paid', 'customer_id'] },
+    e3: { from: ['orders', 'amount'],      to: ['paid', 'amount'] },
+    e4: { from: ['orders', 'status'],      to: ['paid'],               indirect: true, label: 'WHERE' },
+    e5: { from: ['paid', 'amount'],        to: ['target', 'revenue'],  label: 'SUM' },
+    e6: { from: ['customers', 'customer_id'], to: ['target', 'customer_id'] },
+    e7: { from: ['customers', 'tier'],     to: ['target', 'tier'] },
+    e8: { from: ['paid', 'customer_id'],   to: ['target'],             indirect: true, label: 'JOIN' }
+  };
+
+  var traces = {
+    revenue: {
+      edges: ['e3', 'e5'], indirect: ['e4', 'e8'],
+      rows: ['orders.amount', 'paid.amount', 'target.revenue'], indirectRows: ['orders.status', 'paid.customer_id'],
+      marks: ['s-oamt', 's-sum', 't-rev'], indirectMarks: ['s-filter', 's-join'],
+      caption: '<code>revenue</code> is <code>SUM(amount)</code> over <code>paid_orders</code>, a temporary table that copies <code>sales.orders.amount</code> for rows where <code>status = \'PAID\'</code>. The join on <code>customer_id</code> decides which customer each sum belongs to.'
+    },
+    tier: {
+      edges: ['e7'], indirect: ['e8'],
+      rows: ['customers.tier', 'target.tier'], indirectRows: ['paid.customer_id'],
+      marks: ['s-ctier', 't-tier'], indirectMarks: ['s-join'],
+      caption: '<code>tier</code> is copied unchanged from <code>crm.customers.tier</code>. Because of the inner join, only customers with at least one paid order get a row.'
+    },
+    customer_id: {
+      edges: ['e6'], indirect: ['e2', 'e8'],
+      rows: ['customers.customer_id', 'target.customer_id'], indirectRows: ['orders.customer_id', 'paid.customer_id'],
+      marks: ['s-ccid', 't-cid'], indirectMarks: ['s-ocid', 's-join'],
+      caption: '<code>customer_id</code> is taken from <code>crm.customers</code>. It is matched against <code>paid_orders.customer_id</code>, which comes from <code>sales.orders</code> in the first statement.'
+    }
+  };
+
+  var svg = document.getElementById('graph');
+  if (!svg) return;
+
+  function el(tag, attrs, parent) {
+    var e = document.createElementNS(NS, tag);
+    for (var k in attrs) e.setAttribute(k, attrs[k]);
+    if (parent) parent.appendChild(e);
+    return e;
+  }
+  function anchor(ref, side) {
+    var n = nodes[ref[0]];
+    var x = COLX[n.col] + (side === 'out' ? W : 0);
+    var y = ref.length > 1 ? n.y + HEAD + ROW * n.cols.indexOf(ref[1]) + ROW / 2 : n.y + HEAD / 2;
+    return [x, y];
+  }
+
+  var edgeLayer = el('g', {}, svg);
+  var nodeLayer = el('g', {}, svg);
+  var labelLayer = el('g', {}, svg);
+  var edgeEls = {}, labelEls = {}, rowEls = {};
+
+  Object.keys(edges).forEach(function (id) {
+    var e = edges[id], a = anchor(e.from, 'out'), b = anchor(e.to, 'in'), dx = (b[0] - a[0]) / 2;
+    edgeEls[id] = el('path', {
+      class: 'edge' + (e.indirect ? ' indirect' : ''),
+      d: 'M' + a[0] + ' ' + a[1] + ' C' + (a[0] + dx) + ' ' + a[1] + ' ' + (b[0] - dx) + ' ' + b[1] + ' ' + b[0] + ' ' + b[1]
+    }, edgeLayer);
+    if (e.label) {
+      var mx = (a[0] + b[0]) / 2, my = (a[1] + b[1]) / 2, w = e.label.length * 7 + 10;
+      var g = el('g', {}, labelLayer);
+      var bg = el('rect', { class: 'edge-label-bg', x: mx - w / 2, y: my - 9, width: w, height: 18, rx: 3 }, g);
+      var t = el('text', { class: 'edge-label', x: mx, y: my + 4, 'text-anchor': 'middle' }, g);
+      t.textContent = e.label;
+      labelEls[id] = [bg, t];
+    }
+  });
+
+  Object.keys(nodes).forEach(function (id) {
+    var n = nodes[id], x = COLX[n.col], h = HEAD + ROW * n.cols.length;
+    var g = el('g', {}, nodeLayer);
+    el('rect', { class: 'node-box', x: x + 0.5, y: n.y + 0.5, width: W - 1, height: h - 1, rx: 6 }, g);
+    el('path', { class: 'node-head', d: 'M' + (x + 1) + ' ' + (n.y + HEAD) + ' V' + (n.y + 6) + ' Q' + (x + 1) + ' ' + (n.y + 1) + ' ' + (x + 6) + ' ' + (n.y + 1) + ' H' + (x + W - 6) + ' Q' + (x + W - 1) + ' ' + (n.y + 1) + ' ' + (x + W - 1) + ' ' + (n.y + 6) + ' V' + (n.y + HEAD) + ' Z' }, g);
+    var title = el('text', { class: 'title', x: x + 10, y: n.y + 18 }, g);
+    title.textContent = n.name;
+    var role = el('text', { class: 'role', x: x + W - 10, y: n.y + 18, 'text-anchor': 'end' }, g);
+    role.textContent = n.role;
+    n.cols.forEach(function (c, i) {
+      var key = id + '.' + c;
+      var rg = el('g', { class: 'row' }, g);
+      el('rect', { class: 'row-bg', x: x + 1, y: n.y + HEAD + ROW * i, width: W - 2, height: ROW }, rg);
+      var t = el('text', { x: x + 12, y: n.y + HEAD + ROW * i + 16 }, rg);
+      t.textContent = c;
+      if (id === 'target') {
+        rg.setAttribute('class', 'row pick');
+        rg.setAttribute('tabindex', '0');
+        rg.setAttribute('role', 'button');
+        rg.setAttribute('aria-label', 'Trace ' + c);
+        rg.addEventListener('click', function () { select(c); });
+        rg.addEventListener('keydown', function (ev) {
+          if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); select(c); }
+        });
+      }
+      rowEls[key] = rg;
+    });
+  });
+
+  var chips = document.querySelectorAll('.chip[data-trace]');
+  var marks = document.querySelectorAll('.sql mark[data-m]');
+  var caption = document.getElementById('trace-caption');
+
+  function toggle(node, cls, on) {
+    var c = (node.getAttribute('class') || '').split(' ').filter(function (s) { return s && s !== cls; });
+    if (on) c.push(cls);
+    node.setAttribute('class', c.join(' '));
+  }
+  function has(list, v) { return list.indexOf(v) !== -1; }
+
+  function select(name) {
+    var t = traces[name];
+    if (!t) return;
+    Object.keys(edgeEls).forEach(function (id) {
+      var lit = has(t.edges, id) || has(t.indirect, id);
+      toggle(edgeEls[id], 'lit', lit);
+      if (labelEls[id]) labelEls[id].forEach(function (n) { toggle(n, 'lit', lit); });
+    });
+    Object.keys(rowEls).forEach(function (key) {
+      toggle(rowEls[key], 'lit', has(t.rows, key));
+      toggle(rowEls[key], 'lit-indirect', has(t.indirectRows, key));
+    });
+    Array.prototype.forEach.call(marks, function (m) {
+      var id = m.getAttribute('data-m');
+      m.classList.toggle('lit', has(t.marks, id));
+      m.classList.toggle('lit-indirect', has(t.indirectMarks, id));
+    });
+    Array.prototype.forEach.call(chips, function (c) {
+      c.setAttribute('aria-pressed', c.getAttribute('data-trace') === name ? 'true' : 'false');
+    });
+    caption.innerHTML = t.caption;
+  }
+
+  Array.prototype.forEach.call(chips, function (c) {
+    c.addEventListener('click', function () { select(c.getAttribute('data-trace')); });
+  });
+  select('revenue');
+})();
+
+// Mark the download rows that match the visitor's system. Windows has one file, so the main
+// button can link to it directly; macOS (Apple silicon vs Intel) and Linux (deb vs rpm) need a choice.
+(function () {
+  var ua = navigator.userAgent || '';
+  var platform = (navigator.userAgentData && navigator.userAgentData.platform) || navigator.platform || '';
+  var prefix = null;
+  if (/Win/i.test(platform) || /Windows/i.test(ua)) prefix = 'windows';
+  else if (/Mac/i.test(platform) || /Macintosh/i.test(ua)) prefix = 'mac';
+  else if (/Linux/i.test(platform) && !/Android/i.test(ua)) prefix = 'linux';
+  if (!prefix) return;
+  var rows = document.querySelectorAll('.dl[data-platform^="' + prefix + '"]');
+  Array.prototype.forEach.call(rows, function (row) { row.classList.add('recommended'); });
+  var hero = document.getElementById('hero-download');
+  if (prefix === 'windows' && rows.length === 1 && hero) {
+    hero.href = rows[0].querySelector('a').href;
+    hero.querySelector('span').textContent = 'Download for Windows';
+  }
+})();
+</script>
+</body>
+</html>

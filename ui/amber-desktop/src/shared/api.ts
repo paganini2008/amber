@@ -1,0 +1,215 @@
+import type { AnalysisResult, AnalyzeParams, EngineInfo, EngineMethod, LoadMetadataResult, RpcErrorObject, ServerInfo } from './protocol'
+
+/** Results cross the IPC boundary as values so error codes survive (thrown errors lose them). */
+export type Result<T> = { ok: true; value: T } | { ok: false; error: RpcErrorObject }
+
+export type ThemeId = 'system' | 'amber-light' | 'amber-dark' | 'resin' | 'high-contrast'
+
+export interface OllamaProviderSettings {
+  enabled: boolean
+  baseUrl: string
+  model: string
+  temperature: number
+  timeoutSec: number
+  maskIdentifiers: boolean
+  /** True when an optional API key (for an Ollama behind an authenticating proxy) is stored in main. */
+  hasApiKey: boolean
+}
+
+export interface OpenAiProviderSettings {
+  enabled: boolean
+  baseUrl: string
+  model: string
+  temperature: number
+  timeoutSec: number
+  maskIdentifiers: boolean
+  /** True when an API key is stored in the main process. The key itself never leaves main. */
+  hasApiKey: boolean
+}
+
+export type AiProviderId = 'ollama' | 'openai'
+
+export interface ConnectionProfile {
+  id: string
+  name: string
+  dialect: string
+  host: string
+  port: number
+  database: string
+  user: string
+  /** Optional JDBC URL; when set it is used instead of host, port and database. */
+  url?: string
+  /** True when a password is stored in the main process. */
+  hasPassword: boolean
+}
+
+/** Online mode: off by default. When on, metadata of referenced tables is read from these connections. */
+export interface OnlineSettings {
+  enabled: boolean
+  /** Connection ids to look tables up in, in order; order breaks ties when a name is found in several. */
+  connectionIds: string[]
+}
+
+/** `db.loadMetadata` as the renderer asks for it: connections by id, passwords added in main. */
+export interface LoadMetadataRequest {
+  dialect: string
+  text?: string
+  path?: string
+  connectionIds: string[]
+}
+
+export interface PickFilesRequest {
+  title: string
+  filters: { name: string; extensions: string[] }[]
+  multiple?: boolean
+}
+
+/** How "Format script" lays out SQL. Only whitespace and keyword case ever change. */
+export interface FormatSettings {
+  indentSize: number
+  keywordCase: 'UPPER' | 'LOWER' | 'PRESERVE'
+  maxLineWidth: number
+  commaStyle: 'TRAILING' | 'LEADING'
+}
+
+export interface Settings {
+  theme: ThemeId
+  fontSize: number
+  defaultDialect: string
+  encoding: string
+  allowFallback: boolean
+  checkForUpdates: boolean
+  activeAiProvider: AiProviderId | null
+  ai: {
+    ollama: OllamaProviderSettings
+    openai: OpenAiProviderSettings
+    maxContextTokens: number
+  }
+  connections: ConnectionProfile[]
+  online: OnlineSettings
+  format: FormatSettings
+  recentFiles: string[]
+}
+
+export type SettingsPatch = Partial<Omit<Settings, 'ai' | 'connections' | 'recentFiles'>> & {
+  ai?: {
+    ollama?: Partial<Omit<OllamaProviderSettings, 'hasApiKey'>>
+    openai?: Partial<Omit<OpenAiProviderSettings, 'hasApiKey'>>
+    maxContextTokens?: number
+  }
+}
+
+export interface OpenedFile {
+  path: string | null
+  name: string
+  text: string
+  encoding: string
+}
+
+export type EngineState = 'starting' | 'ready' | 'restarting' | 'failed' | 'stopped'
+
+export interface EngineStatus {
+  state: EngineState
+  message?: string
+  info?: EngineInfo
+}
+
+export interface SaveRequest {
+  defaultName: string
+  filters: { name: string; extensions: string[] }[]
+  /** Text content, or base64 when `encoding` is "base64". */
+  data: string
+  encoding?: 'utf8' | 'base64'
+}
+
+export interface UpdateInfo {
+  current: string
+  latest: string
+  newer: boolean
+  url: string
+}
+
+export interface AppInfo {
+  name: string
+  version: string
+  electron: string
+  chrome: string
+  node: string
+  platform: string
+  arch: string
+  license: string
+}
+
+export interface AiMessage {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+}
+
+export type AiStreamEvent =
+  | { requestId: string; type: 'delta'; text: string }
+  | { requestId: string; type: 'done' }
+  | { requestId: string; type: 'error'; message: string }
+
+export type MenuCommand =
+  | 'open-file'
+  | 'paste-sql'
+  | 'settings'
+  | 'about'
+  | 'export-json'
+  | 'export-svg'
+  | 'export-png'
+  | 'export-mermaid'
+  | 'export-handover'
+  | 'compare-saved'
+  | 'compare-file'
+  | 'format-script'
+  | 'format-selection'
+  | 'reanalyze'
+
+export interface AmberApi {
+  engine: {
+    status(): Promise<EngineStatus>
+    onStatus(listener: (status: EngineStatus) => void): () => void
+    analyze(params: AnalyzeParams, requestId: string): Promise<Result<AnalysisResult>>
+    /** Generic call for methods added in later engine versions. -32601 means not available. */
+    call<T = unknown>(method: EngineMethod, params: unknown, requestId?: string): Promise<Result<T>>
+    cancel(requestId: string): Promise<void>
+    restart(): Promise<void>
+  }
+  files: {
+    openDialog(): Promise<OpenedFile | null>
+    open(path: string): Promise<Result<OpenedFile>>
+    pathForFile(file: File): string
+    save(request: SaveRequest): Promise<string | null>
+    /** Native open dialog that returns paths only (DDL files, metadata packs). */
+    pickFiles(request: PickFilesRequest): Promise<string[]>
+  }
+  settings: {
+    get(): Promise<Settings>
+    update(patch: SettingsPatch): Promise<Settings>
+    setAiApiKey(provider: AiProviderId, key: string | null): Promise<Settings>
+    clearRecentFiles(): Promise<Settings>
+    saveConnection(profile: Omit<ConnectionProfile, 'hasPassword'>, password?: string | null): Promise<Settings>
+    deleteConnection(id: string): Promise<Settings>
+    onChanged(listener: (settings: Settings) => void): () => void
+  }
+  ai: {
+    listOllamaModels(baseUrl: string): Promise<Result<string[]>>
+    /** Chat models at `GET {baseUrl}/models`, using the stored API key (which never leaves main). */
+    listOpenAiModels(baseUrl: string): Promise<Result<string[]>>
+    test(provider: AiProviderId): Promise<Result<string>>
+    chat(provider: AiProviderId, messages: AiMessage[], requestId: string): Promise<Result<string>>
+    cancel(requestId: string): Promise<void>
+    onStream(listener: (event: AiStreamEvent) => void): () => void
+  }
+  db: {
+    test(connectionId: string): Promise<Result<ServerInfo>>
+    loadMetadata(request: LoadMetadataRequest, requestId: string): Promise<Result<LoadMetadataResult>>
+  }
+  app: {
+    info(): Promise<AppInfo>
+    checkForUpdates(force?: boolean): Promise<Result<UpdateInfo | null>>
+    openExternal(url: string): Promise<void>
+    onMenu(listener: (command: MenuCommand) => void): () => void
+  }
+}

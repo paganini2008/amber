@@ -1,0 +1,11 @@
+create schema fleet;
+create table fleet.depots (depot_id integer not null primary key, depot_name varchar(60) not null);
+create table fleet.vehicles (vehicle_id integer not null primary key, depot_id integer, odometer_km integer not null, retired smallint not null default 0);
+create table fleet.service_log (vehicle_id integer not null, odometer_km integer not null, serviced_on date not null);
+create index fleet.ix_service_vehicle on fleet.service_log (vehicle_id);
+create table fleet.service_rules (interval_km integer not null);
+create table fleet.service_plan (vehicle_id integer not null primary key, depot_id integer, km_since integer, planned_on date);
+insert into fleet.depots values (1, 'North');
+insert into fleet.vehicles values (10, 1, 52000, 0), (11, 1, 8000, 0);
+insert into fleet.service_log values (10, 40000, '2026-05-01');
+insert into fleet.service_rules values (10000);

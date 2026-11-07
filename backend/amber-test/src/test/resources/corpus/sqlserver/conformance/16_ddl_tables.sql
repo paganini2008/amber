@@ -1,0 +1,72 @@
+CREATE SCHEMA sales AUTHORIZATION dbo;
+GO
+CREATE TABLE sales.Customers (
+    customer_id INT IDENTITY(1, 1) NOT NULL CONSTRAINT pk_customers PRIMARY KEY CLUSTERED,
+    email NVARCHAR(320) NOT NULL CONSTRAINT uq_customers_email UNIQUE,
+    name NVARCHAR(200) NULL,
+    credit_limit DECIMAL(12, 2) NOT NULL CONSTRAINT df_credit DEFAULT (0) CONSTRAINT ck_credit CHECK (credit_limit >= 0),
+    created_at DATETIME2(3) NOT NULL DEFAULT SYSUTCDATETIME(),
+    row_guid UNIQUEIDENTIFIER ROWGUIDCOL NOT NULL DEFAULT NEWSEQUENTIALID(),
+    ver ROWVERSION,
+    display_name AS (ISNULL(name, email)) PERSISTED,
+    notes NVARCHAR(MAX) SPARSE NULL
+);
+GO
+CREATE TABLE sales.Orders (
+    order_id BIGINT NOT NULL,
+    customer_id INT NOT NULL,
+    order_date DATE NOT NULL,
+    amount MONEY NOT NULL,
+    status CHAR(1) NOT NULL,
+    CONSTRAINT pk_orders PRIMARY KEY NONCLUSTERED (order_id),
+    CONSTRAINT fk_orders_customers FOREIGN KEY (customer_id) REFERENCES sales.Customers (customer_id) ON DELETE CASCADE ON UPDATE NO ACTION,
+    CONSTRAINT ck_status CHECK (status IN ('N', 'S', 'X')),
+    INDEX ix_orders_date NONCLUSTERED (order_date DESC) INCLUDE (amount)
+) ON [PRIMARY];
+GO
+CREATE TABLE dbo.Docs (doc_id INT PRIMARY KEY, body VARBINARY(MAX) FILESTREAM NULL, guid UNIQUEIDENTIFIER ROWGUIDCOL NOT NULL UNIQUE) FILESTREAM_ON fs_group;
+GO
+CREATE TABLE dbo.Secrets (id INT, ssn CHAR(11) COLLATE Latin1_General_BIN2 ENCRYPTED WITH (COLUMN_ENCRYPTION_KEY = cek1, ENCRYPTION_TYPE = DETERMINISTIC, ALGORITHM = 'AEAD_AES_256_CBC_HMAC_SHA_256') NOT NULL);
+GO
+CREATE TABLE dbo.Masked (id INT, email VARCHAR(100) MASKED WITH (FUNCTION = 'email()') NULL);
+GO
+CREATE TABLE dbo.Compressed (id INT NOT NULL, payload NVARCHAR(400)) WITH (DATA_COMPRESSION = PAGE);
+GO
+CREATE TABLE dbo.InMem (id INT NOT NULL PRIMARY KEY NONCLUSTERED HASH WITH (BUCKET_COUNT = 1024), val NVARCHAR(100)) WITH (MEMORY_OPTIMIZED = ON, DURABILITY = SCHEMA_AND_DATA);
+GO
+CREATE TABLE dbo.Ledgerish (id INT NOT NULL, amt DECIMAL(10, 2), INDEX cci CLUSTERED COLUMNSTORE);
+GO
+ALTER TABLE sales.Customers ADD phone VARCHAR(30) NULL, loyalty_tier TINYINT NOT NULL CONSTRAINT df_tier DEFAULT 0;
+GO
+ALTER TABLE sales.Customers ALTER COLUMN phone VARCHAR(40) NULL;
+GO
+ALTER TABLE sales.Customers DROP CONSTRAINT df_tier;
+GO
+ALTER TABLE sales.Customers DROP COLUMN IF EXISTS loyalty_tier;
+GO
+ALTER TABLE sales.Orders WITH CHECK ADD CONSTRAINT ck_amount CHECK (amount >= 0);
+GO
+ALTER TABLE sales.Orders NOCHECK CONSTRAINT fk_orders_customers;
+GO
+ALTER TABLE sales.Orders CHECK CONSTRAINT ALL;
+GO
+ALTER TABLE sales.Orders ADD CONSTRAINT df_status DEFAULT 'N' FOR status;
+GO
+ALTER TABLE sales.Orders REBUILD WITH (DATA_COMPRESSION = ROW);
+GO
+ALTER TABLE sales.Orders SET (LOCK_ESCALATION = AUTO);
+GO
+EXEC sp_rename 'sales.Customers.phone', 'phone_number', 'COLUMN';
+GO
+DROP TABLE IF EXISTS dbo.Compressed, dbo.Masked;
+GO
+CREATE TABLE #scratch (id INT);
+DROP TABLE #scratch;
+GO
+SELECT * INTO dbo.Orders_Copy FROM sales.Orders WHERE 1 = 0;
+GO
+CREATE TABLE dbo.Graph_Person (id INT PRIMARY KEY, name NVARCHAR(100)) AS NODE;
+CREATE TABLE dbo.Graph_Knows (since DATE) AS EDGE;
+GO
+SELECT p1.name, p2.name FROM dbo.Graph_Person p1, dbo.Graph_Knows k, dbo.Graph_Person p2 WHERE MATCH(p1-(k)->p2);
+GO

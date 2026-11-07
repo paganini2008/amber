@@ -1,0 +1,2 @@
+DELIMITER / makes '/' the statement end, so a division inside a body ends the statement, exactly as
+in the mariadb client. The script is wrong for the client as well.

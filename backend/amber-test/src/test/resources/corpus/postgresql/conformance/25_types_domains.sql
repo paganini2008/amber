@@ -1,0 +1,20 @@
+-- Types, domains, enums, composite, ranges
+CREATE TYPE sales.mood AS ENUM ('sad', 'ok', 'happy');
+ALTER TYPE sales.mood ADD VALUE IF NOT EXISTS 'ecstatic' AFTER 'happy';
+ALTER TYPE sales.mood RENAME VALUE 'ok' TO 'fine';
+CREATE TYPE sales.address_type AS (street text, city text, zip varchar(10));
+CREATE TYPE sales.price_range AS RANGE (subtype = numeric);
+CREATE TYPE sales.shell_type;
+ALTER TYPE sales.address_type ADD ATTRIBUTE country text;
+CREATE DOMAIN sales.email AS text CHECK (VALUE ~ '^[^@]+@[^@]+$');
+CREATE DOMAIN sales.positive_amount numeric(12,2) NOT NULL DEFAULT 0 CONSTRAINT amount_positive CHECK (VALUE >= 0);
+ALTER DOMAIN sales.email SET NOT NULL;
+ALTER DOMAIN sales.email ADD CONSTRAINT email_len CHECK (length(VALUE) < 255) NOT VALID;
+CREATE TABLE sales.person (id int, home sales.address_type, mood sales.mood, mail sales.email);
+SELECT (home).city, (p.home).zip FROM sales.person p;
+INSERT INTO sales.person (id, home) VALUES (1, ROW('Main St', 'Springfield', '12345'));
+UPDATE sales.person SET home.city = 'Shelbyville' WHERE id = 1;
+SELECT 'happy'::sales.mood, CAST('x@y.z' AS sales.email);
+SELECT enum_range(NULL::sales.mood);
+DROP TYPE IF EXISTS sales.price_range CASCADE;
+DROP DOMAIN sales.positive_amount;

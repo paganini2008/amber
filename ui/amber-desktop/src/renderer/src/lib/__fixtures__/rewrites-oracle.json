@@ -1,0 +1,445 @@
+{
+ "dialect": "oracle",
+ "text": "-- Monthly overdue report for a fictional city library (sample script, Oracle)\n-- Written over the years by several people; Amber shows what it really does.\nSET SERVEROUTPUT ON\nDEFINE report_month = '2026-10'\n\nCREATE GLOBAL TEMPORARY TABLE tmp_overdue (\n  loan_id    NUMBER,\n  member_id  NUMBER,\n  branch_id  NUMBER,\n  days_late  NUMBER\n) ON COMMIT PRESERVE ROWS;\n\nINSERT INTO tmp_overdue (loan_id, member_id, branch_id, days_late)\nSELECT l.loan_id, l.member_id, b.branch_id, TRUNC(SYSDATE) - l.due_on\n  FROM lib.loans l, lib.copies c, lib.branches b\n WHERE l.copy_id = c.copy_id\n   AND c.branch_id = b.branch_id\n   AND l.returned_on IS NULL\n   AND TO_CHAR(l.due_on, 'YYYY-MM') <= '&report_month';\n\n-- old fee rule: 0.25 per day, capped by member category\nMERGE INTO lib.member_fees f\nUSING (\n  SELECT o.member_id,\n         SUM(LEAST(o.days_late * 0.25, NVL(m.fee_cap, 10))) AS fee\n    FROM tmp_overdue o\n    LEFT JOIN lib.members m ON m.member_id = o.member_id\n   WHERE m.status = 'ACTIVE'\n   GROUP BY o.member_id\n) x\nON (f.member_id = x.member_id AND f.period = '&report_month')\nWHEN MATCHED THEN UPDATE SET f.amount = x.fee, f.updated_on = SYSDATE\nWHEN NOT MATCHED THEN INSERT (member_id, period, amount, updated_on)\n  VALUES (x.member_id, '&report_month', x.fee, SYSDATE);\n\nBEGIN\n  FOR r IN (SELECT branch_id, COUNT(*) cnt FROM tmp_overdue GROUP BY branch_id) LOOP\n    UPDATE lib.branches SET overdue_count = r.cnt WHERE branch_id = r.branch_id;\n    COMMIT;\n  END LOOP;\nEXCEPTION\n  WHEN OTHERS THEN\n    ROLLBACK;\n    DBMS_OUTPUT.PUT_LINE('branch update failed: ' || SQLERRM);\nEND;\n/\n\n-- branch hierarchy with overdue totals per region\nSELECT LPAD(' ', 2 * (LEVEL - 1)) || b.name AS branch,\n       (SELECT COUNT(*) FROM tmp_overdue o WHERE o.branch_id = b.branch_id) AS overdue\n  FROM lib.branches b\n START WITH b.parent_id IS NULL\nCONNECT BY PRIOR b.branch_id = b.parent_id;\n\nSELECT *\n  FROM (SELECT m.member_id, m.display_name, f.amount\n          FROM lib.members m\n          JOIN lib.member_fees f ON f.member_id = m.member_id\n         WHERE f.period = '&report_month'\n           AND m.member_id NOT IN (SELECT member_id FROM lib.fee_waivers)\n         ORDER BY f.amount DESC)\n WHERE ROWNUM <= 20;\n\nDROP TABLE tmp_overdue PURGE;\n",
+ "statements": [
+  {
+   "id": 0,
+   "range": {
+    "start": {
+     "offset": 157,
+     "line": 3,
+     "column": 1
+    },
+    "end": {
+     "offset": 176,
+     "line": 3,
+     "column": 20
+    }
+   }
+  },
+  {
+   "id": 1,
+   "range": {
+    "start": {
+     "offset": 177,
+     "line": 4,
+     "column": 1
+    },
+    "end": {
+     "offset": 208,
+     "line": 4,
+     "column": 32
+    }
+   }
+  },
+  {
+   "id": 2,
+   "range": {
+    "start": {
+     "offset": 210,
+     "line": 6,
+     "column": 1
+    },
+    "end": {
+     "offset": 362,
+     "line": 11,
+     "column": 26
+    }
+   }
+  },
+  {
+   "id": 3,
+   "range": {
+    "start": {
+     "offset": 365,
+     "line": 13,
+     "column": 1
+    },
+    "end": {
+     "offset": 696,
+     "line": 19,
+     "column": 55
+    }
+   }
+  },
+  {
+   "id": 4,
+   "range": {
+    "start": {
+     "offset": 756,
+     "line": 22,
+     "column": 1
+    },
+    "end": {
+     "offset": 1275,
+     "line": 34,
+     "column": 56
+    }
+   }
+  },
+  {
+   "id": 5,
+   "range": {
+    "start": {
+     "offset": 1278,
+     "line": 36,
+     "column": 1
+    },
+    "end": {
+     "offset": 1583,
+     "line": 45,
+     "column": 4
+    }
+   }
+  },
+  {
+   "id": 6,
+   "range": {
+    "start": {
+     "offset": 1286,
+     "line": 37,
+     "column": 3
+    },
+    "end": {
+     "offset": 1472,
+     "line": 40,
+     "column": 11
+    }
+   }
+  },
+  {
+   "id": 7,
+   "range": {
+    "start": {
+     "offset": 1296,
+     "line": 37,
+     "column": 13
+    },
+    "end": {
+     "offset": 1362,
+     "line": 37,
+     "column": 79
+    }
+   }
+  },
+  {
+   "id": 8,
+   "range": {
+    "start": {
+     "offset": 1373,
+     "line": 38,
+     "column": 5
+    },
+    "end": {
+     "offset": 1448,
+     "line": 38,
+     "column": 80
+    }
+   }
+  },
+  {
+   "id": 9,
+   "range": {
+    "start": {
+     "offset": 1454,
+     "line": 39,
+     "column": 5
+    },
+    "end": {
+     "offset": 1460,
+     "line": 39,
+     "column": 11
+    }
+   }
+  },
+  {
+   "id": 10,
+   "range": {
+    "start": {
+     "offset": 1486,
+     "line": 42,
+     "column": 3
+    },
+    "end": {
+     "offset": 1579,
+     "line": 44,
+     "column": 63
+    }
+   }
+  },
+  {
+   "id": 11,
+   "range": {
+    "start": {
+     "offset": 1507,
+     "line": 43,
+     "column": 5
+    },
+    "end": {
+     "offset": 1515,
+     "line": 43,
+     "column": 13
+    }
+   }
+  },
+  {
+   "id": 12,
+   "range": {
+    "start": {
+     "offset": 1521,
+     "line": 44,
+     "column": 5
+    },
+    "end": {
+     "offset": 1578,
+     "line": 44,
+     "column": 62
+    }
+   }
+  },
+  {
+   "id": 13,
+   "range": {
+    "start": {
+     "offset": 1639,
+     "line": 49,
+     "column": 1
+    },
+    "end": {
+     "offset": 1877,
+     "line": 53,
+     "column": 43
+    }
+   }
+  },
+  {
+   "id": 14,
+   "range": {
+    "start": {
+     "offset": 1880,
+     "line": 55,
+     "column": 1
+    },
+    "end": {
+     "offset": 2201,
+     "line": 62,
+     "column": 20
+    }
+   }
+  },
+  {
+   "id": 15,
+   "range": {
+    "start": {
+     "offset": 2204,
+     "line": 64,
+     "column": 1
+    },
+    "end": {
+     "offset": 2232,
+     "line": 64,
+     "column": 29
+    }
+   }
+  }
+ ],
+ "findings": [
+  {
+   "rule": "AMB-S008",
+   "severity": "MEDIUM",
+   "title": "Function on a filtered column",
+   "message": "TO_CHAR(\u2026) is applied to a column before comparing it; an index on that column cannot be used.",
+   "suggestion": "Compare the bare column with a transformed value (e.g. a date range instead of TRUNC(col)).",
+   "statement": 3,
+   "range": {
+    "start": {
+     "offset": 649,
+     "line": 19,
+     "column": 8
+    },
+    "end": {
+     "offset": 677,
+     "line": 19,
+     "column": 36
+    }
+   },
+   "confidence": "INFERRED"
+  },
+  {
+   "rule": "AMB-S002",
+   "severity": "MEDIUM",
+   "title": "LEFT JOIN behaves as INNER JOIN",
+   "message": "The WHERE condition on m.status drops the rows the LEFT JOIN kept.",
+   "suggestion": "Move the condition into the ON clause, or use INNER JOIN if that is intended.",
+   "statement": 4,
+   "range": {
+    "start": {
+     "offset": 971,
+     "line": 28,
+     "column": 10
+    },
+    "end": {
+     "offset": 981,
+     "line": 28,
+     "column": 20
+    }
+   },
+   "confidence": "INFERRED"
+  },
+  {
+   "rule": "AMB-S006",
+   "severity": "MEDIUM",
+   "title": "Row-by-row DML in a loop",
+   "message": "This update runs once per loop iteration.",
+   "suggestion": "Replace the loop with one set-based statement (INSERT \u2026 SELECT, UPDATE \u2026 FROM, MERGE), or batch it (FORALL / bulk binds).",
+   "statement": 8,
+   "range": {
+    "start": {
+     "offset": 1373,
+     "line": 38,
+     "column": 5
+    },
+    "end": {
+     "offset": 1448,
+     "line": 38,
+     "column": 80
+    }
+   },
+   "confidence": "INFERRED"
+  },
+  {
+   "rule": "AMB-S007",
+   "severity": "MEDIUM",
+   "title": "COMMIT inside a loop",
+   "message": "Committing every iteration is slow and leaves partial results if the loop fails.",
+   "suggestion": "Commit once after the loop, or in larger batches.",
+   "statement": 9,
+   "range": {
+    "start": {
+     "offset": 1454,
+     "line": 39,
+     "column": 5
+    },
+    "end": {
+     "offset": 1460,
+     "line": 39,
+     "column": 11
+    }
+   },
+   "confidence": "CERTAIN"
+  },
+  {
+   "rule": "AMB-S004",
+   "severity": "MEDIUM",
+   "title": "NOT IN with a subquery",
+   "message": "If the subquery returns a NULL, NOT IN matches no rows.",
+   "suggestion": "Use NOT EXISTS, or filter NULLs out of the subquery.",
+   "statement": 14,
+   "range": {
+    "start": {
+     "offset": 2102,
+     "line": 60,
+     "column": 28
+    },
+    "end": {
+     "offset": 2116,
+     "line": 60,
+     "column": 42
+    }
+   },
+   "confidence": "INFERRED"
+  }
+ ],
+ "rewrites": [
+  {
+   "id": "R1",
+   "rule": "AMB-S002",
+   "title": "LEFT JOIN \u2192 JOIN",
+   "explanation": "The WHERE condition m.status = 'ACTIVE' is never true for the rows the LEFT JOIN adds when m has no match (their columns are NULL), so those rows are filtered out and the join already behaves as an inner join. Writing JOIN says so. If the outer join was intended, move the condition into the ON clause instead.",
+   "statement": 4,
+   "edits": [
+    {
+     "range": {
+      "start": {
+       "offset": 909,
+       "line": 27,
+       "column": 5
+      },
+      "end": {
+       "offset": 914,
+       "line": 27,
+       "column": 10
+      }
+     },
+     "replacement": ""
+    }
+   ],
+   "rewrittenStatement": "MERGE INTO lib.member_fees f\nUSING (\n  SELECT o.member_id,\n         SUM(LEAST(o.days_late * 0.25, NVL(m.fee_cap, 10))) AS fee\n    FROM tmp_overdue o\n    JOIN lib.members m ON m.member_id = o.member_id\n   WHERE m.status = 'ACTIVE'\n   GROUP BY o.member_id\n) x\nON (f.member_id = x.member_id AND f.period = '&report_month')\nWHEN MATCHED THEN UPDATE SET f.amount = x.fee, f.updated_on = SYSDATE\nWHEN NOT MATCHED THEN INSERT (member_id, period, amount, updated_on)\n  VALUES (x.member_id, '&report_month', x.fee, SYSDATE)",
+   "safety": "EQUIVALENT",
+   "safetyNote": "The WHERE condition rejects NULL, so the result is the same for any data.",
+   "check": "STRUCTURE_PRESERVED",
+   "checkDifferences": [],
+   "conflictsWith": null
+  },
+  {
+   "id": "R2",
+   "rule": "AMB-S004",
+   "title": "NOT IN (subquery) \u2192 NOT EXISTS",
+   "explanation": "NOT IN with a subquery returns no rows at all as soon as the subquery yields one NULL. NOT EXISTS with the same condition written as a correlation (member_id = m.member_id) states the intent: keep the rows that have no match.",
+   "statement": 14,
+   "edits": [
+    {
+     "range": {
+      "start": {
+       "offset": 2090,
+       "line": 60,
+       "column": 16
+      },
+      "end": {
+       "offset": 2108,
+       "line": 60,
+       "column": 34
+      }
+     },
+     "replacement": "NOT EXISTS"
+    },
+    {
+     "range": {
+      "start": {
+       "offset": 2117,
+       "line": 60,
+       "column": 43
+      },
+      "end": {
+       "offset": 2126,
+       "line": 60,
+       "column": 52
+      }
+     },
+     "replacement": "1"
+    },
+    {
+     "range": {
+      "start": {
+       "offset": 2147,
+       "line": 60,
+       "column": 73
+      },
+      "end": {
+       "offset": 2147,
+       "line": 60,
+       "column": 73
+      }
+     },
+     "replacement": " WHERE member_id = m.member_id"
+    }
+   ],
+   "rewrittenStatement": "SELECT *\n  FROM (SELECT m.member_id, m.display_name, f.amount\n          FROM lib.members m\n          JOIN lib.member_fees f ON f.member_id = m.member_id\n         WHERE f.period = '&report_month'\n           AND NOT EXISTS (SELECT 1 FROM lib.fee_waivers WHERE member_id = m.member_id)\n         ORDER BY f.amount DESC)\n WHERE ROWNUM <= 20",
+   "safety": "CHANGES_BEHAVIOR_IN_EDGE_CASES",
+   "safetyNote": "Differs when NULLs occur: m.member_id NOT IN (SELECT member_id FROM lib.fee_waivers) returns no rows if the subquery yields a NULL member_id, and never keeps a row whose m.member_id is NULL; NOT EXISTS ignores the NULL and keeps such rows. That is usually the intended behavior. Their nullability is not known (add metadata to prove both NOT NULL).",
+   "check": "STRUCTURE_PRESERVED",
+   "checkDifferences": [],
+   "conflictsWith": null
+  }
+ ]
+}

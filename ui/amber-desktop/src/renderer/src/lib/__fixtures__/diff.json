@@ -1,0 +1,1040 @@
+{
+ "dialect": "postgresql",
+ "before": {
+  "name": "before.sql",
+  "status": "SUCCESS",
+  "fallback": false,
+  "lineCount": 65,
+  "stepCount": 14,
+  "unparsed": 0,
+  "diagnostics": []
+ },
+ "after": {
+  "name": "after.sql",
+  "status": "SUCCESS",
+  "fallback": false,
+  "lineCount": 66,
+  "stepCount": 15,
+  "unparsed": 0,
+  "diagnostics": []
+ },
+ "summary": {
+  "risk": "HIGH",
+  "headline": "3 statement(s) changed (2 modified, 1 added); risk HIGH: DELETE report.daily_revenue lost its WHERE clause (filtered on report.daily_revenue.revenue_day): it now affects every row",
+  "statements": {
+   "unchanged": 11,
+   "formatOnly": 1,
+   "modified": 2,
+   "added": 1,
+   "removed": 0,
+   "moved": 0
+  },
+  "objectChanges": 1,
+  "columnChanges": 2,
+  "rowInfluenceChanges": 1,
+  "shapeChanges": 1,
+  "newFindings": 0,
+  "resolvedFindings": 0,
+  "controlFlowChanges": 0,
+  "reasons": [
+   {
+    "level": "HIGH",
+    "code": "FILTER_REMOVED",
+    "message": "DELETE report.daily_revenue lost its WHERE clause (filtered on report.daily_revenue.revenue_day): it now affects every row",
+    "beforeStatement": 6,
+    "afterStatement": 6,
+    "beforeRange": {
+     "start": {
+      "offset": 1109,
+      "line": 39,
+      "column": 1
+     },
+     "end": {
+      "offset": 1178,
+      "line": 40,
+      "column": 37
+     }
+    },
+    "afterRange": {
+     "start": {
+      "offset": 1114,
+      "line": 39,
+      "column": 1
+     },
+     "end": {
+      "offset": 1146,
+      "line": 39,
+      "column": 33
+     }
+    }
+   },
+   {
+    "level": "HIGH",
+    "code": "TRUNCATE_ADDED",
+    "message": "New TRUNCATE report.customer_snapshot",
+    "beforeStatement": null,
+    "afterStatement": 14,
+    "beforeRange": null,
+    "afterRange": {
+     "start": {
+      "offset": 2052,
+      "line": 65,
+      "column": 1
+     },
+     "end": {
+      "offset": 2091,
+      "line": 65,
+      "column": 40
+     }
+    }
+   },
+   {
+    "level": "HIGH",
+    "code": "DESTRUCTIVE_ACCESS",
+    "message": "The script now TRUNCATEs report.customer_snapshot, an object it does not create",
+    "beforeStatement": null,
+    "afterStatement": 14,
+    "beforeRange": null,
+    "afterRange": {
+     "start": {
+      "offset": 2052,
+      "line": 65,
+      "column": 1
+     },
+     "end": {
+      "offset": 2091,
+      "line": 65,
+      "column": 40
+     }
+    }
+   },
+   {
+    "level": "HIGH",
+    "code": "COLUMN_SOURCE_CHANGED",
+    "message": "report.daily_revenue.revenue now comes from shop.orders.customer_id instead of shop.orders.total_amount",
+    "beforeStatement": 7,
+    "afterStatement": 7,
+    "beforeRange": {
+     "start": {
+      "offset": 1289,
+      "line": 43,
+      "column": 39
+     },
+     "end": {
+      "offset": 1308,
+      "line": 43,
+      "column": 58
+     }
+    },
+    "afterRange": {
+     "start": {
+      "offset": 1257,
+      "line": 42,
+      "column": 39
+     },
+     "end": {
+      "offset": 1275,
+      "line": 42,
+      "column": 57
+     }
+    }
+   },
+   {
+    "level": "MEDIUM",
+    "code": "TRANSFORM_CHANGED",
+    "message": "report.daily_revenue.revenue is derived differently: AGGREGATE, EXPRESSION \u2192 AGGREGATE",
+    "beforeStatement": 7,
+    "afterStatement": 7,
+    "beforeRange": {
+     "start": {
+      "offset": 1289,
+      "line": 43,
+      "column": 39
+     },
+     "end": {
+      "offset": 1308,
+      "line": 43,
+      "column": 58
+     }
+    },
+    "afterRange": {
+     "start": {
+      "offset": 1257,
+      "line": 42,
+      "column": 39
+     },
+     "end": {
+      "offset": 1275,
+      "line": 42,
+      "column": 57
+     }
+    }
+   },
+   {
+    "level": "MEDIUM",
+    "code": "FILTER_REMOVED",
+    "message": "report.daily_revenue: rows no longer filtered by report.daily_revenue.revenue_day",
+    "beforeStatement": 6,
+    "afterStatement": null,
+    "beforeRange": {
+     "start": {
+      "offset": 1142,
+      "line": 40,
+      "column": 1
+     },
+     "end": {
+      "offset": 1178,
+      "line": 40,
+      "column": 37
+     }
+    },
+    "afterRange": null
+   },
+   {
+    "level": "MEDIUM",
+    "code": "SHAPE_OUTPUTS_CHANGED",
+    "message": "INSERT report.daily_revenue: QUERY: output columns +SUM(t.customer_id) -SUM(t.total_amount)",
+    "beforeStatement": 7,
+    "afterStatement": 7,
+    "beforeRange": {
+     "start": {
+      "offset": 1251,
+      "line": 43,
+      "column": 1
+     },
+     "end": {
+      "offset": 1413,
+      "line": 46,
+      "column": 29
+     }
+    },
+    "afterRange": {
+     "start": {
+      "offset": 1219,
+      "line": 42,
+      "column": 1
+     },
+     "end": {
+      "offset": 1380,
+      "line": 45,
+      "column": 29
+     }
+    }
+   },
+   {
+    "level": "LOW",
+    "code": "FORMAT_ONLY",
+    "message": "1 statement(s) differ only in whitespace, comments or keyword case",
+    "beforeStatement": null,
+    "afterStatement": null,
+    "beforeRange": null,
+    "afterRange": null
+   }
+  ],
+  "notes": []
+ },
+ "statements": [
+  {
+   "status": "UNCHANGED",
+   "kind": "CREATE_SCHEMA",
+   "target": null,
+   "beforeId": 0,
+   "afterId": 0,
+   "beforeRange": {
+    "start": {
+     "offset": 141,
+     "line": 4,
+     "column": 1
+    },
+    "end": {
+     "offset": 175,
+     "line": 4,
+     "column": 35
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 141,
+     "line": 4,
+     "column": 1
+    },
+    "end": {
+     "offset": 175,
+     "line": 4,
+     "column": 35
+    }
+   },
+   "beforeSummary": "Create schema",
+   "afterSummary": "Create schema",
+   "similarity": 1.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  },
+  {
+   "status": "UNCHANGED",
+   "kind": "CREATE_TABLE_AS",
+   "target": "tmp_orders",
+   "beforeId": 1,
+   "afterId": 1,
+   "beforeRange": {
+    "start": {
+     "offset": 178,
+     "line": 6,
+     "column": 1
+    },
+    "end": {
+     "offset": 392,
+     "line": 10,
+     "column": 30
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 178,
+     "line": 6,
+     "column": 1
+    },
+    "end": {
+     "offset": 392,
+     "line": 10,
+     "column": 30
+    }
+   },
+   "beforeSummary": "Create temp table tmp_orders from shop.orders",
+   "afterSummary": "Create temp table tmp_orders from shop.orders",
+   "similarity": 1.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  },
+  {
+   "status": "UNCHANGED",
+   "kind": "CREATE_INDEX",
+   "target": "tmp_orders",
+   "beforeId": 2,
+   "afterId": 2,
+   "beforeRange": {
+    "start": {
+     "offset": 395,
+     "line": 12,
+     "column": 1
+    },
+    "end": {
+     "offset": 459,
+     "line": 12,
+     "column": 65
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 395,
+     "line": 12,
+     "column": 1
+    },
+    "end": {
+     "offset": 459,
+     "line": 12,
+     "column": 65
+    }
+   },
+   "beforeSummary": "Create index on tmp_orders",
+   "afterSummary": "Create index on tmp_orders",
+   "similarity": 1.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  },
+  {
+   "status": "UNCHANGED",
+   "kind": "CREATE_TABLE",
+   "target": "tmp_customer_tier",
+   "beforeId": 3,
+   "afterId": 3,
+   "beforeRange": {
+    "start": {
+     "offset": 462,
+     "line": 14,
+     "column": 1
+    },
+    "end": {
+     "offset": 556,
+     "line": 17,
+     "column": 2
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 462,
+     "line": 14,
+     "column": 1
+    },
+    "end": {
+     "offset": 556,
+     "line": 17,
+     "column": 2
+    }
+   },
+   "beforeSummary": "Create temp table tmp_customer_tier",
+   "afterSummary": "Create temp table tmp_customer_tier",
+   "similarity": 1.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  },
+  {
+   "status": "UNCHANGED",
+   "kind": "INSERT",
+   "target": "tmp_customer_tier",
+   "beforeId": 4,
+   "afterId": 4,
+   "beforeRange": {
+    "start": {
+     "offset": 559,
+     "line": 19,
+     "column": 1
+    },
+    "end": {
+     "offset": 960,
+     "line": 31,
+     "column": 37
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 559,
+     "line": 19,
+     "column": 1
+    },
+    "end": {
+     "offset": 960,
+     "line": 31,
+     "column": 37
+    }
+   },
+   "beforeSummary": "Insert into tmp_customer_tier from shop.orders via 2 CTEs",
+   "afterSummary": "Insert into tmp_customer_tier from shop.orders via 2 CTEs",
+   "similarity": 1.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  },
+  {
+   "status": "FORMAT_ONLY",
+   "kind": "UPDATE",
+   "target": "tmp_orders",
+   "beforeId": 5,
+   "afterId": 5,
+   "beforeRange": {
+    "start": {
+     "offset": 963,
+     "line": 33,
+     "column": 1
+    },
+    "end": {
+     "offset": 1106,
+     "line": 37,
+     "column": 22
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 963,
+     "line": 33,
+     "column": 1
+    },
+    "end": {
+     "offset": 1111,
+     "line": 37,
+     "column": 22
+    }
+   },
+   "beforeSummary": "Update tmp_orders using tmp_customer_tier",
+   "afterSummary": "Update tmp_orders using tmp_customer_tier",
+   "similarity": 1.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  },
+  {
+   "status": "MODIFIED",
+   "kind": "DELETE",
+   "target": "report.daily_revenue",
+   "beforeId": 6,
+   "afterId": 6,
+   "beforeRange": {
+    "start": {
+     "offset": 1109,
+     "line": 39,
+     "column": 1
+    },
+    "end": {
+     "offset": 1178,
+     "line": 40,
+     "column": 37
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 1114,
+     "line": 39,
+     "column": 1
+    },
+    "end": {
+     "offset": 1146,
+     "line": 39,
+     "column": 33
+    }
+   },
+   "beforeSummary": "Delete from report.daily_revenue",
+   "afterSummary": "Delete from report.daily_revenue",
+   "similarity": 0.455,
+   "reordered": false,
+   "hunks": [
+    {
+     "before": {
+      "start": {
+       "offset": 1142,
+       "line": 40,
+       "column": 1
+      },
+      "end": {
+       "offset": 1178,
+       "line": 40,
+       "column": 37
+      }
+     },
+     "after": {
+      "start": {
+       "offset": 1146,
+       "line": 39,
+       "column": 33
+      },
+      "end": {
+       "offset": 1146,
+       "line": 39,
+       "column": 33
+      }
+     },
+     "beforeText": "WHERE revenue_day = current_date - 1",
+     "afterText": ""
+    }
+   ],
+   "children": []
+  },
+  {
+   "status": "MODIFIED",
+   "kind": "INSERT",
+   "target": "report.daily_revenue",
+   "beforeId": 7,
+   "afterId": 7,
+   "beforeRange": {
+    "start": {
+     "offset": 1181,
+     "line": 42,
+     "column": 1
+    },
+    "end": {
+     "offset": 1413,
+     "line": 46,
+     "column": 29
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 1149,
+     "line": 41,
+     "column": 1
+    },
+    "end": {
+     "offset": 1380,
+     "line": 45,
+     "column": 29
+    }
+   },
+   "beforeSummary": "Insert into report.daily_revenue from tmp_orders, tmp_customer_tier",
+   "afterSummary": "Insert into report.daily_revenue from tmp_orders, tmp_customer_tier",
+   "similarity": 0.966,
+   "reordered": false,
+   "hunks": [
+    {
+     "before": {
+      "start": {
+       "offset": 1295,
+       "line": 43,
+       "column": 45
+      },
+      "end": {
+       "offset": 1307,
+       "line": 43,
+       "column": 57
+      }
+     },
+     "after": {
+      "start": {
+       "offset": 1263,
+       "line": 42,
+       "column": 45
+      },
+      "end": {
+       "offset": 1274,
+       "line": 42,
+       "column": 56
+      }
+     },
+     "beforeText": "total_amount",
+     "afterText": "customer_id"
+    }
+   ],
+   "children": []
+  },
+  {
+   "status": "UNCHANGED",
+   "kind": "MERGE",
+   "target": "report.customer_snapshot",
+   "beforeId": 8,
+   "afterId": 8,
+   "beforeRange": {
+    "start": {
+     "offset": 1416,
+     "line": 48,
+     "column": 1
+    },
+    "end": {
+     "offset": 1678,
+     "line": 51,
+     "column": 101
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 1383,
+     "line": 47,
+     "column": 1
+    },
+    "end": {
+     "offset": 1645,
+     "line": 50,
+     "column": 101
+    }
+   },
+   "beforeSummary": "Merge into report.customer_snapshot from tmp_customer_tier",
+   "afterSummary": "Merge into report.customer_snapshot from tmp_customer_tier",
+   "similarity": 1.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  },
+  {
+   "status": "UNCHANGED",
+   "kind": "CREATE_VIEW",
+   "target": "report.v_top_customers",
+   "beforeId": 9,
+   "afterId": 9,
+   "beforeRange": {
+    "start": {
+     "offset": 1681,
+     "line": 53,
+     "column": 1
+    },
+    "end": {
+     "offset": 1903,
+     "line": 58,
+     "column": 23
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 1648,
+     "line": 52,
+     "column": 1
+    },
+    "end": {
+     "offset": 1870,
+     "line": 57,
+     "column": 23
+    }
+   },
+   "beforeSummary": "Create view report.v_top_customers over report.customer_snapshot, shop.addresses",
+   "afterSummary": "Create view report.v_top_customers over report.customer_snapshot, shop.addresses",
+   "similarity": 1.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  },
+  {
+   "status": "UNCHANGED",
+   "kind": "SELECT",
+   "target": null,
+   "beforeId": 10,
+   "afterId": 10,
+   "beforeRange": {
+    "start": {
+     "offset": 1906,
+     "line": 60,
+     "column": 1
+    },
+    "end": {
+     "offset": 1994,
+     "line": 60,
+     "column": 89
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 1873,
+     "line": 59,
+     "column": 1
+    },
+    "end": {
+     "offset": 1961,
+     "line": 59,
+     "column": 89
+    }
+   },
+   "beforeSummary": "Query report.customer_snapshot",
+   "afterSummary": "Query report.customer_snapshot",
+   "similarity": 1.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  },
+  {
+   "status": "UNCHANGED",
+   "kind": "TRUNCATE",
+   "target": "tmp_customer_tier",
+   "beforeId": 11,
+   "afterId": 11,
+   "beforeRange": {
+    "start": {
+     "offset": 1997,
+     "line": 62,
+     "column": 1
+    },
+    "end": {
+     "offset": 2029,
+     "line": 62,
+     "column": 33
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 1964,
+     "line": 61,
+     "column": 1
+    },
+    "end": {
+     "offset": 1996,
+     "line": 61,
+     "column": 33
+    }
+   },
+   "beforeSummary": "Truncate tmp_customer_tier",
+   "afterSummary": "Truncate tmp_customer_tier",
+   "similarity": 1.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  },
+  {
+   "status": "UNCHANGED",
+   "kind": "DROP",
+   "target": "tmp_orders",
+   "beforeId": 12,
+   "afterId": 12,
+   "beforeRange": {
+    "start": {
+     "offset": 2031,
+     "line": 63,
+     "column": 1
+    },
+    "end": {
+     "offset": 2052,
+     "line": 63,
+     "column": 22
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 1998,
+     "line": 62,
+     "column": 1
+    },
+    "end": {
+     "offset": 2019,
+     "line": 62,
+     "column": 22
+    }
+   },
+   "beforeSummary": "Drop temp table tmp_orders",
+   "afterSummary": "Drop temp table tmp_orders",
+   "similarity": 1.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  },
+  {
+   "status": "UNCHANGED",
+   "kind": "DROP",
+   "target": "tmp_customer_tier",
+   "beforeId": 13,
+   "afterId": 13,
+   "beforeRange": {
+    "start": {
+     "offset": 2054,
+     "line": 64,
+     "column": 1
+    },
+    "end": {
+     "offset": 2082,
+     "line": 64,
+     "column": 29
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 2021,
+     "line": 63,
+     "column": 1
+    },
+    "end": {
+     "offset": 2049,
+     "line": 63,
+     "column": 29
+    }
+   },
+   "beforeSummary": "Drop temp table tmp_customer_tier",
+   "afterSummary": "Drop temp table tmp_customer_tier",
+   "similarity": 1.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  },
+  {
+   "status": "ADDED",
+   "kind": "TRUNCATE",
+   "target": "report.customer_snapshot",
+   "beforeId": null,
+   "afterId": 14,
+   "beforeRange": null,
+   "afterRange": {
+    "start": {
+     "offset": 2052,
+     "line": 65,
+     "column": 1
+    },
+    "end": {
+     "offset": 2091,
+     "line": 65,
+     "column": 40
+    }
+   },
+   "beforeSummary": null,
+   "afterSummary": "Truncate report.customer_snapshot",
+   "similarity": 0.0,
+   "reordered": false,
+   "hunks": [],
+   "children": []
+  }
+ ],
+ "objects": [
+  {
+   "scope": "SCRIPT",
+   "kind": "ACCESS_ADDED",
+   "object": "report.customer_snapshot",
+   "key": "REPORT.CUSTOMER_SNAPSHOT",
+   "objectKind": "TABLE",
+   "access": "TRUNCATE",
+   "beforeRole": null,
+   "afterRole": "INTERMEDIATE",
+   "message": "Now TRUNCATEs report.customer_snapshot",
+   "beforeStatement": null,
+   "afterStatement": 14,
+   "beforeRange": null,
+   "afterRange": {
+    "start": {
+     "offset": 2067,
+     "line": 65,
+     "column": 16
+    },
+    "end": {
+     "offset": 2091,
+     "line": 65,
+     "column": 40
+    }
+   }
+  }
+ ],
+ "lineage": {
+  "columns": [
+   {
+    "kind": "SOURCES_CHANGED",
+    "target": "report.daily_revenue",
+    "targetKey": "REPORT.DAILY_REVENUE",
+    "column": "revenue",
+    "ownerKind": "TABLE",
+    "beforeSources": [
+     "shop.orders.total_amount"
+    ],
+    "afterSources": [
+     "shop.orders.customer_id"
+    ],
+    "addedSources": [
+     "shop.orders.customer_id"
+    ],
+    "removedSources": [
+     "shop.orders.total_amount"
+    ],
+    "beforeTransforms": [
+     "AGGREGATE",
+     "EXPRESSION"
+    ],
+    "afterTransforms": [
+     "AGGREGATE"
+    ],
+    "message": "report.daily_revenue.revenue now comes from shop.orders.customer_id instead of shop.orders.total_amount",
+    "beforeStatement": 7,
+    "afterStatement": 7,
+    "beforeRange": {
+     "start": {
+      "offset": 1289,
+      "line": 43,
+      "column": 39
+     },
+     "end": {
+      "offset": 1308,
+      "line": 43,
+      "column": 58
+     }
+    },
+    "afterRange": {
+     "start": {
+      "offset": 1257,
+      "line": 42,
+      "column": 39
+     },
+     "end": {
+      "offset": 1275,
+      "line": 42,
+      "column": 57
+     }
+    }
+   },
+   {
+    "kind": "TRANSFORM_CHANGED",
+    "target": "report.daily_revenue",
+    "targetKey": "REPORT.DAILY_REVENUE",
+    "column": "revenue",
+    "ownerKind": "TABLE",
+    "beforeSources": [
+     "shop.orders.total_amount"
+    ],
+    "afterSources": [
+     "shop.orders.customer_id"
+    ],
+    "addedSources": [
+     "shop.orders.customer_id"
+    ],
+    "removedSources": [
+     "shop.orders.total_amount"
+    ],
+    "beforeTransforms": [
+     "AGGREGATE",
+     "EXPRESSION"
+    ],
+    "afterTransforms": [
+     "AGGREGATE"
+    ],
+    "message": "report.daily_revenue.revenue is derived differently: AGGREGATE, EXPRESSION \u2192 AGGREGATE",
+    "beforeStatement": 7,
+    "afterStatement": 7,
+    "beforeRange": {
+     "start": {
+      "offset": 1289,
+      "line": 43,
+      "column": 39
+     },
+     "end": {
+      "offset": 1308,
+      "line": 43,
+      "column": 58
+     }
+    },
+    "afterRange": {
+     "start": {
+      "offset": 1257,
+      "line": 42,
+      "column": 39
+     },
+     "end": {
+      "offset": 1275,
+      "line": 42,
+      "column": 57
+     }
+    }
+   }
+  ],
+  "indirect": [
+   {
+    "target": "report.daily_revenue",
+    "targetKey": "REPORT.DAILY_REVENUE",
+    "role": "FILTER",
+    "change": "REMOVED",
+    "source": "report.daily_revenue.revenue_day",
+    "message": "report.daily_revenue: rows no longer filtered by report.daily_revenue.revenue_day",
+    "beforeStatement": 6,
+    "afterStatement": null,
+    "beforeRange": {
+     "start": {
+      "offset": 1142,
+      "line": 40,
+      "column": 1
+     },
+     "end": {
+      "offset": 1178,
+      "line": 40,
+      "column": 37
+     }
+    },
+    "afterRange": null
+   }
+  ]
+ },
+ "shapes": [
+  {
+   "kind": "OUTPUTS_CHANGED",
+   "block": "QUERY",
+   "detail": "+SUM(t.customer_id) -SUM(t.total_amount)",
+   "message": "INSERT report.daily_revenue: QUERY: output columns +SUM(t.customer_id) -SUM(t.total_amount)",
+   "beforeStatement": 7,
+   "afterStatement": 7,
+   "beforeRange": {
+    "start": {
+     "offset": 1251,
+     "line": 43,
+     "column": 1
+    },
+    "end": {
+     "offset": 1413,
+     "line": 46,
+     "column": 29
+    }
+   },
+   "afterRange": {
+    "start": {
+     "offset": 1219,
+     "line": 42,
+     "column": 1
+    },
+    "end": {
+     "offset": 1380,
+     "line": 45,
+     "column": 29
+    }
+   }
+  }
+ ],
+ "findings": [],
+ "controlFlow": [],
+ "elapsedMs": 402
+}

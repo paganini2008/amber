@@ -1,0 +1,51 @@
+-- System-versioned tables and application-time periods
+CREATE TABLE price_history (
+  product_id INT NOT NULL,
+  price DECIMAL(10,2) NOT NULL
+) WITH SYSTEM VERSIONING;
+CREATE TABLE contracts (
+  id INT PRIMARY KEY,
+  terms TEXT,
+  row_start TIMESTAMP(6) GENERATED ALWAYS AS ROW START INVISIBLE,
+  row_end TIMESTAMP(6) GENERATED ALWAYS AS ROW END INVISIBLE,
+  PERIOD FOR SYSTEM_TIME (row_start, row_end)
+) WITH SYSTEM VERSIONING;
+CREATE TABLE trx_versioned (
+  id INT,
+  trx_start BIGINT UNSIGNED GENERATED ALWAYS AS ROW START,
+  trx_end BIGINT UNSIGNED GENERATED ALWAYS AS ROW END,
+  PERIOD FOR SYSTEM_TIME (trx_start, trx_end)
+) WITH SYSTEM VERSIONING ENGINE=InnoDB;
+CREATE TABLE partial_versioned (
+  id INT,
+  tracked INT,
+  untracked INT WITHOUT SYSTEM VERSIONING
+) WITH SYSTEM VERSIONING;
+CREATE TABLE versioned_parts (id INT, v INT) WITH SYSTEM VERSIONING
+  PARTITION BY SYSTEM_TIME INTERVAL 1 MONTH PARTITIONS 12;
+CREATE TABLE versioned_limit (id INT) WITH SYSTEM VERSIONING
+  PARTITION BY SYSTEM_TIME LIMIT 100000 (PARTITION p_hist HISTORY, PARTITION p_cur CURRENT);
+ALTER TABLE customers ADD SYSTEM VERSIONING;
+ALTER TABLE customers DROP SYSTEM VERSIONING;
+SELECT * FROM price_history FOR SYSTEM_TIME AS OF TIMESTAMP '2024-01-01 00:00:00' WHERE product_id = 1;
+SELECT * FROM price_history FOR SYSTEM_TIME AS OF NOW() - INTERVAL 1 DAY;
+SELECT * FROM price_history FOR SYSTEM_TIME BETWEEN '2023-01-01' AND '2024-01-01';
+SELECT * FROM price_history FOR SYSTEM_TIME FROM '2023-01-01' TO NOW();
+SELECT * FROM price_history FOR SYSTEM_TIME ALL ORDER BY product_id;
+SELECT row_start, row_end, terms FROM contracts FOR SYSTEM_TIME ALL WHERE id = 5;
+SELECT p.* FROM price_history FOR SYSTEM_TIME AS OF '2024-01-01' AS p JOIN products pr ON pr.id = p.product_id;
+SET @@system_versioning_asof = '2024-06-01 00:00:00';
+DELETE HISTORY FROM price_history;
+DELETE HISTORY FROM price_history BEFORE SYSTEM_TIME NOW() - INTERVAL 1 YEAR;
+CREATE TABLE room_bookings (
+  room_id INT NOT NULL,
+  guest VARCHAR(100),
+  date_from DATE NOT NULL,
+  date_to DATE NOT NULL,
+  PERIOD FOR stay (date_from, date_to),
+  UNIQUE (room_id, stay WITHOUT OVERLAPS)
+);
+UPDATE room_bookings FOR PORTION OF stay FROM '2024-07-01' TO '2024-07-05' SET guest = 'Maintenance' WHERE room_id = 101;
+DELETE FROM room_bookings FOR PORTION OF stay FROM '2024-08-01' TO '2024-08-03' WHERE room_id = 101;
+ALTER TABLE room_bookings DROP PERIOD FOR stay;
+ALTER TABLE room_bookings ADD PERIOD FOR stay (date_from, date_to);

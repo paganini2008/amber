@@ -1,0 +1,22 @@
+-- Joins
+SELECT o.order_id, c.name FROM sales.orders o JOIN sales.customer c ON c.customer_id = o.customer_id;
+SELECT * FROM sales.orders o INNER JOIN sales.customer c USING (customer_id);
+SELECT * FROM sales.orders o LEFT JOIN sales.customer c ON c.customer_id = o.customer_id;
+SELECT * FROM sales.orders o LEFT OUTER JOIN sales.customer c ON true;
+SELECT * FROM sales.orders o RIGHT JOIN sales.customer c ON c.customer_id = o.customer_id;
+SELECT * FROM sales.orders o FULL OUTER JOIN sales.customer c ON c.customer_id = o.customer_id;
+SELECT * FROM sales.orders CROSS JOIN sales.region;
+SELECT * FROM sales.orders NATURAL JOIN sales.order_status;
+SELECT * FROM sales.orders o NATURAL LEFT JOIN sales.order_status s;
+SELECT * FROM sales.orders o, sales.customer c WHERE o.customer_id = c.customer_id;
+SELECT * FROM sales.orders o JOIN sales.customer c USING (customer_id) AS j;
+SELECT c.name, recent.* FROM sales.customer c CROSS JOIN LATERAL (SELECT * FROM sales.orders o WHERE o.customer_id = c.customer_id ORDER BY order_date DESC LIMIT 3) recent;
+SELECT c.name, r.amount FROM sales.customer c LEFT JOIN LATERAL (SELECT amount FROM sales.orders o WHERE o.customer_id = c.customer_id LIMIT 1) r ON true;
+SELECT c.name, t.tag FROM sales.customer c, LATERAL unnest(c.tags) AS t(tag);
+SELECT * FROM sales.customer c, jsonb_array_elements(c.profile -> 'addresses') AS addr;
+SELECT * FROM (sales.orders o JOIN sales.customer c ON o.customer_id = c.customer_id) LEFT JOIN sales.region r ON r.code = c.region_code;
+SELECT * FROM sales.orders o JOIN sales.customer c ON o.customer_id = c.customer_id JOIN sales.region r ON r.code = c.region_code AND r.active;
+SELECT * FROM a JOIN (b JOIN c ON b.id = c.id) ON a.id = b.id;
+SELECT e.name, m.name AS manager FROM hr.employee e LEFT JOIN hr.employee m ON m.employee_id = e.manager_id;
+SELECT * FROM sales.orders o JOIN generate_series(1, 3) g(n) ON g.n = o.priority;
+SELECT * FROM sales.orders o WHERE NOT EXISTS (SELECT 1 FROM sales.refund r WHERE r.order_id = o.order_id);

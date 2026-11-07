@@ -1,0 +1,3 @@
+Oracle 23ai additions (CREATE DOMAIN, JSON relational duality views, …) are newer than the
+grammars-v4 PL/SQL grammar. Amber reports these statements as syntax errors; with allowFallback they
+are kept as UNPARSED and the rest of the script is analysed.

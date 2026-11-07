@@ -1,0 +1,23 @@
+-- Grouping, aggregates, FILTER, ordered-set
+SELECT region, count(*), sum(amount), avg(amount), min(amount), max(amount) FROM sales.orders GROUP BY region HAVING count(*) > 5;
+SELECT region, product, sum(amount) FROM sales.orders GROUP BY ROLLUP (region, product);
+SELECT region, product, sum(amount) FROM sales.orders GROUP BY CUBE (region, product);
+SELECT region, product, sum(amount) FROM sales.orders GROUP BY GROUPING SETS ((region), (product), ());
+SELECT region, product, GROUPING(region, product), sum(amount) FROM sales.orders GROUP BY ROLLUP (region, product);
+SELECT region, product, channel, sum(amount) FROM sales.orders GROUP BY region, ROLLUP (product, channel);
+SELECT region, sum(amount) FROM sales.orders GROUP BY DISTINCT ROLLUP (region, product), CUBE (region);
+SELECT count(*) FILTER (WHERE status = 'OPEN') AS open_cnt, sum(amount) FILTER (WHERE amount > 0) FROM sales.orders;
+SELECT string_agg(name, ', ' ORDER BY name) FROM sales.customer;
+SELECT array_agg(DISTINCT region ORDER BY region) FROM sales.customer;
+SELECT jsonb_agg(c ORDER BY c.name) FROM sales.customer c;
+SELECT jsonb_object_agg(name, region) FROM sales.customer;
+SELECT percentile_cont(0.5) WITHIN GROUP (ORDER BY amount) FROM sales.orders;
+SELECT percentile_disc(ARRAY[0.25, 0.75]) WITHIN GROUP (ORDER BY amount) FROM sales.orders;
+SELECT mode() WITHIN GROUP (ORDER BY region) FROM sales.customer;
+SELECT rank(100) WITHIN GROUP (ORDER BY amount) FROM sales.orders;
+SELECT bool_and(active), bool_or(active), every(active), bit_and(flags) FROM sales.customer;
+SELECT count(DISTINCT customer_id), count(ALL customer_id) FROM sales.orders;
+SELECT region, sum(amount) FROM sales.orders GROUP BY 1 ORDER BY 2 DESC;
+SELECT date_trunc('month', order_date) AS m, sum(amount) FROM sales.orders GROUP BY m;
+SELECT stddev(amount), variance(amount), corr(a, b), regr_slope(a, b) FROM sales.orders;
+SELECT any_value(region) FROM sales.customer GROUP BY country;

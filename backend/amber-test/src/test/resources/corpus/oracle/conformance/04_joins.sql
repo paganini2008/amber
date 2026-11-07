@@ -1,0 +1,22 @@
+-- Oracle conformance: joins
+SELECT o.order_id, c.name FROM orders o JOIN customers c ON c.customer_id = o.customer_id;
+SELECT o.order_id, c.name FROM orders o INNER JOIN customers c ON c.customer_id = o.customer_id;
+SELECT o.order_id, c.name FROM orders o LEFT OUTER JOIN customers c ON c.customer_id = o.customer_id;
+SELECT o.order_id, c.name FROM orders o RIGHT JOIN customers c ON c.customer_id = o.customer_id;
+SELECT o.order_id, c.name FROM orders o FULL OUTER JOIN customers c ON c.customer_id = o.customer_id;
+SELECT * FROM orders CROSS JOIN regions;
+SELECT * FROM orders NATURAL JOIN order_status;
+SELECT * FROM orders JOIN customers USING (customer_id);
+SELECT * FROM orders o, customers c WHERE o.customer_id = c.customer_id(+);
+SELECT * FROM orders o, customers c WHERE o.customer_id(+) = c.customer_id AND o.status(+) = 'OPEN';
+SELECT d.dept_name, e.family_name FROM departments d CROSS APPLY (SELECT family_name FROM employees e WHERE e.dept_id = d.dept_id) e;
+SELECT d.dept_name, e.family_name FROM departments d OUTER APPLY (SELECT family_name FROM employees e WHERE e.dept_id = d.dept_id FETCH FIRST 1 ROW ONLY) e;
+SELECT d.dept_name, x.cnt FROM departments d, LATERAL (SELECT COUNT(*) cnt FROM employees e WHERE e.dept_id = d.dept_id) x;
+SELECT * FROM sales s PARTITION BY (s.product_id) RIGHT OUTER JOIN calendar c ON (s.sale_date = c.cal_date);
+SELECT a.id, b.id, c.id FROM t_a a JOIN t_b b ON a.id = b.a_id LEFT JOIN t_c c ON c.b_id = b.id AND c.active = 'Y' JOIN t_d d ON d.id = c.d_id;
+SELECT * FROM (orders o JOIN customers c ON o.customer_id = c.customer_id) JOIN regions r ON r.region_id = c.region_id;
+SELECT * FROM orders o LEFT JOIN LATERAL (SELECT * FROM order_lines l WHERE l.order_id = o.order_id) ol ON 1 = 1;
+SELECT e.*, d.* FROM hr.employees e JOIN hr.departments d ON d.department_id = e.department_id WHERE d.location_id IN (SELECT location_id FROM hr.locations WHERE country_id = 'US');
+SELECT * FROM orders o JOIN customers@remote_db c ON c.customer_id = o.customer_id;
+SELECT * FROM emp e1 JOIN emp e2 ON e1.manager_id = e2.emp_id;
+SELECT * FROM t1 FULL JOIN t2 ON t1.k = t2.k WHERE t1.k IS NULL OR t2.k IS NULL;

@@ -1,0 +1,13 @@
+# Test configuration of the optional OnlineMetadataIT (amber-test). Copy to online-it.properties in this
+# folder (git-ignored: it holds passwords) — test connections live here, never in backend/.env, and the
+# app's own connections are entered in Settings > Connections. Run-time environment variables
+# AMBER_IT_SOURCES / AMBER_IT_<ID>_<KEY> override these values. Without sources the test is skipped.
+# Only catalog metadata is read; create the fixture tables with ../online-fixtures/ first.
+
+sources=pg
+
+pg.dialect=postgresql
+pg.url=jdbc:postgresql://db.example.local:5432/demo
+pg.user=reader
+pg.password=change-me
+pg.tables=shop.orders,shop.addresses

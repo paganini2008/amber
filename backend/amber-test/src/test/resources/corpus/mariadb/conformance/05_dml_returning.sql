@@ -1,0 +1,25 @@
+-- INSERT / REPLACE / UPDATE / DELETE including RETURNING
+INSERT INTO customers (email, name) VALUES ('a@example.com', 'Ann') RETURNING id, email;
+INSERT INTO customers (email, name) VALUES ('b@example.com', 'Bob'), ('c@example.com', 'Cy') RETURNING *;
+INSERT INTO customers SET email = 'd@example.com', name = 'Dee' RETURNING id AS new_id, UPPER(name);
+INSERT INTO customers_archive SELECT * FROM customers WHERE created_at < '2020-01-01' RETURNING id;
+INSERT IGNORE INTO customers (email) VALUES ('a@example.com');
+INSERT INTO customers (email, name) VALUES ('a@example.com', 'Ann2') ON DUPLICATE KEY UPDATE name = VALUE(name);
+INSERT INTO customers (email, name) VALUES ('a@example.com', 'Ann3') ON DUPLICATE KEY UPDATE name = VALUES(name), updated_at = NOW();
+INSERT DELAYED INTO audit (msg) VALUES ('x');
+REPLACE INTO customers (id, email) VALUES (1, 'z@example.com') RETURNING id, email;
+REPLACE INTO customers_copy SELECT * FROM customers;
+DELETE FROM customers WHERE id = 10 RETURNING id, email;
+DELETE FROM sessions WHERE expires_at < NOW() ORDER BY expires_at LIMIT 500 RETURNING session_id;
+DELETE c FROM customers c JOIN blocked b ON b.email = c.email;
+DELETE FROM c USING customers AS c INNER JOIN blocked AS b ON b.email = c.email;
+DELETE FROM customers c WHERE c.status = 'gone';
+DELETE HISTORY FROM price_history BEFORE SYSTEM_TIME '2023-01-01 00:00:00';
+UPDATE customers SET name = TRIM(name) WHERE name LIKE ' %' ORDER BY id LIMIT 100;
+UPDATE customers c JOIN orders o ON o.customer_id = c.id SET c.last_order = o.created_at, o.flag = 1 WHERE o.created_at > c.last_order;
+UPDATE customers c, regions r SET c.region_name = r.name WHERE r.code = c.region_code;
+UPDATE customers SET balance = (SELECT SUM(amount) FROM payments p WHERE p.customer_id = customers.id);
+UPDATE customers SET score = score + 1 WHERE id IN (SELECT customer_id FROM orders);
+INSERT INTO t_pairs VALUES (1, 'a'), (2, 'b') RETURNING id, label;
+LOAD DATA LOCAL INFILE '/tmp/customers.csv' INTO TABLE customers FIELDS TERMINATED BY ',' ENCLOSED BY '"' IGNORE 1 LINES (email, name);
+SELECT id, email INTO OUTFILE '/tmp/out.csv' FIELDS TERMINATED BY ',' FROM customers;

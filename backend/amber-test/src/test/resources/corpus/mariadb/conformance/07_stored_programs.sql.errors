@@ -1,0 +1,2 @@
+A top-level compound statement (IF … END IF outside a procedure) written without DELIMITER is cut
+at its first ';' by the mysql/mariadb client too. Amber follows the client, so the pieces fail to parse.

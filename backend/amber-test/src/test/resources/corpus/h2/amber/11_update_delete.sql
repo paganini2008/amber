@@ -1,0 +1,22 @@
+-- UPDATE and DELETE
+UPDATE test SET name = 'Hi' WHERE id = 1;
+UPDATE test t SET t.name = 'Hi', t.updated = CURRENT_TIMESTAMP WHERE t.id = 1;
+UPDATE test AS t SET name = DEFAULT;
+UPDATE test SET (a, b) = (1, 2) WHERE id = 3;
+UPDATE test SET (a, b) = (SELECT x, y FROM other WHERE other.id = test.id);
+UPDATE test SET (a, b) = ROW(1, 2);
+UPDATE test SET counter = counter + 1 ORDER BY id LIMIT 10;
+UPDATE test SET counter = 0 FETCH FIRST 5 ROWS ONLY;
+UPDATE test SET value = 'v', key = 'k', date = CURRENT_DATE WHERE user = 'admin';
+UPDATE test t SET amount = s.amount FROM staging s WHERE s.id = t.id;
+UPDATE test SET name = CASE WHEN id < 10 THEN 'low' ELSE 'high' END;
+DELETE FROM test WHERE id = 2;
+DELETE FROM test;
+DELETE test WHERE id = 3;
+DELETE FROM test t WHERE NOT EXISTS (SELECT 1 FROM other o WHERE o.id = t.id);
+DELETE FROM test WHERE id > 100 LIMIT 10;
+DELETE FROM test WHERE id > 100 FETCH FIRST 10 ROWS ONLY;
+DELETE TOP 5 FROM test;
+TRUNCATE TABLE test;
+TRUNCATE TABLE PUBLIC.test RESTART IDENTITY;
+TRUNCATE TABLE test CONTINUE IDENTITY;

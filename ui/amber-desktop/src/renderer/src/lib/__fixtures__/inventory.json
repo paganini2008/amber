@@ -1,0 +1,1441 @@
+{
+ "status": "SUCCESS",
+ "dialect": "sqlserver",
+ "name": "sqlserver-inventory.sql",
+ "lineCount": 53,
+ "elapsedMs": 1225,
+ "diagnostics": [],
+ "statements": [
+  {
+   "id": 0,
+   "kind": "CREATE_PROCEDURE",
+   "category": "PROGRAM",
+   "container": true,
+   "confidence": "INFERRED",
+   "name": "dbo.usp_reconcile_inventory",
+   "summary": "Create procedure dbo.usp_reconcile_inventory",
+   "range": {
+    "start": {
+     "offset": 89,
+     "line": 2,
+     "column": 1
+    },
+    "end": {
+     "offset": 1125,
+     "line": 48,
+     "column": 5
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "dbo.usp_reconcile_inventory",
+     "key": "DBO.USP_RECONCILE_INVENTORY",
+     "kind": "PROCEDURE",
+     "access": "CREATE",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 106,
+       "line": 2,
+       "column": 18
+      },
+      "end": {
+       "offset": 133,
+       "line": 2,
+       "column": 45
+      }
+     }
+    }
+   ],
+   "children": [
+    {
+     "id": 1,
+     "kind": "BLOCK",
+     "category": "PROGRAM",
+     "container": true,
+     "confidence": "INFERRED",
+     "name": null,
+     "summary": "Block",
+     "range": {
+      "start": {
+       "offset": 156,
+       "line": 5,
+       "column": 1
+      },
+      "end": {
+       "offset": 1125,
+       "line": 48,
+       "column": 5
+      }
+     },
+     "ctes": [],
+     "refs": [],
+     "children": [
+      {
+       "id": 2,
+       "kind": "ASSIGNMENT",
+       "category": "PROCEDURAL",
+       "container": false,
+       "confidence": "INFERRED",
+       "name": null,
+       "summary": "Assignment",
+       "range": {
+        "start": {
+         "offset": 164,
+         "line": 6,
+         "column": 3
+        },
+        "end": {
+         "offset": 179,
+         "line": 6,
+         "column": 18
+        }
+       },
+       "ctes": [],
+       "refs": [],
+       "children": []
+      },
+      {
+       "id": 3,
+       "kind": "CREATE_TABLE",
+       "category": "DDL",
+       "container": false,
+       "confidence": "INFERRED",
+       "name": "#movements",
+       "summary": "Create temp table #movements",
+       "range": {
+        "start": {
+         "offset": 183,
+         "line": 8,
+         "column": 3
+        },
+        "end": {
+         "offset": 264,
+         "line": 11,
+         "column": 5
+        }
+       },
+       "ctes": [],
+       "refs": [
+        {
+         "name": "#movements",
+         "key": "#MOVEMENTS",
+         "kind": "TEMP_TABLE",
+         "access": "CREATE",
+         "confidence": "INFERRED",
+         "range": {
+          "start": {
+           "offset": 196,
+           "line": 8,
+           "column": 16
+          },
+          "end": {
+           "offset": 206,
+           "line": 8,
+           "column": 26
+          }
+         }
+        }
+       ],
+       "children": []
+      },
+      {
+       "id": 4,
+       "kind": "INSERT",
+       "category": "DML",
+       "container": false,
+       "confidence": "INFERRED",
+       "name": null,
+       "summary": "Insert into #movements from wh.stock_movements",
+       "range": {
+        "start": {
+         "offset": 268,
+         "line": 13,
+         "column": 3
+        },
+        "end": {
+         "offset": 408,
+         "line": 17,
+         "column": 18
+        }
+       },
+       "ctes": [],
+       "refs": [
+        {
+         "name": "#movements",
+         "key": "#MOVEMENTS",
+         "kind": "TEMP_TABLE",
+         "access": "INSERT",
+         "confidence": "CERTAIN",
+         "range": {
+          "start": {
+           "offset": 280,
+           "line": 13,
+           "column": 15
+          },
+          "end": {
+           "offset": 290,
+           "line": 13,
+           "column": 25
+          }
+         }
+        },
+        {
+         "name": "wh.stock_movements",
+         "key": "WH.STOCK_MOVEMENTS",
+         "kind": "TABLE",
+         "access": "READ",
+         "confidence": "INFERRED",
+         "range": {
+          "start": {
+           "offset": 336,
+           "line": 15,
+           "column": 8
+          },
+          "end": {
+           "offset": 354,
+           "line": 15,
+           "column": 26
+          }
+         }
+        }
+       ],
+       "children": []
+      },
+      {
+       "id": 5,
+       "kind": "IF",
+       "category": "CONTROL",
+       "container": true,
+       "confidence": "INFERRED",
+       "name": null,
+       "summary": "If",
+       "range": {
+        "start": {
+         "offset": 412,
+         "line": 19,
+         "column": 3
+        },
+        "end": {
+         "offset": 670,
+         "line": 27,
+         "column": 6
+        }
+       },
+       "ctes": [],
+       "refs": [
+        {
+         "name": "#movements",
+         "key": "#MOVEMENTS",
+         "kind": "TEMP_TABLE",
+         "access": "READ",
+         "confidence": "CERTAIN",
+         "range": {
+          "start": {
+           "offset": 437,
+           "line": 19,
+           "column": 28
+          },
+          "end": {
+           "offset": 447,
+           "line": 19,
+           "column": 38
+          }
+         }
+        }
+       ],
+       "children": [
+        {
+         "id": 6,
+         "kind": "BLOCK",
+         "category": "PROGRAM",
+         "container": true,
+         "confidence": "INFERRED",
+         "name": null,
+         "summary": "Block",
+         "range": {
+          "start": {
+           "offset": 465,
+           "line": 20,
+           "column": 3
+          },
+          "end": {
+           "offset": 591,
+           "line": 23,
+           "column": 6
+          }
+         },
+         "ctes": [],
+         "refs": [],
+         "children": [
+          {
+           "id": 7,
+           "kind": "INSERT",
+           "category": "DML",
+           "container": false,
+           "confidence": "INFERRED",
+           "name": null,
+           "summary": "Insert into wh.alerts from #movements",
+           "range": {
+            "start": {
+             "offset": 475,
+             "line": 21,
+             "column": 5
+            },
+            "end": {
+             "offset": 585,
+             "line": 22,
+             "column": 74
+            }
+           },
+           "ctes": [],
+           "refs": [
+            {
+             "name": "wh.alerts",
+             "key": "WH.ALERTS",
+             "kind": "TABLE",
+             "access": "INSERT",
+             "confidence": "INFERRED",
+             "range": {
+              "start": {
+               "offset": 487,
+               "line": 21,
+               "column": 17
+              },
+              "end": {
+               "offset": 496,
+               "line": 21,
+               "column": 26
+              }
+             }
+            },
+            {
+             "name": "#movements",
+             "key": "#MOVEMENTS",
+             "kind": "TEMP_TABLE",
+             "access": "READ",
+             "confidence": "CERTAIN",
+             "range": {
+              "start": {
+               "offset": 560,
+               "line": 22,
+               "column": 49
+              },
+              "end": {
+               "offset": 570,
+               "line": 22,
+               "column": 59
+              }
+             }
+            }
+           ],
+           "children": []
+          }
+         ]
+        },
+        {
+         "id": 8,
+         "kind": "BLOCK",
+         "category": "PROGRAM",
+         "container": true,
+         "confidence": "INFERRED",
+         "name": null,
+         "summary": "Block",
+         "range": {
+          "start": {
+           "offset": 601,
+           "line": 25,
+           "column": 3
+          },
+          "end": {
+           "offset": 670,
+           "line": 27,
+           "column": 6
+          }
+         },
+         "ctes": [],
+         "refs": [],
+         "children": [
+          {
+           "id": 9,
+           "kind": "UPDATE",
+           "category": "DML",
+           "container": false,
+           "confidence": "INFERRED",
+           "name": null,
+           "summary": "Update wh.alerts",
+           "range": {
+            "start": {
+             "offset": 611,
+             "line": 26,
+             "column": 5
+            },
+            "end": {
+             "offset": 664,
+             "line": 26,
+             "column": 58
+            }
+           },
+           "ctes": [],
+           "refs": [
+            {
+             "name": "wh.alerts",
+             "key": "WH.ALERTS",
+             "kind": "TABLE",
+             "access": "UPDATE",
+             "confidence": "INFERRED",
+             "range": {
+              "start": {
+               "offset": 618,
+               "line": 26,
+               "column": 12
+              },
+              "end": {
+               "offset": 627,
+               "line": 26,
+               "column": 21
+              }
+             }
+            }
+           ],
+           "children": []
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": 10,
+       "kind": "DECLARE",
+       "category": "PROCEDURAL",
+       "container": false,
+       "confidence": "INFERRED",
+       "name": null,
+       "summary": "Declare",
+       "range": {
+        "start": {
+         "offset": 674,
+         "line": 29,
+         "column": 3
+        },
+        "end": {
+         "offset": 696,
+         "line": 29,
+         "column": 25
+        }
+       },
+       "ctes": [],
+       "refs": [],
+       "children": []
+      },
+      {
+       "id": 11,
+       "kind": "LOOP",
+       "category": "CONTROL",
+       "container": true,
+       "confidence": "INFERRED",
+       "name": null,
+       "summary": "Loop",
+       "range": {
+        "start": {
+         "offset": 700,
+         "line": 30,
+         "column": 3
+        },
+        "end": {
+         "offset": 873,
+         "line": 37,
+         "column": 6
+        }
+       },
+       "ctes": [],
+       "refs": [],
+       "children": [
+        {
+         "id": 12,
+         "kind": "BLOCK",
+         "category": "PROGRAM",
+         "container": true,
+         "confidence": "INFERRED",
+         "name": null,
+         "summary": "Block",
+         "range": {
+          "start": {
+           "offset": 719,
+           "line": 31,
+           "column": 3
+          },
+          "end": {
+           "offset": 873,
+           "line": 37,
+           "column": 6
+          }
+         },
+         "ctes": [],
+         "refs": [],
+         "children": [
+          {
+           "id": 13,
+           "kind": "UPDATE",
+           "category": "DML",
+           "container": false,
+           "confidence": "INFERRED",
+           "name": null,
+           "summary": "Update wh.stock using #movements",
+           "range": {
+            "start": {
+             "offset": 729,
+             "line": 32,
+             "column": 5
+            },
+            "end": {
+             "offset": 838,
+             "line": 35,
+             "column": 42
+            }
+           },
+           "ctes": [],
+           "refs": [
+            {
+             "name": "wh.stock",
+             "key": "WH.STOCK",
+             "kind": "TABLE",
+             "access": "UPDATE",
+             "confidence": "INFERRED",
+             "range": {
+              "start": {
+               "offset": 736,
+               "line": 32,
+               "column": 12
+              },
+              "end": {
+               "offset": 737,
+               "line": 32,
+               "column": 13
+              }
+             }
+            },
+            {
+             "name": "#movements",
+             "key": "#MOVEMENTS",
+             "kind": "TEMP_TABLE",
+             "access": "READ",
+             "confidence": "CERTAIN",
+             "range": {
+              "start": {
+               "offset": 806,
+               "line": 35,
+               "column": 10
+              },
+              "end": {
+               "offset": 816,
+               "line": 35,
+               "column": 20
+              }
+             }
+            }
+           ],
+           "children": []
+          },
+          {
+           "id": 14,
+           "kind": "ASSIGNMENT",
+           "category": "PROCEDURAL",
+           "container": false,
+           "confidence": "INFERRED",
+           "name": null,
+           "summary": "Assignment",
+           "range": {
+            "start": {
+             "offset": 843,
+             "line": 36,
+             "column": 5
+            },
+            "end": {
+             "offset": 866,
+             "line": 36,
+             "column": 28
+            }
+           },
+           "ctes": [],
+           "refs": [],
+           "children": []
+          }
+         ]
+        }
+       ]
+      },
+      {
+       "id": 15,
+       "kind": "TRY",
+       "category": "CONTROL",
+       "container": true,
+       "confidence": "INFERRED",
+       "name": null,
+       "summary": "Try",
+       "range": {
+        "start": {
+         "offset": 877,
+         "line": 39,
+         "column": 3
+        },
+        "end": {
+         "offset": 1094,
+         "line": 45,
+         "column": 12
+        }
+       },
+       "ctes": [],
+       "refs": [],
+       "children": [
+        {
+         "id": 16,
+         "kind": "INSERT",
+         "category": "DML",
+         "container": false,
+         "confidence": "INFERRED",
+         "name": null,
+         "summary": "Insert into wh.audit_log from #movements",
+         "range": {
+          "start": {
+           "offset": 891,
+           "line": 40,
+           "column": 5
+          },
+          "end": {
+           "offset": 984,
+           "line": 41,
+           "column": 48
+          }
+         },
+         "ctes": [],
+         "refs": [
+          {
+           "name": "wh.audit_log",
+           "key": "WH.AUDIT_LOG",
+           "kind": "TABLE",
+           "access": "INSERT",
+           "confidence": "INFERRED",
+           "range": {
+            "start": {
+             "offset": 903,
+             "line": 40,
+             "column": 17
+            },
+            "end": {
+             "offset": 915,
+             "line": 40,
+             "column": 29
+            }
+           }
+          },
+          {
+           "name": "#movements",
+           "key": "#MOVEMENTS",
+           "kind": "TEMP_TABLE",
+           "access": "READ",
+           "confidence": "CERTAIN",
+           "range": {
+            "start": {
+             "offset": 973,
+             "line": 41,
+             "column": 37
+            },
+            "end": {
+             "offset": 983,
+             "line": 41,
+             "column": 47
+            }
+           }
+          }
+         ],
+         "children": []
+        },
+        {
+         "id": 17,
+         "kind": "INSERT",
+         "category": "DML",
+         "container": false,
+         "confidence": "INFERRED",
+         "name": null,
+         "summary": "Insert into wh.audit_log",
+         "range": {
+          "start": {
+           "offset": 1013,
+           "line": 44,
+           "column": 5
+          },
+          "end": {
+           "offset": 1082,
+           "line": 44,
+           "column": 74
+          }
+         },
+         "ctes": [],
+         "refs": [
+          {
+           "name": "wh.audit_log",
+           "key": "WH.AUDIT_LOG",
+           "kind": "TABLE",
+           "access": "INSERT",
+           "confidence": "INFERRED",
+           "range": {
+            "start": {
+             "offset": 1025,
+             "line": 44,
+             "column": 17
+            },
+            "end": {
+             "offset": 1037,
+             "line": 44,
+             "column": 29
+            }
+           }
+          }
+         ],
+         "children": []
+        }
+       ]
+      },
+      {
+       "id": 18,
+       "kind": "DROP",
+       "category": "DDL",
+       "container": false,
+       "confidence": "INFERRED",
+       "name": null,
+       "summary": "Drop temp table #movements",
+       "range": {
+        "start": {
+         "offset": 1098,
+         "line": 47,
+         "column": 3
+        },
+        "end": {
+         "offset": 1120,
+         "line": 47,
+         "column": 25
+        }
+       },
+       "ctes": [],
+       "refs": [
+        {
+         "name": "#movements",
+         "key": "#MOVEMENTS",
+         "kind": "TEMP_TABLE",
+         "access": "DROP",
+         "confidence": "CERTAIN",
+         "range": {
+          "start": {
+           "offset": 1109,
+           "line": 47,
+           "column": 14
+          },
+          "end": {
+           "offset": 1119,
+           "line": 47,
+           "column": 24
+          }
+         }
+        }
+       ],
+       "children": []
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "id": 19,
+   "kind": "CALL",
+   "category": "PROCEDURAL",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Call dbo.usp_reconcile_inventory",
+   "range": {
+    "start": {
+     "offset": 1130,
+     "line": 51,
+     "column": 1
+    },
+    "end": {
+     "offset": 1190,
+     "line": 51,
+     "column": 61
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "dbo.usp_reconcile_inventory",
+     "key": "DBO.USP_RECONCILE_INVENTORY",
+     "kind": "ROUTINE",
+     "access": "EXECUTE",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 1135,
+       "line": 51,
+       "column": 6
+      },
+      "end": {
+       "offset": 1162,
+       "line": 51,
+       "column": 33
+      }
+     }
+    }
+   ],
+   "children": []
+  }
+ ],
+ "lifecycles": [
+  {
+   "name": "#movements",
+   "key": "#MOVEMENTS",
+   "kind": "TEMP_TABLE",
+   "role": "INTERMEDIATE",
+   "createdInScript": true,
+   "droppedInScript": true,
+   "events": [
+    {
+     "step": 3,
+     "access": "CREATE",
+     "range": {
+      "start": {
+       "offset": 196,
+       "line": 8,
+       "column": 16
+      },
+      "end": {
+       "offset": 206,
+       "line": 8,
+       "column": 26
+      }
+     }
+    },
+    {
+     "step": 4,
+     "access": "INSERT",
+     "range": {
+      "start": {
+       "offset": 280,
+       "line": 13,
+       "column": 15
+      },
+      "end": {
+       "offset": 290,
+       "line": 13,
+       "column": 25
+      }
+     }
+    },
+    {
+     "step": 5,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 437,
+       "line": 19,
+       "column": 28
+      },
+      "end": {
+       "offset": 447,
+       "line": 19,
+       "column": 38
+      }
+     }
+    },
+    {
+     "step": 7,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 560,
+       "line": 22,
+       "column": 49
+      },
+      "end": {
+       "offset": 570,
+       "line": 22,
+       "column": 59
+      }
+     }
+    },
+    {
+     "step": 13,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 806,
+       "line": 35,
+       "column": 10
+      },
+      "end": {
+       "offset": 816,
+       "line": 35,
+       "column": 20
+      }
+     }
+    },
+    {
+     "step": 16,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 973,
+       "line": 41,
+       "column": 37
+      },
+      "end": {
+       "offset": 983,
+       "line": 41,
+       "column": 47
+      }
+     }
+    },
+    {
+     "step": 18,
+     "access": "DROP",
+     "range": {
+      "start": {
+       "offset": 1109,
+       "line": 47,
+       "column": 14
+      },
+      "end": {
+       "offset": 1119,
+       "line": 47,
+       "column": 24
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "wh.stock_movements",
+   "key": "WH.STOCK_MOVEMENTS",
+   "kind": "TABLE",
+   "role": "SOURCE",
+   "createdInScript": false,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 4,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 336,
+       "line": 15,
+       "column": 8
+      },
+      "end": {
+       "offset": 354,
+       "line": 15,
+       "column": 26
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "wh.alerts",
+   "key": "WH.ALERTS",
+   "kind": "TABLE",
+   "role": "TARGET",
+   "createdInScript": false,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 7,
+     "access": "INSERT",
+     "range": {
+      "start": {
+       "offset": 487,
+       "line": 21,
+       "column": 17
+      },
+      "end": {
+       "offset": 496,
+       "line": 21,
+       "column": 26
+      }
+     }
+    },
+    {
+     "step": 9,
+     "access": "UPDATE",
+     "range": {
+      "start": {
+       "offset": 618,
+       "line": 26,
+       "column": 12
+      },
+      "end": {
+       "offset": 627,
+       "line": 26,
+       "column": 21
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "wh.stock",
+   "key": "WH.STOCK",
+   "kind": "TABLE",
+   "role": "TARGET",
+   "createdInScript": false,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 13,
+     "access": "UPDATE",
+     "range": {
+      "start": {
+       "offset": 736,
+       "line": 32,
+       "column": 12
+      },
+      "end": {
+       "offset": 737,
+       "line": 32,
+       "column": 13
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "wh.audit_log",
+   "key": "WH.AUDIT_LOG",
+   "kind": "TABLE",
+   "role": "TARGET",
+   "createdInScript": false,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 16,
+     "access": "INSERT",
+     "range": {
+      "start": {
+       "offset": 903,
+       "line": 40,
+       "column": 17
+      },
+      "end": {
+       "offset": 915,
+       "line": 40,
+       "column": 29
+      }
+     }
+    },
+    {
+     "step": 17,
+     "access": "INSERT",
+     "range": {
+      "start": {
+       "offset": 1025,
+       "line": 44,
+       "column": 17
+      },
+      "end": {
+       "offset": 1037,
+       "line": 44,
+       "column": 29
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "stepCount": 20,
+ "lineage": {
+  "nodes": [
+   {
+    "id": 0,
+    "ownerKind": "TABLE",
+    "owner": "wh.stock_movements",
+    "ownerKey": "WH.STOCK_MOVEMENTS",
+    "column": "sku"
+   },
+   {
+    "id": 1,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "#movements",
+    "ownerKey": "#MOVEMENTS",
+    "column": "sku"
+   },
+   {
+    "id": 2,
+    "ownerKind": "TABLE",
+    "owner": "wh.stock_movements",
+    "ownerKey": "WH.STOCK_MOVEMENTS",
+    "column": "qty"
+   },
+   {
+    "id": 3,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "#movements",
+    "ownerKey": "#MOVEMENTS",
+    "column": "qty"
+   },
+   {
+    "id": 4,
+    "ownerKind": "TABLE",
+    "owner": "wh.stock_movements",
+    "ownerKey": "WH.STOCK_MOVEMENTS",
+    "column": "moved_on"
+   },
+   {
+    "id": 5,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "#movements",
+    "ownerKey": "#MOVEMENTS",
+    "column": "*rows*"
+   },
+   {
+    "id": 6,
+    "ownerKind": "TABLE",
+    "owner": "wh.alerts",
+    "ownerKey": "WH.ALERTS",
+    "column": "sku"
+   },
+   {
+    "id": 7,
+    "ownerKind": "TABLE",
+    "owner": "wh.alerts",
+    "ownerKey": "WH.ALERTS",
+    "column": "*rows*"
+   },
+   {
+    "id": 8,
+    "ownerKind": "TABLE",
+    "owner": "wh.alerts",
+    "ownerKey": "WH.ALERTS",
+    "column": "resolved"
+   },
+   {
+    "id": 9,
+    "ownerKind": "TABLE",
+    "owner": "wh.stock",
+    "ownerKey": "WH.STOCK",
+    "column": "on_hand"
+   },
+   {
+    "id": 10,
+    "ownerKind": "TABLE",
+    "owner": "wh.stock",
+    "ownerKey": "WH.STOCK",
+    "column": "*rows*"
+   },
+   {
+    "id": 11,
+    "ownerKind": "TABLE",
+    "owner": "wh.stock",
+    "ownerKey": "WH.STOCK",
+    "column": "sku"
+   }
+  ],
+  "edges": [
+   {
+    "from": 0,
+    "to": 1,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 4,
+    "range": {
+     "start": {
+      "offset": 311,
+      "line": 14,
+      "column": 10
+     },
+     "end": {
+      "offset": 316,
+      "line": 14,
+      "column": 15
+     }
+    }
+   },
+   {
+    "from": 2,
+    "to": 3,
+    "kind": "DIRECT",
+    "transform": "AGGREGATE",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 4,
+    "range": {
+     "start": {
+      "offset": 318,
+      "line": 14,
+      "column": 17
+     },
+     "end": {
+      "offset": 328,
+      "line": 14,
+      "column": 27
+     }
+    }
+   },
+   {
+    "from": 4,
+    "to": 5,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 4,
+    "range": {
+     "start": {
+      "offset": 365,
+      "line": 16,
+      "column": 9
+     },
+     "end": {
+      "offset": 390,
+      "line": 16,
+      "column": 34
+     }
+    }
+   },
+   {
+    "from": 0,
+    "to": 5,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "GROUP",
+    "confidence": "INFERRED",
+    "statement": 4,
+    "range": {
+     "start": {
+      "offset": 402,
+      "line": 17,
+      "column": 12
+     },
+     "end": {
+      "offset": 407,
+      "line": 17,
+      "column": 17
+     }
+    }
+   },
+   {
+    "from": 1,
+    "to": 6,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 7,
+    "range": {
+     "start": {
+      "offset": 523,
+      "line": 22,
+      "column": 12
+     },
+     "end": {
+      "offset": 526,
+      "line": 22,
+      "column": 15
+     }
+    }
+   },
+   {
+    "from": 3,
+    "to": 7,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 7,
+    "range": {
+     "start": {
+      "offset": 577,
+      "line": 22,
+      "column": 66
+     },
+     "end": {
+      "offset": 584,
+      "line": 22,
+      "column": 73
+     }
+    }
+   },
+   {
+    "from": 8,
+    "to": 7,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 9,
+    "range": {
+     "start": {
+      "offset": 651,
+      "line": 26,
+      "column": 45
+     },
+     "end": {
+      "offset": 663,
+      "line": 26,
+      "column": 57
+     }
+    }
+   },
+   {
+    "from": 9,
+    "to": 9,
+    "kind": "DIRECT",
+    "transform": "EXPRESSION",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 13,
+    "range": {
+     "start": {
+      "offset": 746,
+      "line": 33,
+      "column": 9
+     },
+     "end": {
+      "offset": 776,
+      "line": 33,
+      "column": 39
+     }
+    }
+   },
+   {
+    "from": 3,
+    "to": 9,
+    "kind": "DIRECT",
+    "transform": "EXPRESSION",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 13,
+    "range": {
+     "start": {
+      "offset": 746,
+      "line": 33,
+      "column": 9
+     },
+     "end": {
+      "offset": 776,
+      "line": 33,
+      "column": 39
+     }
+    }
+   },
+   {
+    "from": 1,
+    "to": 10,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 13,
+    "range": {
+     "start": {
+      "offset": 823,
+      "line": 35,
+      "column": 27
+     },
+     "end": {
+      "offset": 837,
+      "line": 35,
+      "column": 41
+     }
+    }
+   },
+   {
+    "from": 11,
+    "to": 10,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 13,
+    "range": {
+     "start": {
+      "offset": 823,
+      "line": 35,
+      "column": 27
+     },
+     "end": {
+      "offset": 837,
+      "line": 35,
+      "column": 41
+     }
+    }
+   },
+   {
+    "from": 1,
+    "to": 10,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "JOIN",
+    "confidence": "INFERRED",
+    "statement": 13,
+    "range": {
+     "start": {
+      "offset": 801,
+      "line": 35,
+      "column": 5
+     },
+     "end": {
+      "offset": 837,
+      "line": 35,
+      "column": 41
+     }
+    }
+   },
+   {
+    "from": 11,
+    "to": 10,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "JOIN",
+    "confidence": "INFERRED",
+    "statement": 13,
+    "range": {
+     "start": {
+      "offset": 801,
+      "line": 35,
+      "column": 5
+     },
+     "end": {
+      "offset": 837,
+      "line": 35,
+      "column": 41
+     }
+    }
+   }
+  ]
+ },
+ "findings": [
+  {
+   "rule": "AMB-S006",
+   "severity": "MEDIUM",
+   "title": "Row-by-row DML in a loop",
+   "message": "This update runs once per loop iteration.",
+   "suggestion": "Replace the loop with one set-based statement (INSERT \u2026 SELECT, UPDATE \u2026 FROM, MERGE), or batch it (FORALL / bulk binds).",
+   "statement": 13,
+   "range": {
+    "start": {
+     "offset": 729,
+     "line": 32,
+     "column": 5
+    },
+    "end": {
+     "offset": 838,
+     "line": 35,
+     "column": 42
+    }
+   },
+   "confidence": "INFERRED"
+  }
+ ]
+}

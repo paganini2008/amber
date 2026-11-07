@@ -1,0 +1,691 @@
+{
+ "status": "SUCCESS",
+ "dialect": "postgresql",
+ "name": "totals.sql",
+ "lineCount": 11,
+ "elapsedMs": 408,
+ "diagnostics": [],
+ "statements": [
+  {
+   "id": 0,
+   "kind": "CREATE_TABLE_AS",
+   "category": "DDL",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": "tmp_paid",
+   "summary": "Create temp table tmp_paid from shop.orders",
+   "range": {
+    "start": {
+     "offset": 0,
+     "line": 1,
+     "column": 1
+    },
+    "end": {
+     "offset": 130,
+     "line": 3,
+     "column": 43
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "tmp_paid",
+     "key": "TMP_PAID",
+     "kind": "TEMP_TABLE",
+     "access": "CREATE",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 18,
+       "line": 1,
+       "column": 19
+      },
+      "end": {
+       "offset": 26,
+       "line": 1,
+       "column": 27
+      }
+     }
+    },
+    {
+     "name": "shop.orders",
+     "key": "SHOP.ORDERS",
+     "kind": "TABLE",
+     "access": "READ",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 93,
+       "line": 3,
+       "column": 6
+      },
+      "end": {
+       "offset": 104,
+       "line": 3,
+       "column": 17
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 1,
+   "kind": "INSERT",
+   "category": "DML",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Insert into report.customer_totals from tmp_paid, shop.customers via 1 CTE",
+   "range": {
+    "start": {
+     "offset": 133,
+     "line": 5,
+     "column": 1
+    },
+    "end": {
+     "offset": 416,
+     "line": 10,
+     "column": 68
+    }
+   },
+   "ctes": [
+    "per_customer"
+   ],
+   "refs": [
+    {
+     "name": "report.customer_totals",
+     "key": "REPORT.CUSTOMER_TOTALS",
+     "kind": "TABLE",
+     "access": "INSERT",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 145,
+       "line": 5,
+       "column": 13
+      },
+      "end": {
+       "offset": 167,
+       "line": 5,
+       "column": 35
+      }
+     }
+    },
+    {
+     "name": "tmp_paid",
+     "key": "TMP_PAID",
+     "kind": "TEMP_TABLE",
+     "access": "READ",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 271,
+       "line": 7,
+       "column": 52
+      },
+      "end": {
+       "offset": 279,
+       "line": 7,
+       "column": 60
+      }
+     }
+    },
+    {
+     "name": "per_customer",
+     "key": "PER_CUSTOMER",
+     "kind": "CTE",
+     "access": "READ",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 354,
+       "line": 10,
+       "column": 6
+      },
+      "end": {
+       "offset": 366,
+       "line": 10,
+       "column": 18
+      }
+     }
+    },
+    {
+     "name": "shop.customers",
+     "key": "SHOP.CUSTOMERS",
+     "kind": "TABLE",
+     "access": "READ",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 375,
+       "line": 10,
+       "column": 27
+      },
+      "end": {
+       "offset": 389,
+       "line": 10,
+       "column": 41
+      }
+     }
+    }
+   ],
+   "children": []
+  }
+ ],
+ "lifecycles": [
+  {
+   "name": "tmp_paid",
+   "key": "TMP_PAID",
+   "kind": "TEMP_TABLE",
+   "role": "INTERMEDIATE",
+   "createdInScript": true,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 0,
+     "access": "CREATE",
+     "range": {
+      "start": {
+       "offset": 18,
+       "line": 1,
+       "column": 19
+      },
+      "end": {
+       "offset": 26,
+       "line": 1,
+       "column": 27
+      }
+     }
+    },
+    {
+     "step": 1,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 271,
+       "line": 7,
+       "column": 52
+      },
+      "end": {
+       "offset": 279,
+       "line": 7,
+       "column": 60
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "shop.orders",
+   "key": "SHOP.ORDERS",
+   "kind": "TABLE",
+   "role": "SOURCE",
+   "createdInScript": false,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 0,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 93,
+       "line": 3,
+       "column": 6
+      },
+      "end": {
+       "offset": 104,
+       "line": 3,
+       "column": 17
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "report.customer_totals",
+   "key": "REPORT.CUSTOMER_TOTALS",
+   "kind": "TABLE",
+   "role": "TARGET",
+   "createdInScript": false,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 1,
+     "access": "INSERT",
+     "range": {
+      "start": {
+       "offset": 145,
+       "line": 5,
+       "column": 13
+      },
+      "end": {
+       "offset": 167,
+       "line": 5,
+       "column": 35
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "shop.customers",
+   "key": "SHOP.CUSTOMERS",
+   "kind": "TABLE",
+   "role": "SOURCE",
+   "createdInScript": false,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 1,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 375,
+       "line": 10,
+       "column": 27
+      },
+      "end": {
+       "offset": 389,
+       "line": 10,
+       "column": 41
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "stepCount": 2,
+ "lineage": {
+  "nodes": [
+   {
+    "id": 0,
+    "ownerKind": "TABLE",
+    "owner": "shop.orders",
+    "ownerKey": "SHOP.ORDERS",
+    "column": "order_id"
+   },
+   {
+    "id": 1,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_paid",
+    "ownerKey": "TMP_PAID",
+    "column": "order_id"
+   },
+   {
+    "id": 2,
+    "ownerKind": "TABLE",
+    "owner": "shop.orders",
+    "ownerKey": "SHOP.ORDERS",
+    "column": "customer_id"
+   },
+   {
+    "id": 3,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_paid",
+    "ownerKey": "TMP_PAID",
+    "column": "customer_id"
+   },
+   {
+    "id": 4,
+    "ownerKind": "TABLE",
+    "owner": "shop.orders",
+    "ownerKey": "SHOP.ORDERS",
+    "column": "amount"
+   },
+   {
+    "id": 5,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_paid",
+    "ownerKey": "TMP_PAID",
+    "column": "amount"
+   },
+   {
+    "id": 6,
+    "ownerKind": "TABLE",
+    "owner": "shop.orders",
+    "ownerKey": "SHOP.ORDERS",
+    "column": "status"
+   },
+   {
+    "id": 7,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_paid",
+    "ownerKey": "TMP_PAID",
+    "column": "*rows*"
+   },
+   {
+    "id": 8,
+    "ownerKind": "CTE",
+    "owner": "per_customer",
+    "ownerKey": "cte:PER_CUSTOMER@202",
+    "column": "customer_id"
+   },
+   {
+    "id": 9,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_paid",
+    "ownerKey": "TMP_PAID",
+    "column": "gross"
+   },
+   {
+    "id": 10,
+    "ownerKind": "CTE",
+    "owner": "per_customer",
+    "ownerKey": "cte:PER_CUSTOMER@202",
+    "column": "gross"
+   },
+   {
+    "id": 11,
+    "ownerKind": "CTE",
+    "owner": "per_customer",
+    "ownerKey": "cte:PER_CUSTOMER@202",
+    "column": "*rows*"
+   },
+   {
+    "id": 12,
+    "ownerKind": "TABLE",
+    "owner": "report.customer_totals",
+    "ownerKey": "REPORT.CUSTOMER_TOTALS",
+    "column": "customer_id"
+   },
+   {
+    "id": 13,
+    "ownerKind": "TABLE",
+    "owner": "shop.customers",
+    "ownerKey": "SHOP.CUSTOMERS",
+    "column": "region"
+   },
+   {
+    "id": 14,
+    "ownerKind": "TABLE",
+    "owner": "report.customer_totals",
+    "ownerKey": "REPORT.CUSTOMER_TOTALS",
+    "column": "region"
+   },
+   {
+    "id": 15,
+    "ownerKind": "CTE",
+    "owner": "per_customer",
+    "ownerKey": "cte:PER_CUSTOMER@202",
+    "column": "total"
+   },
+   {
+    "id": 16,
+    "ownerKind": "TABLE",
+    "owner": "report.customer_totals",
+    "ownerKey": "REPORT.CUSTOMER_TOTALS",
+    "column": "total"
+   },
+   {
+    "id": 17,
+    "ownerKind": "TABLE",
+    "owner": "shop.customers",
+    "ownerKey": "SHOP.CUSTOMERS",
+    "column": "id"
+   },
+   {
+    "id": 18,
+    "ownerKind": "TABLE",
+    "owner": "report.customer_totals",
+    "ownerKey": "REPORT.CUSTOMER_TOTALS",
+    "column": "*rows*"
+   }
+  ],
+  "edges": [
+   {
+    "from": 0,
+    "to": 1,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 0,
+    "range": {
+     "start": {
+      "offset": 37,
+      "line": 2,
+      "column": 8
+     },
+     "end": {
+      "offset": 47,
+      "line": 2,
+      "column": 18
+     }
+    }
+   },
+   {
+    "from": 2,
+    "to": 3,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 0,
+    "range": {
+     "start": {
+      "offset": 49,
+      "line": 2,
+      "column": 20
+     },
+     "end": {
+      "offset": 62,
+      "line": 2,
+      "column": 33
+     }
+    }
+   },
+   {
+    "from": 4,
+    "to": 5,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 0,
+    "range": {
+     "start": {
+      "offset": 64,
+      "line": 2,
+      "column": 35
+     },
+     "end": {
+      "offset": 87,
+      "line": 2,
+      "column": 58
+     }
+    }
+   },
+   {
+    "from": 6,
+    "to": 7,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 0,
+    "range": {
+     "start": {
+      "offset": 107,
+      "line": 3,
+      "column": 20
+     },
+     "end": {
+      "offset": 130,
+      "line": 3,
+      "column": 43
+     }
+    }
+   },
+   {
+    "from": 3,
+    "to": 8,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 229,
+      "line": 7,
+      "column": 10
+     },
+     "end": {
+      "offset": 242,
+      "line": 7,
+      "column": 23
+     }
+    }
+   },
+   {
+    "from": 9,
+    "to": 10,
+    "kind": "DIRECT",
+    "transform": "AGGREGATE",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 244,
+      "line": 7,
+      "column": 25
+     },
+     "end": {
+      "offset": 265,
+      "line": 7,
+      "column": 46
+     }
+    }
+   },
+   {
+    "from": 3,
+    "to": 11,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "GROUP",
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 291,
+      "line": 7,
+      "column": 72
+     },
+     "end": {
+      "offset": 304,
+      "line": 7,
+      "column": 85
+     }
+    }
+   },
+   {
+    "from": 8,
+    "to": 12,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 314,
+      "line": 9,
+      "column": 8
+     },
+     "end": {
+      "offset": 328,
+      "line": 9,
+      "column": 22
+     }
+    }
+   },
+   {
+    "from": 13,
+    "to": 14,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 330,
+      "line": 9,
+      "column": 24
+     },
+     "end": {
+      "offset": 338,
+      "line": 9,
+      "column": 32
+     }
+    }
+   },
+   {
+    "from": 15,
+    "to": 16,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 340,
+      "line": 9,
+      "column": 34
+     },
+     "end": {
+      "offset": 348,
+      "line": 9,
+      "column": 42
+     }
+    }
+   },
+   {
+    "from": 17,
+    "to": 18,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "JOIN",
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 392,
+      "line": 10,
+      "column": 44
+     },
+     "end": {
+      "offset": 416,
+      "line": 10,
+      "column": 68
+     }
+    }
+   },
+   {
+    "from": 8,
+    "to": 18,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "JOIN",
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 392,
+      "line": 10,
+      "column": 44
+     },
+     "end": {
+      "offset": 416,
+      "line": 10,
+      "column": 68
+     }
+    }
+   }
+  ]
+ },
+ "findings": []
+}

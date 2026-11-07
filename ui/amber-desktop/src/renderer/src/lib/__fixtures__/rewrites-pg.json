@@ -1,0 +1,248 @@
+{
+ "dialect": "postgresql",
+ "text": "-- Legacy month-end report (sample)\nINSERT INTO report.monthly_sales (month_start, region, total)\nSELECT DISTINCT date_trunc('month', o.ordered_at), r.name, SUM(o.amount)\nFROM sales.orders o\nJOIN crm.region r ON r.id = o.region_id\nWHERE date(o.ordered_at) = DATE '2026-10-31'\nGROUP BY date_trunc('month', o.ordered_at), r.name;\n\nSELECT c.id, c.name\nFROM (SELECT id, name FROM crm.customer ORDER BY name) c\nWHERE c.id IN (SELECT customer_id FROM sales.orders)\nUNION\nSELECT v.id, v.name FROM crm.vip v;\n",
+ "statements": [
+  {
+   "id": 0,
+   "range": {
+    "start": {
+     "offset": 36,
+     "line": 2,
+     "column": 1
+    },
+    "end": {
+     "offset": 326,
+     "line": 7,
+     "column": 51
+    }
+   }
+  },
+  {
+   "id": 1,
+   "range": {
+    "start": {
+     "offset": 329,
+     "line": 9,
+     "column": 1
+    },
+    "end": {
+     "offset": 499,
+     "line": 13,
+     "column": 35
+    }
+   }
+  }
+ ],
+ "findings": [
+  {
+   "rule": "AMB-S011",
+   "severity": "LOW",
+   "title": "DISTINCT with GROUP BY",
+   "message": "GROUP BY already returns one row per group.",
+   "suggestion": "Remove DISTINCT unless the select list adds columns outside the groups.",
+   "statement": 0,
+   "range": {
+    "start": {
+     "offset": 98,
+     "line": 3,
+     "column": 1
+    },
+    "end": {
+     "offset": 113,
+     "line": 3,
+     "column": 16
+    }
+   },
+   "confidence": "INFERRED"
+  },
+  {
+   "rule": "AMB-S008",
+   "severity": "MEDIUM",
+   "title": "Function on a filtered column",
+   "message": "DATE(\u2026) is applied to a column before comparing it; an index on that column cannot be used.",
+   "suggestion": "Compare the bare column with a transformed value (e.g. a date range instead of TRUNC(col)).",
+   "statement": 0,
+   "range": {
+    "start": {
+     "offset": 237,
+     "line": 6,
+     "column": 7
+    },
+    "end": {
+     "offset": 255,
+     "line": 6,
+     "column": 25
+    }
+   },
+   "confidence": "INFERRED"
+  },
+  {
+   "rule": "AMB-S009",
+   "severity": "LOW",
+   "title": "UNION removes duplicates",
+   "message": "UNION sorts or hashes the result to remove duplicates.",
+   "suggestion": "Use UNION ALL when the branches cannot overlap or duplicates are fine.",
+   "statement": 1,
+   "range": {
+    "start": {
+     "offset": 459,
+     "line": 12,
+     "column": 1
+    },
+    "end": {
+     "offset": 464,
+     "line": 12,
+     "column": 6
+    }
+   },
+   "confidence": "INFERRED"
+  },
+  {
+   "rule": "AMB-S012",
+   "severity": "LOW",
+   "title": "ORDER BY in a subquery",
+   "message": "The order of a subquery or CTE is not kept by the outer query.",
+   "suggestion": "Remove ORDER BY, or move it to the outermost query.",
+   "statement": 1,
+   "range": {
+    "start": {
+     "offset": 389,
+     "line": 10,
+     "column": 41
+    },
+    "end": {
+     "offset": 397,
+     "line": 10,
+     "column": 49
+    }
+   },
+   "confidence": "INFERRED"
+  }
+ ],
+ "rewrites": [
+  {
+   "id": "R1",
+   "rule": "AMB-S011",
+   "title": "Remove DISTINCT (GROUP BY already returns distinct rows)",
+   "explanation": "Every GROUP BY expression is in the select list, so each row is a different group and DISTINCT cannot remove anything; it only costs an extra sort or hash.",
+   "statement": 0,
+   "edits": [
+    {
+     "range": {
+      "start": {
+       "offset": 105,
+       "line": 3,
+       "column": 8
+      },
+      "end": {
+       "offset": 114,
+       "line": 3,
+       "column": 17
+      }
+     },
+     "replacement": ""
+    }
+   ],
+   "rewrittenStatement": "INSERT INTO report.monthly_sales (month_start, region, total)\nSELECT date_trunc('month', o.ordered_at), r.name, SUM(o.amount)\nFROM sales.orders o\nJOIN crm.region r ON r.id = o.region_id\nWHERE date(o.ordered_at) = DATE '2026-10-31'\nGROUP BY date_trunc('month', o.ordered_at), r.name",
+   "safety": "EQUIVALENT",
+   "safetyNote": "The grouping columns are all selected, so the rows are distinct for any data. The structural check lists DISTINCT under ordering and row limits because the keyword is gone.",
+   "check": "STRUCTURE_CHANGED",
+   "checkDifferences": [
+    "Ordering and row limits: [DISTINCT] \u2192 []"
+   ],
+   "conflictsWith": null
+  },
+  {
+   "id": "R2",
+   "rule": "AMB-S008",
+   "title": "Function on a filtered column \u2192 range on the column",
+   "explanation": "date(o.ordered_at) hides o.ordered_at inside a function, so an index on o.ordered_at cannot be used. The same filter written as a range on the bare column can use it.",
+   "statement": 0,
+   "edits": [
+    {
+     "range": {
+      "start": {
+       "offset": 237,
+       "line": 6,
+       "column": 7
+      },
+      "end": {
+       "offset": 275,
+       "line": 6,
+       "column": 45
+      }
+     },
+     "replacement": "o.ordered_at >= DATE '2026-10-31' and o.ordered_at < DATE '2026-11-01'"
+    }
+   ],
+   "rewrittenStatement": "INSERT INTO report.monthly_sales (month_start, region, total)\nSELECT DISTINCT date_trunc('month', o.ordered_at), r.name, SUM(o.amount)\nFROM sales.orders o\nJOIN crm.region r ON r.id = o.region_id\nWHERE o.ordered_at >= DATE '2026-10-31' and o.ordered_at < DATE '2026-11-01'\nGROUP BY date_trunc('month', o.ordered_at), r.name",
+   "safety": "CHANGES_BEHAVIOR_IN_EDGE_CASES",
+   "safetyNote": "The type of o.ordered_at is unknown (add metadata): the range is equivalent for a DATE / TIMESTAMP column, and not for other types.",
+   "check": "STRUCTURE_PRESERVED",
+   "checkDifferences": [],
+   "conflictsWith": null
+  },
+  {
+   "id": "R3",
+   "rule": "AMB-S012",
+   "title": "Remove ORDER BY from the subquery",
+   "explanation": "The rows of a subquery, derived table or CTE have no order for the query that uses them, and nothing in this statement limits or numbers those rows, so ORDER BY name only adds a sort. Order the outermost query if the final order matters.",
+   "statement": 1,
+   "edits": [
+    {
+     "range": {
+      "start": {
+       "offset": 388,
+       "line": 10,
+       "column": 40
+      },
+      "end": {
+       "offset": 402,
+       "line": 10,
+       "column": 54
+      }
+     },
+     "replacement": ""
+    }
+   ],
+   "rewrittenStatement": "SELECT c.id, c.name\nFROM (SELECT id, name FROM crm.customer) c\nWHERE c.id IN (SELECT customer_id FROM sales.orders)\nUNION\nSELECT v.id, v.name FROM crm.vip v",
+   "safety": "EQUIVALENT",
+   "safetyNote": "No row limit, ROWNUM, window function or order-sensitive aggregate uses the subquery's order, so the result is the same set of rows. The structural check lists ORDER BY under ordering and row limits because the clause is gone.",
+   "check": "STRUCTURE_CHANGED",
+   "checkDifferences": [
+    "Ordering and row limits: [ORDER BY] \u2192 []"
+   ],
+   "conflictsWith": null
+  },
+  {
+   "id": "R4",
+   "rule": "AMB-S009",
+   "title": "UNION \u2192 UNION ALL",
+   "explanation": "UNION sorts or hashes the whole result to remove duplicate rows. UNION ALL skips that work and keeps every row.",
+   "statement": 1,
+   "edits": [
+    {
+     "range": {
+      "start": {
+       "offset": 464,
+       "line": 12,
+       "column": 6
+      },
+      "end": {
+       "offset": 464,
+       "line": 12,
+       "column": 6
+      }
+     },
+     "replacement": " ALL"
+    }
+   ],
+   "rewrittenStatement": "SELECT c.id, c.name\nFROM (SELECT id, name FROM crm.customer ORDER BY name) c\nWHERE c.id IN (SELECT customer_id FROM sales.orders)\nUNION ALL\nSELECT v.id, v.name FROM crm.vip v",
+   "safety": "CHANGES_BEHAVIOR_IN_EDGE_CASES",
+   "safetyNote": "Only if the branches cannot return the same row and no branch returns duplicates, or if duplicate rows are acceptable: UNION ALL keeps the duplicates UNION removed.",
+   "check": "STRUCTURE_PRESERVED",
+   "checkDifferences": [],
+   "conflictsWith": null
+  }
+ ]
+}

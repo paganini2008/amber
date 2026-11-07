@@ -1,0 +1,22 @@
+-- INSERT
+INSERT INTO test VALUES (1, 'Hello');
+INSERT INTO test (id, name) VALUES (1, 'Hello'), (2, 'World');
+INSERT INTO PUBLIC.test (id, name) VALUES (DEFAULT, 'x');
+INSERT INTO test (id, name) VALUES (?, ?);
+INSERT INTO test VALUES 1, 2, 3;
+INSERT INTO test SELECT * FROM other;
+INSERT INTO test (id, name) SELECT id, name FROM other WHERE id > 10 ORDER BY id;
+INSERT INTO test (SELECT * FROM other);
+INSERT INTO test DIRECT SELECT * FROM other;
+INSERT INTO test DEFAULT VALUES;
+INSERT INTO test (id, name) OVERRIDING SYSTEM VALUE VALUES (100, 'forced');
+INSERT INTO test (id, name) OVERRIDING USER VALUE VALUES (100, 'ignored');
+INSERT INTO test (id, name) WITH src AS (SELECT 1 id, 'a' name) SELECT * FROM src;
+INSERT INTO counters (name, cnt) VALUES ('a', 1) ON DUPLICATE KEY UPDATE cnt = cnt + 1;
+INSERT INTO counters (name, cnt) VALUES ('a', 1), ('b', 2) ON DUPLICATE KEY UPDATE cnt = VALUES(cnt), updated = CURRENT_TIMESTAMP;
+INSERT IGNORE INTO counters (name, cnt) VALUES ('a', 1);
+INSERT INTO test SET id = 1, name = 'mysql style';
+INSERT INTO settings (key, value, type) VALUES ('k', 'v', 'string');
+INSERT INTO t (a) VALUES (NEXT VALUE FOR seq), (seq.NEXTVAL);
+REPLACE INTO test (id, name) VALUES (1, 'replaced');
+REPLACE INTO test SELECT * FROM staging;

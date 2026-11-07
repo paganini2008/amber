@@ -1,0 +1,22 @@
+-- JSON, arrays, built-in functions, literals
+SELECT JSON '{"a": 1}', JSON_OBJECT('id': 1, 'name': 'x'), JSON_OBJECT(KEY 'k' VALUE 2 NULL ON NULL);
+SELECT JSON_ARRAY(1, 2, 'three' ABSENT ON NULL), JSON_ARRAY((SELECT customer_id FROM sales.customer));
+SELECT JSON_OBJECTAGG(k: v), JSON_ARRAYAGG(k ORDER BY k) FROM audit.lookup_cache;
+SELECT attrs IS JSON OBJECT, attrs IS JSON ARRAY, attrs IS NOT JSON FROM sales.product;
+SELECT CAST(attrs AS VARCHAR), attrs FORMAT JSON FROM sales.product;
+SELECT ARRAY[1, 2, 3], CARDINALITY(tags), ARRAY_CONTAINS(tags, 'red'), tags[1] FROM sales.product;
+SELECT ARRAY_APPEND(tags, 'new'), ARRAY_CAT(tags, ARRAY['x']), ARRAY_SLICE(tags, 1, 2), ARRAY_MAX_CARDINALITY(tags), TRIM_ARRAY(tags, 1) FROM sales.product;
+SELECT * FROM UNNEST(ARRAY[1, 2, 3]) WITH ORDINALITY AS u(v, idx);
+SELECT * FROM TABLE(id INT = ARRAY[1, 2], name VARCHAR = ARRAY['a', 'b']);
+SELECT X'0A0B', 1.5E3, 0x1F, 1_000_000, U&'\0041', N'national', $$dollar quoted$$, 'it''s', TRUE, UNKNOWN;
+SELECT DATE '2024-02-29', TIME '13:45:00', TIMESTAMP '2024-01-01 00:00:00', TIMESTAMP WITH TIME ZONE '2024-01-01 00:00:00+02:00';
+SELECT INTERVAL '1' DAY, INTERVAL '2-6' YEAR TO MONTH, INTERVAL '10:30' HOUR TO MINUTE;
+SELECT EXTRACT(YEAR FROM ordered_at), DATEADD('DAY', 7, ordered_at), DATEDIFF('DAY', ordered_at, CURRENT_DATE), FORMATDATETIME(ordered_at, 'yyyy-MM-dd'), TRUNC(ordered_at) FROM sales.order_header;
+SELECT ordered_at AT TIME ZONE 'UTC', ordered_at AT LOCAL FROM sales.order_header;
+SELECT SUBSTRING(display_name FROM 1 FOR 3), POSITION('a' IN display_name), TRIM(BOTH ' ' FROM display_name), UPPER(display_name), CHAR_LENGTH(display_name) FROM sales.customer;
+SELECT REGEXP_REPLACE(email, '@.*', ''), REGEXP_LIKE(email, '^[a-z]+@'), REGEXP_SUBSTR(email, '[a-z]+'), LPAD(display_name, 10, '*'), CONCAT_WS('-', 'a', 'b') FROM sales.customer;
+SELECT ROUND(balance, 1), CEILING(balance), FLOOR(balance), MOD(7, 3), POWER(2, 10), SQRT(16), RAND(), BITAND(6, 3), GREATEST(1, 2), LEAST(1, 2) FROM sales.customer;
+SELECT DECODE(status, 'NEW', 1, 'PAID', 2, 0), CASEWHEN(total > 0, 'y', 'n'), CAST(total AS INT), CONVERT(total, VARCHAR) FROM sales.order_header;
+SELECT HASH('SHA-256', 'abc'), RANDOM_UUID(), DATABASE(), USER(), CURRENT_SCHEMA, CURRENT_USER, SESSION_ID(), H2VERSION();
+SELECT * FROM INFORMATION_SCHEMA.TABLES WHERE TABLE_SCHEMA = 'SALES';
+SELECT ROW (1, 'x'), (1, 2) = (1, 2) FROM DUAL;

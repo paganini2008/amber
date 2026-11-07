@@ -1,0 +1,21 @@
+-- Compatibility-mode syntax commonly used in tests (MODE=MySQL / PostgreSQL / MSSQLServer / Oracle features accepted by H2)
+SET MODE MySQL;
+CREATE TABLE compat_item (id INT AUTO_INCREMENT PRIMARY KEY, label VARCHAR(50) NOT NULL, created DATETIME DEFAULT CURRENT_TIMESTAMP, KEY idx_label (label)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+INSERT INTO compat_item (label) VALUES ('a') ON DUPLICATE KEY UPDATE label = VALUES(label);
+INSERT IGNORE INTO compat_item (id, label) VALUES (1, 'dup');
+REPLACE INTO compat_item (id, label) VALUES (1, 'replaced');
+SELECT `id`, `label` FROM `compat_item` LIMIT 0, 10;
+CREATE TABLE IF NOT EXISTS compat_flag (id INT UNSIGNED NOT NULL, flag TINYINT(1) DEFAULT 0, note TEXT, PRIMARY KEY (id));
+ALTER TABLE compat_flag MODIFY COLUMN note VARCHAR(500);
+ALTER TABLE compat_flag CHANGE COLUMN note remark VARCHAR(500);
+SET MODE PostgreSQL;
+SELECT id::VARCHAR, label FROM compat_item LIMIT 5 OFFSET 1;
+SELECT label FROM compat_item WHERE label ~ '^a';
+INSERT INTO compat_item (label) VALUES ('pg') ON CONFLICT DO NOTHING;
+SET MODE MSSQLServer;
+SELECT TOP 3 [id], [label] FROM [compat_item];
+SELECT ISNULL(label, 'x'), LEN(label), GETDATE() FROM compat_item;
+SET MODE Oracle;
+SELECT SYSDATE, SYSTIMESTAMP, NVL2(NULL, 'has', 'none'), TO_CHAR(SYSDATE, 'YYYY-MM-DD'), TO_DATE('2024-01-01', 'YYYY-MM-DD') FROM DUAL;
+SELECT label FROM compat_item WHERE ROWNUM <= 5;
+SET MODE Regular;

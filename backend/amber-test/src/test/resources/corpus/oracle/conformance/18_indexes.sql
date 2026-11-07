@@ -1,0 +1,22 @@
+-- Oracle conformance: indexes
+CREATE INDEX orders_cust_ix ON orders (customer_id);
+CREATE UNIQUE INDEX orders_ref_uk ON orders (external_ref);
+CREATE INDEX orders_multi_ix ON orders (customer_id, order_date DESC) TABLESPACE idx_ts COMPRESS 1;
+CREATE BITMAP INDEX orders_status_bix ON orders (status) LOCAL;
+CREATE INDEX orders_upper_ix ON customers (UPPER(family_name));
+CREATE INDEX orders_date_ix ON orders (order_date) LOCAL (PARTITION p1, PARTITION p2) ONLINE;
+CREATE INDEX orders_glob_ix ON orders (amount) GLOBAL PARTITION BY RANGE (amount) (PARTITION ip1 VALUES LESS THAN (1000), PARTITION ipmax VALUES LESS THAN (MAXVALUE));
+CREATE INDEX big_ix ON big_table (data) NOLOGGING PARALLEL 8;
+CREATE INDEX inv_ix ON orders (region) INVISIBLE;
+CREATE INDEX rev_ix ON orders (order_id) REVERSE;
+CREATE INDEX json_ix ON json_docs (JSON_VALUE(doc, '$.customer.id' RETURNING NUMBER ERROR ON ERROR));
+CREATE INDEX text_ix ON documents (body) INDEXTYPE IS CTXSYS.CONTEXT PARAMETERS ('SYNC (ON COMMIT)');
+CREATE BITMAP INDEX bj_ix ON sales (customers.region) FROM sales, customers WHERE sales.customer_id = customers.customer_id;
+ALTER INDEX orders_cust_ix REBUILD ONLINE;
+ALTER INDEX orders_cust_ix REBUILD PARTITION p1 TABLESPACE idx2;
+ALTER INDEX orders_cust_ix UNUSABLE;
+ALTER INDEX inv_ix VISIBLE;
+ALTER INDEX orders_cust_ix RENAME TO orders_customer_ix;
+ALTER INDEX orders_customer_ix MONITORING USAGE;
+DROP INDEX orders_customer_ix;
+DROP INDEX rev_ix ONLINE;

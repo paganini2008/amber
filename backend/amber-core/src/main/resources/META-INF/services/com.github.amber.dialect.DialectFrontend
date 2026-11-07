@@ -1,0 +1,8 @@
+com.github.amber.dialect.db2.Db2Frontend
+com.github.amber.dialect.mariadb.MariaDbFrontend
+com.github.amber.dialect.mysql.MySqlFrontend
+com.github.amber.dialect.oracle.OracleFrontend
+com.github.amber.dialect.postgresql.PostgreSqlFrontend
+com.github.amber.dialect.sqlite.SqliteFrontend
+com.github.amber.dialect.sqlserver.SqlServerFrontend
+com.github.amber.dialect.h2.H2Frontend

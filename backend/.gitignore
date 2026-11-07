@@ -1,0 +1,37 @@
+# Maven
+target/
+target-*/
+dependency-reduced-pom.xml
+.flattened-pom.xml
+
+# Local JDK selection (jenv)
+.java-version
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+.settings/
+.project
+.classpath
+.factorypath
+
+# OS
+.DS_Store
+
+# Real business SQL used for local testing only; never committed
+amber-test/src/test/resources/corpus-private/
+
+# Local configuration (may hold secrets such as OPENAI_API_KEY); never committed. See .env.example.
+.env
+.env.*
+!.env.example
+
+# Test connections of OnlineMetadataIT (passwords); never committed. See online-it.properties.example.
+amber-test/src/test/resources/online-it.properties
+
+# Other
+change_logs
+
+# Daily development logs (local notes for recalling context); never committed
+change_logs/

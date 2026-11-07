@@ -1,0 +1,14 @@
+create database if not exists shop;
+create database if not exists report;
+create table shop.customers (id bigint primary key, email varchar(200) not null unique);
+create table shop.products (id bigint primary key, category varchar(40) not null);
+create table shop.coupons (code varchar(20) primary key, discount_pct decimal(5,2) not null, active tinyint not null);
+create table shop.orders (id bigint primary key, customer_id bigint not null, coupon_code varchar(20), status varchar(16) not null, created_at datetime not null, key ix_orders_created (created_at));
+create table shop.order_items (order_id bigint not null, product_id bigint not null, qty int not null, unit_price decimal(10,2) not null, primary key (order_id, product_id));
+create table report.daily_sales (sale_day date primary key, orders int, customers int, revenue decimal(14,2), top_category varchar(40));
+create table report.order_history (sale_day date not null, customer_id bigint not null, gross decimal(14,2), key ix_hist_day (sale_day));
+create table report.vip_customers (customer_id bigint primary key, total_90d decimal(14,2));
+insert into shop.customers values (1, 'a@example.com'), (2, 'b@example.com');
+insert into shop.products values (7, 'books'), (8, 'games');
+insert into shop.orders values (1, 1, null, 'PAID', now() - interval 1 day);
+insert into shop.order_items values (1, 7, 2, 12.50);

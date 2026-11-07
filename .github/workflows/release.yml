@@ -1,0 +1,230 @@
+name: Release
+
+# Push a tag such as v1.2.3 (latest release) or v1.2.3-rc.1 (pre-release).
+# The repository stays at 1.0.0-SNAPSHOT; the version comes from the tag.
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TAG: ${{ github.ref_name }}
+
+jobs:
+  engine:
+    name: Engine
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      prerelease: ${{ steps.version.outputs.prerelease }}
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Version from tag
+        id: version
+        run: |
+          VERSION="${TAG#v}"
+          if [[ ! "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "::error::Tag $TAG is not v<major>.<minor>.<patch>[-<pre-release>]"
+            exit 1
+          fi
+          if [[ "$VERSION" == *-* ]]; then PRERELEASE=true; else PRERELEASE=false; fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "prerelease=$PRERELEASE" >> "$GITHUB_OUTPUT"
+          echo "Version $VERSION (pre-release: $PRERELEASE)"
+
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+          cache: maven
+          cache-dependency-path: backend/**/pom.xml
+
+      - name: Set Maven version
+        run: >
+          mvn -B -f backend/pom.xml versions:set
+          -DnewVersion=${{ steps.version.outputs.version }}
+          -DgenerateBackupPoms=false -DprocessAllModules=true
+
+      - name: Build engine
+        run: mvn -B -f backend/pom.xml -DskipTests package
+
+      - name: Check engine version
+        run: |
+          OUT=$(java -jar backend/amber-core/target/engine/engine.jar version)
+          echo "$OUT"
+          [[ "$OUT" == *" ${{ steps.version.outputs.version }}" ]]
+
+      - name: Upload engine
+        uses: actions/upload-artifact@v7
+        with:
+          name: engine
+          path: backend/amber-core/target/engine/
+          if-no-files-found: error
+          retention-days: 7
+
+  package:
+    name: Package ${{ matrix.target }}
+    needs: engine
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: windows-x64
+            os: windows-latest
+            dist-args: --win --x64
+            artifacts: Amber-windows-x64-setup.exe
+          - target: macos-arm64
+            os: macos-latest
+            dist-args: --mac --arm64
+            artifacts: Amber-macos-arm64.dmg
+          # Intel runner label from GitHub's runner reference (macos-13 is retired).
+          - target: macos-x64
+            os: macos-15-intel
+            dist-args: --mac --x64
+            artifacts: Amber-macos-x64.dmg
+          - target: linux-x64
+            os: ubuntu-latest
+            dist-args: --linux --x64
+            artifacts: Amber-linux-x64.deb Amber-linux-x64.rpm
+    defaults:
+      run:
+        shell: bash
+    env:
+      VERSION: ${{ needs.engine.outputs.version }}
+      APP: ui/amber-desktop
+      # The app is not signed yet; stop electron-builder from looking for a certificate.
+      CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+    steps:
+      - uses: actions/checkout@v7
+
+      - name: Download engine
+        uses: actions/download-artifact@v8
+        with:
+          name: engine
+          path: backend/amber-core/target/engine
+
+      # Temurin 25 is built with JEP 493 and ships without jmods/; jlink links
+      # from the JDK's run-time image, which works for a same-platform runtime.
+      - name: Set up JDK 25
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '25'
+
+      - name: Set up Node 22
+        uses: actions/setup-node@v7
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: ui/amber-desktop/package-lock.json
+
+      - name: Install rpm tooling
+        if: runner.os == 'Linux'
+        run: sudo apt-get update && sudo apt-get install -y rpm
+
+      - name: Set app version
+        working-directory: ${{ env.APP }}
+        run: npm version "$VERSION" --no-git-tag-version --allow-same-version
+
+      - name: Install dependencies
+        working-directory: ${{ env.APP }}
+        run: npm ci
+
+      - name: Stage engine
+        working-directory: ${{ env.APP }}
+        run: npm run stage-engine
+
+      - name: Build Java runtime (jlink)
+        run: bash .github/scripts/build-runtime.sh backend/amber-core/target/engine "$APP/resources/runtime"
+
+      - name: Generate AppCDS archive
+        run: bash .github/scripts/generate-appcds.sh "$APP/resources/runtime" "$APP/resources/engine"
+
+      - name: Build installer
+        working-directory: ${{ env.APP }}
+        run: npm run dist -- ${{ matrix.dist-args }} --publish never
+
+      - name: Smoke test packaged runtime and engine
+        run: bash .github/scripts/smoke-test.sh "$APP/release" "$VERSION"
+
+      - name: Collect installers
+        run: |
+          mkdir -p out
+          for name in ${{ matrix.artifacts }}; do
+            file="$APP/release/$name"
+            if [[ ! -f "$file" ]]; then
+              file=$(find "$APP/release" -type f -name "$name" | head -n 1)
+            fi
+            if [[ -z "$file" || ! -f "$file" ]]; then
+              echo "::error::$name not found under $APP/release"
+              find "$APP/release" -maxdepth 2 -type f | sed 's/^/  /'
+              exit 1
+            fi
+            cp "$file" out/
+            ls -l "out/$name"
+          done
+
+      - name: Upload installers
+        uses: actions/upload-artifact@v7
+        with:
+          name: installers-${{ matrix.target }}
+          path: out/
+          if-no-files-found: error
+          retention-days: 7
+
+  release:
+    name: GitHub Release
+    needs: [engine, package]
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+    env:
+      VERSION: ${{ needs.engine.outputs.version }}
+      PRERELEASE: ${{ needs.engine.outputs.prerelease }}
+      GH_TOKEN: ${{ github.token }}
+      GH_REPO: ${{ github.repository }}
+    steps:
+      - name: Download installers
+        uses: actions/download-artifact@v8
+        with:
+          pattern: installers-*
+          path: dist
+          merge-multiple: true
+
+      - name: Checksums
+        working-directory: dist
+        run: |
+          sha256sum Amber-* > SHA256SUMS
+          cat SHA256SUMS
+
+      - name: Publish release
+        run: |
+          if [[ "$PRERELEASE" == "true" ]]; then
+            FLAGS=(--prerelease --latest=false)
+          else
+            FLAGS=(--latest)
+          fi
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG exists; replacing its assets"
+            gh release edit "$TAG" "${FLAGS[@]}"
+            gh release upload "$TAG" dist/* --clobber
+          else
+            gh release create "$TAG" dist/* \
+              --verify-tag \
+              --title "Amber $VERSION" \
+              --generate-notes \
+              "${FLAGS[@]}"
+          fi
