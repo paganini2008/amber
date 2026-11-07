@@ -1,0 +1,2266 @@
+{
+ "status": "SUCCESS",
+ "dialect": "postgresql",
+ "name": "postgresql-nightly.sql",
+ "lineCount": 65,
+ "elapsedMs": 421,
+ "diagnostics": [],
+ "statements": [
+  {
+   "id": 0,
+   "kind": "CREATE_SCHEMA",
+   "category": "DDL",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Create schema",
+   "range": {
+    "start": {
+     "offset": 141,
+     "line": 4,
+     "column": 1
+    },
+    "end": {
+     "offset": 175,
+     "line": 4,
+     "column": 35
+    }
+   },
+   "ctes": [],
+   "refs": [],
+   "children": []
+  },
+  {
+   "id": 1,
+   "kind": "CREATE_TABLE_AS",
+   "category": "DDL",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": "tmp_orders",
+   "summary": "Create temp table tmp_orders from shop.orders",
+   "range": {
+    "start": {
+     "offset": 178,
+     "line": 6,
+     "column": 1
+    },
+    "end": {
+     "offset": 392,
+     "line": 10,
+     "column": 30
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "tmp_orders",
+     "key": "TMP_ORDERS",
+     "kind": "TEMP_TABLE",
+     "access": "CREATE",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 196,
+       "line": 6,
+       "column": 19
+      },
+      "end": {
+       "offset": 206,
+       "line": 6,
+       "column": 29
+      }
+     }
+    },
+    {
+     "name": "shop.orders",
+     "key": "SHOP.ORDERS",
+     "kind": "TABLE",
+     "access": "READ",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 296,
+       "line": 8,
+       "column": 6
+      },
+      "end": {
+       "offset": 307,
+       "line": 8,
+       "column": 17
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 2,
+   "kind": "CREATE_INDEX",
+   "category": "DDL",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Create index on tmp_orders",
+   "range": {
+    "start": {
+     "offset": 395,
+     "line": 12,
+     "column": 1
+    },
+    "end": {
+     "offset": 459,
+     "line": 12,
+     "column": 65
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "tmp_orders",
+     "key": "TMP_ORDERS",
+     "kind": "TEMP_TABLE",
+     "access": "ALTER",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 435,
+       "line": 12,
+       "column": 41
+      },
+      "end": {
+       "offset": 445,
+       "line": 12,
+       "column": 51
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 3,
+   "kind": "CREATE_TABLE",
+   "category": "DDL",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": "tmp_customer_tier",
+   "summary": "Create temp table tmp_customer_tier",
+   "range": {
+    "start": {
+     "offset": 462,
+     "line": 14,
+     "column": 1
+    },
+    "end": {
+     "offset": 556,
+     "line": 17,
+     "column": 2
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "tmp_customer_tier",
+     "key": "TMP_CUSTOMER_TIER",
+     "kind": "TEMP_TABLE",
+     "access": "CREATE",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 480,
+       "line": 14,
+       "column": 19
+      },
+      "end": {
+       "offset": 497,
+       "line": 14,
+       "column": 36
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 4,
+   "kind": "INSERT",
+   "category": "DML",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Insert into tmp_customer_tier from shop.orders via 2 CTEs",
+   "range": {
+    "start": {
+     "offset": 559,
+     "line": 19,
+     "column": 1
+    },
+    "end": {
+     "offset": 960,
+     "line": 31,
+     "column": 37
+    }
+   },
+   "ctes": [
+    "spend",
+    "ranked"
+   ],
+   "refs": [
+    {
+     "name": "tmp_customer_tier",
+     "key": "TMP_CUSTOMER_TIER",
+     "kind": "TEMP_TABLE",
+     "access": "INSERT",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 571,
+       "line": 19,
+       "column": 13
+      },
+      "end": {
+       "offset": 588,
+       "line": 19,
+       "column": 30
+      }
+     }
+    },
+    {
+     "name": "shop.orders",
+     "key": "SHOP.ORDERS",
+     "kind": "TABLE",
+     "access": "READ",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 690,
+       "line": 22,
+       "column": 8
+      },
+      "end": {
+       "offset": 701,
+       "line": 22,
+       "column": 19
+      }
+     }
+    },
+    {
+     "name": "spend",
+     "key": "SPEND",
+     "kind": "CTE",
+     "access": "READ",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 916,
+       "line": 29,
+       "column": 8
+      },
+      "end": {
+       "offset": 921,
+       "line": 29,
+       "column": 13
+      }
+     }
+    },
+    {
+     "name": "ranked",
+     "key": "RANKED",
+     "kind": "CTE",
+     "access": "READ",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 954,
+       "line": 31,
+       "column": 31
+      },
+      "end": {
+       "offset": 960,
+       "line": 31,
+       "column": 37
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 5,
+   "kind": "UPDATE",
+   "category": "DML",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Update tmp_orders using tmp_customer_tier",
+   "range": {
+    "start": {
+     "offset": 963,
+     "line": 33,
+     "column": 1
+    },
+    "end": {
+     "offset": 1106,
+     "line": 37,
+     "column": 22
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "tmp_orders",
+     "key": "TMP_ORDERS",
+     "kind": "TEMP_TABLE",
+     "access": "UPDATE",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 970,
+       "line": 33,
+       "column": 8
+      },
+      "end": {
+       "offset": 980,
+       "line": 33,
+       "column": 18
+      }
+     }
+    },
+    {
+     "name": "tmp_customer_tier",
+     "key": "TMP_CUSTOMER_TIER",
+     "kind": "TEMP_TABLE",
+     "access": "READ",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 1029,
+       "line": 35,
+       "column": 6
+      },
+      "end": {
+       "offset": 1046,
+       "line": 35,
+       "column": 23
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 6,
+   "kind": "DELETE",
+   "category": "DML",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Delete from report.daily_revenue",
+   "range": {
+    "start": {
+     "offset": 1109,
+     "line": 39,
+     "column": 1
+    },
+    "end": {
+     "offset": 1178,
+     "line": 40,
+     "column": 37
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "report.daily_revenue",
+     "key": "REPORT.DAILY_REVENUE",
+     "kind": "TABLE",
+     "access": "DELETE",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 1121,
+       "line": 39,
+       "column": 13
+      },
+      "end": {
+       "offset": 1141,
+       "line": 39,
+       "column": 33
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 7,
+   "kind": "INSERT",
+   "category": "DML",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Insert into report.daily_revenue from tmp_orders, tmp_customer_tier",
+   "range": {
+    "start": {
+     "offset": 1181,
+     "line": 42,
+     "column": 1
+    },
+    "end": {
+     "offset": 1413,
+     "line": 46,
+     "column": 29
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "report.daily_revenue",
+     "key": "REPORT.DAILY_REVENUE",
+     "kind": "TABLE",
+     "access": "INSERT",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 1193,
+       "line": 42,
+       "column": 13
+      },
+      "end": {
+       "offset": 1213,
+       "line": 42,
+       "column": 33
+      }
+     }
+    },
+    {
+     "name": "tmp_orders",
+     "key": "TMP_ORDERS",
+     "kind": "TEMP_TABLE",
+     "access": "READ",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 1314,
+       "line": 44,
+       "column": 6
+      },
+      "end": {
+       "offset": 1324,
+       "line": 44,
+       "column": 16
+      }
+     }
+    },
+    {
+     "name": "tmp_customer_tier",
+     "key": "TMP_CUSTOMER_TIER",
+     "kind": "TEMP_TABLE",
+     "access": "READ",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 1332,
+       "line": 45,
+       "column": 6
+      },
+      "end": {
+       "offset": 1349,
+       "line": 45,
+       "column": 23
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 8,
+   "kind": "MERGE",
+   "category": "DML",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Merge into report.customer_snapshot from tmp_customer_tier",
+   "range": {
+    "start": {
+     "offset": 1416,
+     "line": 48,
+     "column": 1
+    },
+    "end": {
+     "offset": 1678,
+     "line": 51,
+     "column": 101
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "report.customer_snapshot",
+     "key": "REPORT.CUSTOMER_SNAPSHOT",
+     "kind": "TABLE",
+     "access": "MERGE",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 1427,
+       "line": 48,
+       "column": 12
+      },
+      "end": {
+       "offset": 1451,
+       "line": 48,
+       "column": 36
+      }
+     }
+    },
+    {
+     "name": "tmp_customer_tier",
+     "key": "TMP_CUSTOMER_TIER",
+     "kind": "TEMP_TABLE",
+     "access": "READ",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 1460,
+       "line": 49,
+       "column": 7
+      },
+      "end": {
+       "offset": 1477,
+       "line": 49,
+       "column": 24
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 9,
+   "kind": "CREATE_VIEW",
+   "category": "DDL",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": "report.v_top_customers",
+   "summary": "Create view report.v_top_customers over report.customer_snapshot, shop.addresses",
+   "range": {
+    "start": {
+     "offset": 1681,
+     "line": 53,
+     "column": 1
+    },
+    "end": {
+     "offset": 1903,
+     "line": 58,
+     "column": 23
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "report.v_top_customers",
+     "key": "REPORT.V_TOP_CUSTOMERS",
+     "kind": "VIEW",
+     "access": "CREATE",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 1704,
+       "line": 53,
+       "column": 24
+      },
+      "end": {
+       "offset": 1726,
+       "line": 53,
+       "column": 46
+      }
+     }
+    },
+    {
+     "name": "report.customer_snapshot",
+     "key": "REPORT.CUSTOMER_SNAPSHOT",
+     "kind": "TABLE",
+     "access": "READ",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 1772,
+       "line": 55,
+       "column": 6
+      },
+      "end": {
+       "offset": 1796,
+       "line": 55,
+       "column": 30
+      }
+     }
+    },
+    {
+     "name": "shop.addresses",
+     "key": "SHOP.ADDRESSES",
+     "kind": "TABLE",
+     "access": "READ",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 1809,
+       "line": 56,
+       "column": 11
+      },
+      "end": {
+       "offset": 1823,
+       "line": 56,
+       "column": 25
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 10,
+   "kind": "SELECT",
+   "category": "QUERY",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Query report.customer_snapshot",
+   "range": {
+    "start": {
+     "offset": 1906,
+     "line": 60,
+     "column": 1
+    },
+    "end": {
+     "offset": 1994,
+     "line": 60,
+     "column": 89
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "report.customer_snapshot",
+     "key": "REPORT.CUSTOMER_SNAPSHOT",
+     "kind": "TABLE",
+     "access": "READ",
+     "confidence": "INFERRED",
+     "range": {
+      "start": {
+       "offset": 1933,
+       "line": 60,
+       "column": 28
+      },
+      "end": {
+       "offset": 1957,
+       "line": 60,
+       "column": 52
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 11,
+   "kind": "TRUNCATE",
+   "category": "DDL",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Truncate tmp_customer_tier",
+   "range": {
+    "start": {
+     "offset": 1997,
+     "line": 62,
+     "column": 1
+    },
+    "end": {
+     "offset": 2029,
+     "line": 62,
+     "column": 33
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "tmp_customer_tier",
+     "key": "TMP_CUSTOMER_TIER",
+     "kind": "TEMP_TABLE",
+     "access": "TRUNCATE",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 2012,
+       "line": 62,
+       "column": 16
+      },
+      "end": {
+       "offset": 2029,
+       "line": 62,
+       "column": 33
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 12,
+   "kind": "DROP",
+   "category": "DDL",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Drop temp table tmp_orders",
+   "range": {
+    "start": {
+     "offset": 2031,
+     "line": 63,
+     "column": 1
+    },
+    "end": {
+     "offset": 2052,
+     "line": 63,
+     "column": 22
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "tmp_orders",
+     "key": "TMP_ORDERS",
+     "kind": "TEMP_TABLE",
+     "access": "DROP",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 2042,
+       "line": 63,
+       "column": 12
+      },
+      "end": {
+       "offset": 2052,
+       "line": 63,
+       "column": 22
+      }
+     }
+    }
+   ],
+   "children": []
+  },
+  {
+   "id": 13,
+   "kind": "DROP",
+   "category": "DDL",
+   "container": false,
+   "confidence": "INFERRED",
+   "name": null,
+   "summary": "Drop temp table tmp_customer_tier",
+   "range": {
+    "start": {
+     "offset": 2054,
+     "line": 64,
+     "column": 1
+    },
+    "end": {
+     "offset": 2082,
+     "line": 64,
+     "column": 29
+    }
+   },
+   "ctes": [],
+   "refs": [
+    {
+     "name": "tmp_customer_tier",
+     "key": "TMP_CUSTOMER_TIER",
+     "kind": "TEMP_TABLE",
+     "access": "DROP",
+     "confidence": "CERTAIN",
+     "range": {
+      "start": {
+       "offset": 2065,
+       "line": 64,
+       "column": 12
+      },
+      "end": {
+       "offset": 2082,
+       "line": 64,
+       "column": 29
+      }
+     }
+    }
+   ],
+   "children": []
+  }
+ ],
+ "lifecycles": [
+  {
+   "name": "tmp_orders",
+   "key": "TMP_ORDERS",
+   "kind": "TEMP_TABLE",
+   "role": "INTERMEDIATE",
+   "createdInScript": true,
+   "droppedInScript": true,
+   "events": [
+    {
+     "step": 1,
+     "access": "CREATE",
+     "range": {
+      "start": {
+       "offset": 196,
+       "line": 6,
+       "column": 19
+      },
+      "end": {
+       "offset": 206,
+       "line": 6,
+       "column": 29
+      }
+     }
+    },
+    {
+     "step": 2,
+     "access": "ALTER",
+     "range": {
+      "start": {
+       "offset": 435,
+       "line": 12,
+       "column": 41
+      },
+      "end": {
+       "offset": 445,
+       "line": 12,
+       "column": 51
+      }
+     }
+    },
+    {
+     "step": 5,
+     "access": "UPDATE",
+     "range": {
+      "start": {
+       "offset": 970,
+       "line": 33,
+       "column": 8
+      },
+      "end": {
+       "offset": 980,
+       "line": 33,
+       "column": 18
+      }
+     }
+    },
+    {
+     "step": 7,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 1314,
+       "line": 44,
+       "column": 6
+      },
+      "end": {
+       "offset": 1324,
+       "line": 44,
+       "column": 16
+      }
+     }
+    },
+    {
+     "step": 12,
+     "access": "DROP",
+     "range": {
+      "start": {
+       "offset": 2042,
+       "line": 63,
+       "column": 12
+      },
+      "end": {
+       "offset": 2052,
+       "line": 63,
+       "column": 22
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "shop.orders",
+   "key": "SHOP.ORDERS",
+   "kind": "TABLE",
+   "role": "SOURCE",
+   "createdInScript": false,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 1,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 296,
+       "line": 8,
+       "column": 6
+      },
+      "end": {
+       "offset": 307,
+       "line": 8,
+       "column": 17
+      }
+     }
+    },
+    {
+     "step": 4,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 690,
+       "line": 22,
+       "column": 8
+      },
+      "end": {
+       "offset": 701,
+       "line": 22,
+       "column": 19
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "tmp_customer_tier",
+   "key": "TMP_CUSTOMER_TIER",
+   "kind": "TEMP_TABLE",
+   "role": "INTERMEDIATE",
+   "createdInScript": true,
+   "droppedInScript": true,
+   "events": [
+    {
+     "step": 3,
+     "access": "CREATE",
+     "range": {
+      "start": {
+       "offset": 480,
+       "line": 14,
+       "column": 19
+      },
+      "end": {
+       "offset": 497,
+       "line": 14,
+       "column": 36
+      }
+     }
+    },
+    {
+     "step": 4,
+     "access": "INSERT",
+     "range": {
+      "start": {
+       "offset": 571,
+       "line": 19,
+       "column": 13
+      },
+      "end": {
+       "offset": 588,
+       "line": 19,
+       "column": 30
+      }
+     }
+    },
+    {
+     "step": 5,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 1029,
+       "line": 35,
+       "column": 6
+      },
+      "end": {
+       "offset": 1046,
+       "line": 35,
+       "column": 23
+      }
+     }
+    },
+    {
+     "step": 7,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 1332,
+       "line": 45,
+       "column": 6
+      },
+      "end": {
+       "offset": 1349,
+       "line": 45,
+       "column": 23
+      }
+     }
+    },
+    {
+     "step": 8,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 1460,
+       "line": 49,
+       "column": 7
+      },
+      "end": {
+       "offset": 1477,
+       "line": 49,
+       "column": 24
+      }
+     }
+    },
+    {
+     "step": 11,
+     "access": "TRUNCATE",
+     "range": {
+      "start": {
+       "offset": 2012,
+       "line": 62,
+       "column": 16
+      },
+      "end": {
+       "offset": 2029,
+       "line": 62,
+       "column": 33
+      }
+     }
+    },
+    {
+     "step": 13,
+     "access": "DROP",
+     "range": {
+      "start": {
+       "offset": 2065,
+       "line": 64,
+       "column": 12
+      },
+      "end": {
+       "offset": 2082,
+       "line": 64,
+       "column": 29
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "report.daily_revenue",
+   "key": "REPORT.DAILY_REVENUE",
+   "kind": "TABLE",
+   "role": "TARGET",
+   "createdInScript": false,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 6,
+     "access": "DELETE",
+     "range": {
+      "start": {
+       "offset": 1121,
+       "line": 39,
+       "column": 13
+      },
+      "end": {
+       "offset": 1141,
+       "line": 39,
+       "column": 33
+      }
+     }
+    },
+    {
+     "step": 7,
+     "access": "INSERT",
+     "range": {
+      "start": {
+       "offset": 1193,
+       "line": 42,
+       "column": 13
+      },
+      "end": {
+       "offset": 1213,
+       "line": 42,
+       "column": 33
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "report.customer_snapshot",
+   "key": "REPORT.CUSTOMER_SNAPSHOT",
+   "kind": "TABLE",
+   "role": "INTERMEDIATE",
+   "createdInScript": false,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 8,
+     "access": "MERGE",
+     "range": {
+      "start": {
+       "offset": 1427,
+       "line": 48,
+       "column": 12
+      },
+      "end": {
+       "offset": 1451,
+       "line": 48,
+       "column": 36
+      }
+     }
+    },
+    {
+     "step": 9,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 1772,
+       "line": 55,
+       "column": 6
+      },
+      "end": {
+       "offset": 1796,
+       "line": 55,
+       "column": 30
+      }
+     }
+    },
+    {
+     "step": 10,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 1933,
+       "line": 60,
+       "column": 28
+      },
+      "end": {
+       "offset": 1957,
+       "line": 60,
+       "column": 52
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "report.v_top_customers",
+   "key": "REPORT.V_TOP_CUSTOMERS",
+   "kind": "VIEW",
+   "role": "STRUCTURE",
+   "createdInScript": true,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 9,
+     "access": "CREATE",
+     "range": {
+      "start": {
+       "offset": 1704,
+       "line": 53,
+       "column": 24
+      },
+      "end": {
+       "offset": 1726,
+       "line": 53,
+       "column": 46
+      }
+     }
+    }
+   ]
+  },
+  {
+   "name": "shop.addresses",
+   "key": "SHOP.ADDRESSES",
+   "kind": "TABLE",
+   "role": "SOURCE",
+   "createdInScript": false,
+   "droppedInScript": false,
+   "events": [
+    {
+     "step": 9,
+     "access": "READ",
+     "range": {
+      "start": {
+       "offset": 1809,
+       "line": 56,
+       "column": 11
+      },
+      "end": {
+       "offset": 1823,
+       "line": 56,
+       "column": 25
+      }
+     }
+    }
+   ]
+  }
+ ],
+ "stepCount": 14,
+ "lineage": {
+  "nodes": [
+   {
+    "id": 0,
+    "ownerKind": "TABLE",
+    "owner": "shop.orders",
+    "ownerKey": "SHOP.ORDERS",
+    "column": "order_id"
+   },
+   {
+    "id": 1,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_orders",
+    "ownerKey": "TMP_ORDERS",
+    "column": "order_id"
+   },
+   {
+    "id": 2,
+    "ownerKind": "TABLE",
+    "owner": "shop.orders",
+    "ownerKey": "SHOP.ORDERS",
+    "column": "customer_id"
+   },
+   {
+    "id": 3,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_orders",
+    "ownerKey": "TMP_ORDERS",
+    "column": "customer_id"
+   },
+   {
+    "id": 4,
+    "ownerKind": "TABLE",
+    "owner": "shop.orders",
+    "ownerKey": "SHOP.ORDERS",
+    "column": "placed_at"
+   },
+   {
+    "id": 5,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_orders",
+    "ownerKey": "TMP_ORDERS",
+    "column": "placed_at"
+   },
+   {
+    "id": 6,
+    "ownerKind": "TABLE",
+    "owner": "shop.orders",
+    "ownerKey": "SHOP.ORDERS",
+    "column": "total_amount"
+   },
+   {
+    "id": 7,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_orders",
+    "ownerKey": "TMP_ORDERS",
+    "column": "total_amount"
+   },
+   {
+    "id": 8,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_orders",
+    "ownerKey": "TMP_ORDERS",
+    "column": "*rows*"
+   },
+   {
+    "id": 9,
+    "ownerKind": "TABLE",
+    "owner": "shop.orders",
+    "ownerKey": "SHOP.ORDERS",
+    "column": "status"
+   },
+   {
+    "id": 10,
+    "ownerKind": "CTE",
+    "owner": "spend",
+    "ownerKey": "cte:SPEND@614",
+    "column": "customer_id"
+   },
+   {
+    "id": 11,
+    "ownerKind": "CTE",
+    "owner": "spend",
+    "ownerKey": "cte:SPEND@614",
+    "column": "lifetime_spend"
+   },
+   {
+    "id": 12,
+    "ownerKind": "CTE",
+    "owner": "spend",
+    "ownerKey": "cte:SPEND@614",
+    "column": "*rows*"
+   },
+   {
+    "id": 13,
+    "ownerKind": "CTE",
+    "owner": "ranked",
+    "ownerKey": "cte:RANKED@728",
+    "column": "customer_id"
+   },
+   {
+    "id": 14,
+    "ownerKind": "CTE",
+    "owner": "ranked",
+    "ownerKey": "cte:RANKED@728",
+    "column": "tier"
+   },
+   {
+    "id": 15,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_customer_tier",
+    "ownerKey": "TMP_CUSTOMER_TIER",
+    "column": "customer_id"
+   },
+   {
+    "id": 16,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_customer_tier",
+    "ownerKey": "TMP_CUSTOMER_TIER",
+    "column": "tier"
+   },
+   {
+    "id": 17,
+    "ownerKind": "TABLE",
+    "owner": "report.daily_revenue",
+    "ownerKey": "REPORT.DAILY_REVENUE",
+    "column": "revenue_day"
+   },
+   {
+    "id": 18,
+    "ownerKind": "TABLE",
+    "owner": "report.daily_revenue",
+    "ownerKey": "REPORT.DAILY_REVENUE",
+    "column": "*rows*"
+   },
+   {
+    "id": 19,
+    "ownerKind": "TEMP_TABLE",
+    "owner": "tmp_orders",
+    "ownerKey": "TMP_ORDERS",
+    "column": "order_day"
+   },
+   {
+    "id": 20,
+    "ownerKind": "TABLE",
+    "owner": "report.daily_revenue",
+    "ownerKey": "REPORT.DAILY_REVENUE",
+    "column": "tier"
+   },
+   {
+    "id": 21,
+    "ownerKind": "TABLE",
+    "owner": "report.daily_revenue",
+    "ownerKey": "REPORT.DAILY_REVENUE",
+    "column": "revenue"
+   },
+   {
+    "id": 22,
+    "ownerKind": "TABLE",
+    "owner": "report.customer_snapshot",
+    "ownerKey": "REPORT.CUSTOMER_SNAPSHOT",
+    "column": "tier"
+   },
+   {
+    "id": 23,
+    "ownerKind": "TABLE",
+    "owner": "report.customer_snapshot",
+    "ownerKey": "REPORT.CUSTOMER_SNAPSHOT",
+    "column": "customer_id"
+   },
+   {
+    "id": 24,
+    "ownerKind": "VIEW",
+    "owner": "report.v_top_customers",
+    "ownerKey": "REPORT.V_TOP_CUSTOMERS",
+    "column": "customer_id"
+   },
+   {
+    "id": 25,
+    "ownerKind": "VIEW",
+    "owner": "report.v_top_customers",
+    "ownerKey": "REPORT.V_TOP_CUSTOMERS",
+    "column": "tier"
+   },
+   {
+    "id": 26,
+    "ownerKind": "TABLE",
+    "owner": "shop.addresses",
+    "ownerKey": "SHOP.ADDRESSES",
+    "column": "city"
+   },
+   {
+    "id": 27,
+    "ownerKind": "VIEW",
+    "owner": "report.v_top_customers",
+    "ownerKey": "REPORT.V_TOP_CUSTOMERS",
+    "column": "city"
+   },
+   {
+    "id": 28,
+    "ownerKind": "VIEW",
+    "owner": "report.v_top_customers",
+    "ownerKey": "REPORT.V_TOP_CUSTOMERS",
+    "column": "*rows*"
+   },
+   {
+    "id": 29,
+    "ownerKind": "TABLE",
+    "owner": "shop.addresses",
+    "ownerKey": "SHOP.ADDRESSES",
+    "column": "country"
+   },
+   {
+    "id": 30,
+    "ownerKind": "TABLE",
+    "owner": "shop.addresses",
+    "ownerKey": "SHOP.ADDRESSES",
+    "column": "customer_id"
+   },
+   {
+    "id": 31,
+    "ownerKind": "RESULT",
+    "owner": "result",
+    "ownerKey": "result@1906",
+    "column": "tier"
+   },
+   {
+    "id": 32,
+    "ownerKind": "RESULT",
+    "owner": "result",
+    "ownerKey": "result@1906",
+    "column": "*rows*"
+   }
+  ],
+  "edges": [
+   {
+    "from": 0,
+    "to": 1,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 217,
+      "line": 7,
+      "column": 8
+     },
+     "end": {
+      "offset": 227,
+      "line": 7,
+      "column": 18
+     }
+    }
+   },
+   {
+    "from": 2,
+    "to": 3,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 229,
+      "line": 7,
+      "column": 20
+     },
+     "end": {
+      "offset": 242,
+      "line": 7,
+      "column": 33
+     }
+    }
+   },
+   {
+    "from": 4,
+    "to": 5,
+    "kind": "DIRECT",
+    "transform": "CAST",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 244,
+      "line": 7,
+      "column": 35
+     },
+     "end": {
+      "offset": 274,
+      "line": 7,
+      "column": 65
+     }
+    }
+   },
+   {
+    "from": 6,
+    "to": 7,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 276,
+      "line": 7,
+      "column": 67
+     },
+     "end": {
+      "offset": 290,
+      "line": 7,
+      "column": 81
+     }
+    }
+   },
+   {
+    "from": 4,
+    "to": 8,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 310,
+      "line": 9,
+      "column": 1
+     },
+     "end": {
+      "offset": 392,
+      "line": 10,
+      "column": 30
+     }
+    }
+   },
+   {
+    "from": 9,
+    "to": 8,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 1,
+    "range": {
+     "start": {
+      "offset": 310,
+      "line": 9,
+      "column": 1
+     },
+     "end": {
+      "offset": 392,
+      "line": 10,
+      "column": 30
+     }
+    }
+   },
+   {
+    "from": 2,
+    "to": 10,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 4,
+    "range": {
+     "start": {
+      "offset": 634,
+      "line": 21,
+      "column": 10
+     },
+     "end": {
+      "offset": 645,
+      "line": 21,
+      "column": 21
+     }
+    }
+   },
+   {
+    "from": 6,
+    "to": 11,
+    "kind": "DIRECT",
+    "transform": "AGGREGATE",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 4,
+    "range": {
+     "start": {
+      "offset": 647,
+      "line": 21,
+      "column": 23
+     },
+     "end": {
+      "offset": 682,
+      "line": 21,
+      "column": 58
+     }
+    }
+   },
+   {
+    "from": 2,
+    "to": 12,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "GROUP",
+    "confidence": "INFERRED",
+    "statement": 4,
+    "range": {
+     "start": {
+      "offset": 713,
+      "line": 23,
+      "column": 12
+     },
+     "end": {
+      "offset": 724,
+      "line": 23,
+      "column": 23
+     }
+    }
+   },
+   {
+    "from": 10,
+    "to": 13,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 4,
+    "range": {
+     "start": {
+      "offset": 749,
+      "line": 25,
+      "column": 10
+     },
+     "end": {
+      "offset": 760,
+      "line": 25,
+      "column": 21
+     }
+    }
+   },
+   {
+    "from": 11,
+    "to": 14,
+    "kind": "DIRECT",
+    "transform": "CASE",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 4,
+    "range": {
+     "start": {
+      "offset": 771,
+      "line": 26,
+      "column": 10
+     },
+     "end": {
+      "offset": 908,
+      "line": 28,
+      "column": 40
+     }
+    }
+   },
+   {
+    "from": 13,
+    "to": 15,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 4,
+    "range": {
+     "start": {
+      "offset": 931,
+      "line": 31,
+      "column": 8
+     },
+     "end": {
+      "offset": 942,
+      "line": 31,
+      "column": 19
+     }
+    }
+   },
+   {
+    "from": 14,
+    "to": 16,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 4,
+    "range": {
+     "start": {
+      "offset": 944,
+      "line": 31,
+      "column": 21
+     },
+     "end": {
+      "offset": 948,
+      "line": 31,
+      "column": 25
+     }
+    }
+   },
+   {
+    "from": 7,
+    "to": 7,
+    "kind": "DIRECT",
+    "transform": "EXPRESSION",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 5,
+    "range": {
+     "start": {
+      "offset": 987,
+      "line": 34,
+      "column": 5
+     },
+     "end": {
+      "offset": 1023,
+      "line": 34,
+      "column": 41
+     }
+    }
+   },
+   {
+    "from": 15,
+    "to": 8,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 5,
+    "range": {
+     "start": {
+      "offset": 1049,
+      "line": 36,
+      "column": 1
+     },
+     "end": {
+      "offset": 1106,
+      "line": 37,
+      "column": 22
+     }
+    }
+   },
+   {
+    "from": 3,
+    "to": 8,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 5,
+    "range": {
+     "start": {
+      "offset": 1049,
+      "line": 36,
+      "column": 1
+     },
+     "end": {
+      "offset": 1106,
+      "line": 37,
+      "column": 22
+     }
+    }
+   },
+   {
+    "from": 16,
+    "to": 8,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 5,
+    "range": {
+     "start": {
+      "offset": 1049,
+      "line": 36,
+      "column": 1
+     },
+     "end": {
+      "offset": 1106,
+      "line": 37,
+      "column": 22
+     }
+    }
+   },
+   {
+    "from": 17,
+    "to": 18,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 6,
+    "range": {
+     "start": {
+      "offset": 1142,
+      "line": 40,
+      "column": 1
+     },
+     "end": {
+      "offset": 1178,
+      "line": 40,
+      "column": 37
+     }
+    }
+   },
+   {
+    "from": 19,
+    "to": 17,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 7,
+    "range": {
+     "start": {
+      "offset": 1258,
+      "line": 43,
+      "column": 8
+     },
+     "end": {
+      "offset": 1269,
+      "line": 43,
+      "column": 19
+     }
+    }
+   },
+   {
+    "from": 16,
+    "to": 20,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 7,
+    "range": {
+     "start": {
+      "offset": 1271,
+      "line": 43,
+      "column": 21
+     },
+     "end": {
+      "offset": 1277,
+      "line": 43,
+      "column": 27
+     }
+    }
+   },
+   {
+    "from": 7,
+    "to": 21,
+    "kind": "DIRECT",
+    "transform": "AGGREGATE",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 7,
+    "range": {
+     "start": {
+      "offset": 1289,
+      "line": 43,
+      "column": 39
+     },
+     "end": {
+      "offset": 1308,
+      "line": 43,
+      "column": 58
+     }
+    }
+   },
+   {
+    "from": 19,
+    "to": 18,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "GROUP",
+    "confidence": "INFERRED",
+    "statement": 7,
+    "range": {
+     "start": {
+      "offset": 1394,
+      "line": 46,
+      "column": 10
+     },
+     "end": {
+      "offset": 1405,
+      "line": 46,
+      "column": 21
+     }
+    }
+   },
+   {
+    "from": 16,
+    "to": 18,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "GROUP",
+    "confidence": "INFERRED",
+    "statement": 7,
+    "range": {
+     "start": {
+      "offset": 1407,
+      "line": 46,
+      "column": 23
+     },
+     "end": {
+      "offset": 1413,
+      "line": 46,
+      "column": 29
+     }
+    }
+   },
+   {
+    "from": 15,
+    "to": 18,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "JOIN",
+    "confidence": "INFERRED",
+    "statement": 7,
+    "range": {
+     "start": {
+      "offset": 1352,
+      "line": 45,
+      "column": 26
+     },
+     "end": {
+      "offset": 1384,
+      "line": 45,
+      "column": 58
+     }
+    }
+   },
+   {
+    "from": 3,
+    "to": 18,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "JOIN",
+    "confidence": "INFERRED",
+    "statement": 7,
+    "range": {
+     "start": {
+      "offset": 1352,
+      "line": 45,
+      "column": 26
+     },
+     "end": {
+      "offset": 1384,
+      "line": 45,
+      "column": 58
+     }
+    }
+   },
+   {
+    "from": 16,
+    "to": 22,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 8,
+    "range": {
+     "start": {
+      "offset": 1542,
+      "line": 50,
+      "column": 30
+     },
+     "end": {
+      "offset": 1555,
+      "line": 50,
+      "column": 43
+     }
+    }
+   },
+   {
+    "from": 15,
+    "to": 23,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 8,
+    "range": {
+     "start": {
+      "offset": 1649,
+      "line": 51,
+      "column": 72
+     },
+     "end": {
+      "offset": 1662,
+      "line": 51,
+      "column": 85
+     }
+    }
+   },
+   {
+    "from": 23,
+    "to": 24,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 9,
+    "range": {
+     "start": {
+      "offset": 1737,
+      "line": 54,
+      "column": 8
+     },
+     "end": {
+      "offset": 1750,
+      "line": 54,
+      "column": 21
+     }
+    }
+   },
+   {
+    "from": 22,
+    "to": 25,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 9,
+    "range": {
+     "start": {
+      "offset": 1752,
+      "line": 54,
+      "column": 23
+     },
+     "end": {
+      "offset": 1758,
+      "line": 54,
+      "column": 29
+     }
+    }
+   },
+   {
+    "from": 26,
+    "to": 27,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 9,
+    "range": {
+     "start": {
+      "offset": 1760,
+      "line": 54,
+      "column": 31
+     },
+     "end": {
+      "offset": 1766,
+      "line": 54,
+      "column": 37
+     }
+    }
+   },
+   {
+    "from": 22,
+    "to": 28,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 9,
+    "range": {
+     "start": {
+      "offset": 1859,
+      "line": 57,
+      "column": 1
+     },
+     "end": {
+      "offset": 1903,
+      "line": 58,
+      "column": 23
+     }
+    }
+   },
+   {
+    "from": 29,
+    "to": 28,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 9,
+    "range": {
+     "start": {
+      "offset": 1859,
+      "line": 57,
+      "column": 1
+     },
+     "end": {
+      "offset": 1903,
+      "line": 58,
+      "column": 23
+     }
+    }
+   },
+   {
+    "from": 30,
+    "to": 28,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "JOIN",
+    "confidence": "INFERRED",
+    "statement": 9,
+    "range": {
+     "start": {
+      "offset": 1826,
+      "line": 56,
+      "column": 28
+     },
+     "end": {
+      "offset": 1858,
+      "line": 56,
+      "column": 60
+     }
+    }
+   },
+   {
+    "from": 23,
+    "to": 28,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "JOIN",
+    "confidence": "INFERRED",
+    "statement": 9,
+    "range": {
+     "start": {
+      "offset": 1826,
+      "line": 56,
+      "column": 28
+     },
+     "end": {
+      "offset": 1858,
+      "line": 56,
+      "column": 60
+     }
+    }
+   },
+   {
+    "from": 22,
+    "to": 31,
+    "kind": "DIRECT",
+    "transform": "PASS_THROUGH",
+    "role": null,
+    "confidence": "INFERRED",
+    "statement": 10,
+    "range": {
+     "start": {
+      "offset": 1913,
+      "line": 60,
+      "column": 8
+     },
+     "end": {
+      "offset": 1917,
+      "line": 60,
+      "column": 12
+     }
+    }
+   },
+   {
+    "from": 22,
+    "to": 32,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "FILTER",
+    "confidence": "INFERRED",
+    "statement": 10,
+    "range": {
+     "start": {
+      "offset": 1958,
+      "line": 60,
+      "column": 53
+     },
+     "end": {
+      "offset": 1980,
+      "line": 60,
+      "column": 75
+     }
+    }
+   },
+   {
+    "from": 22,
+    "to": 32,
+    "kind": "INDIRECT",
+    "transform": null,
+    "role": "GROUP",
+    "confidence": "INFERRED",
+    "statement": 10,
+    "range": {
+     "start": {
+      "offset": 1990,
+      "line": 60,
+      "column": 85
+     },
+     "end": {
+      "offset": 1994,
+      "line": 60,
+      "column": 89
+     }
+    }
+   }
+  ]
+ },
+ "findings": [
+  {
+   "rule": "AMB-S002",
+   "severity": "MEDIUM",
+   "title": "LEFT JOIN behaves as INNER JOIN",
+   "message": "The WHERE condition on a.country drops the rows the LEFT JOIN kept.",
+   "suggestion": "Move the condition into the ON clause, or use INNER JOIN if that is intended.",
+   "statement": 9,
+   "range": {
+    "start": {
+     "offset": 1887,
+     "line": 58,
+     "column": 7
+    },
+    "end": {
+     "offset": 1898,
+     "line": 58,
+     "column": 18
+    }
+   },
+   "confidence": "INFERRED"
+  },
+  {
+   "rule": "AMB-S003",
+   "severity": "MEDIUM",
+   "title": "Leading wildcard",
+   "message": "LIKE '%old' cannot use an index on the column.",
+   "suggestion": "Anchor the pattern at the start, or use full-text search.",
+   "statement": 10,
+   "range": {
+    "start": {
+     "offset": 1969,
+     "line": 60,
+     "column": 64
+    },
+    "end": {
+     "offset": 1980,
+     "line": 60,
+     "column": 75
+    }
+   },
+   "confidence": "CERTAIN"
+  }
+ ]
+}

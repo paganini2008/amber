@@ -1,0 +1,2 @@
+Upstream wraps COPY ... FROM stdin data in /* */ so its whole-file parse passes.
+Real psql reads those rows as COPY data up to \. and then fails on the closing */, and so does Amber.

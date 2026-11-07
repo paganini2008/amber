@@ -1,0 +1,20 @@
+-- Oracle conformance: grouping, ROLLUP, CUBE, GROUPING SETS
+SELECT region, COUNT(*), SUM(amount), AVG(amount), MIN(amount), MAX(amount) FROM orders GROUP BY region;
+SELECT region, product, SUM(amount) FROM orders GROUP BY region, product HAVING SUM(amount) > 1000;
+SELECT region, product, SUM(amount) FROM orders GROUP BY ROLLUP (region, product);
+SELECT region, product, SUM(amount) FROM orders GROUP BY CUBE (region, product);
+SELECT region, product, channel, SUM(amount) FROM orders GROUP BY GROUPING SETS ((region, product), (channel), ());
+SELECT region, product, GROUPING(region) g_r, GROUPING_ID(region, product) gid, GROUP_ID() FROM orders GROUP BY region, ROLLUP(product);
+SELECT DECODE(GROUPING(region), 1, 'All regions', region) r, SUM(amount) FROM orders GROUP BY ROLLUP(region);
+SELECT region, COUNT(DISTINCT customer_id) FROM orders GROUP BY region ORDER BY 2 DESC;
+SELECT region, MEDIAN(amount), STDDEV(amount), VARIANCE(amount) FROM orders GROUP BY region;
+SELECT PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount) FROM orders;
+SELECT PERCENTILE_DISC(0.9) WITHIN GROUP (ORDER BY amount DESC) FROM orders;
+SELECT MAX(amount) KEEP (DENSE_RANK LAST ORDER BY order_date) FROM orders;
+SELECT customer_id, MIN(status) KEEP (DENSE_RANK FIRST ORDER BY order_date) AS first_status FROM orders GROUP BY customer_id;
+SELECT APPROX_COUNT_DISTINCT(customer_id) FROM orders;
+SELECT RANK(1000) WITHIN GROUP (ORDER BY amount) FROM orders;
+SELECT COLLECT(product_id) FROM orders;
+SELECT region, SUM(amount) FROM orders GROUP BY region HAVING COUNT(*) > 5 ORDER BY region;
+SELECT EXTRACT(YEAR FROM order_date) yr, TRUNC(order_date, 'MM') mon, SUM(amount) FROM orders GROUP BY EXTRACT(YEAR FROM order_date), TRUNC(order_date, 'MM');
+SELECT region, product, SUM(amount) FROM orders GROUP BY ROLLUP ((region, product));

@@ -1,0 +1,2 @@
+Composable DML (INSERT … SELECT … FROM (MERGE … OUTPUT …) AS x) is not in the grammars-v4 T-SQL
+grammar. It is rare; with allowFallback the statement is kept as UNPARSED.

@@ -1,0 +1,15 @@
+UPDATE dbo.Products SET price = price * 1.05 WHERE category = 'Tools';
+UPDATE p SET p.price = s.new_price FROM dbo.Products p INNER JOIN staging.Prices s ON s.product_id = p.product_id;
+UPDATE dbo.Products SET price = s.new_price FROM dbo.Products JOIN staging.Prices s ON s.product_id = dbo.Products.product_id;
+UPDATE TOP (500) dbo.Orders SET status = 'ARCHIVED' WHERE order_date < '2019-01-01';
+UPDATE dbo.Orders SET status = 'SHIPPED' OUTPUT deleted.status AS old_status, inserted.status AS new_status, inserted.order_id WHERE order_id = 10;
+UPDATE dbo.Counters SET @v = value = value + 1 WHERE name = 'invoice';
+UPDATE dbo.Products SET price += 1, qty -= 2, flags |= 4 WHERE product_id = 7;
+UPDATE dbo.Documents SET body.WRITE(N'appended', NULL, NULL) WHERE doc_id = 1;
+UPDATE dbo.Shapes SET geo.STSrid = 4326 WHERE shape_id = 1;
+UPDATE c SET c.total_orders = x.cnt FROM dbo.Customers c CROSS APPLY (SELECT COUNT(*) AS cnt FROM dbo.Orders o WHERE o.customer_id = c.customer_id) x;
+UPDATE dbo.Orders WITH (ROWLOCK) SET status = 'X' WHERE CURRENT OF order_cursor;
+UPDATE dbo.Products SET price = CASE WHEN price > 100 THEN price * 0.9 ELSE price END;
+UPDATE dbo.Products SET discontinued = 1 WHERE product_id IN (SELECT product_id FROM dbo.OldProducts) OPTION (MAXDOP 1);
+UPDATE @tv SET val = 2 WHERE id = 1;
+UPDATE t SET t.val = 'y' FROM #tmp AS t WHERE t.id = 1;

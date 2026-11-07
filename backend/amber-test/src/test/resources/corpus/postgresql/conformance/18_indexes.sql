@@ -1,0 +1,24 @@
+-- Indexes
+CREATE INDEX orders_customer_idx ON sales.orders (customer_id);
+CREATE UNIQUE INDEX IF NOT EXISTS customer_email_uq ON sales.customer (lower(email));
+CREATE INDEX CONCURRENTLY orders_open_idx ON sales.orders (order_date DESC NULLS LAST) WHERE status = 'OPEN';
+CREATE INDEX orders_cover_idx ON sales.orders (customer_id) INCLUDE (amount, status);
+CREATE INDEX contact_profile_gin ON crm.contact USING gin (profile jsonb_path_ops);
+CREATE INDEX contact_name_trgm ON crm.contact USING gin (name gin_trgm_ops);
+CREATE INDEX event_period_gist ON sales.booking USING gist (period);
+CREATE INDEX log_ts_brin ON audit.log USING brin (created_at) WITH (pages_per_range = 32);
+CREATE INDEX ON sales.orders USING hash (order_ref);
+CREATE INDEX orders_name_coll ON sales.orders (note COLLATE "C" text_pattern_ops);
+CREATE INDEX orders_expr ON sales.orders ((amount * 2), (status || 'x'));
+CREATE UNIQUE INDEX orders_nnd ON sales.orders (order_ref) NULLS NOT DISTINCT;
+CREATE INDEX orders_ts ON sales.orders (created_at) TABLESPACE fast_ssd;
+CREATE INDEX orders_part ON ONLY sales.orders (order_date);
+ALTER INDEX orders_customer_idx RENAME TO orders_cust_idx;
+ALTER INDEX IF EXISTS orders_cust_idx SET (fillfactor = 80);
+ALTER INDEX orders_part ATTACH PARTITION orders_2024_order_date_idx;
+REINDEX INDEX CONCURRENTLY orders_cust_idx;
+REINDEX TABLE sales.orders;
+REINDEX (VERBOSE) SCHEMA sales;
+DROP INDEX CONCURRENTLY IF EXISTS orders_cust_idx;
+DROP INDEX orders_expr, orders_ts CASCADE;
+CLUSTER sales.orders USING orders_pkey;

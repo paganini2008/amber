@@ -1,0 +1,53 @@
+appId: com.github.paganini2008.amber
+productName: Amber
+copyright: Copyright © Amber contributors. Licensed under the Apache License 2.0.
+directories:
+  output: release
+  buildResources: build
+files:
+  - out/**/*
+  - package.json
+  - '!**/*.map'
+extraResources:
+  - from: resources/engine
+    to: engine
+  - from: resources/runtime
+    to: runtime
+  - from: ../../LICENSE
+    to: LICENSE
+asar: true
+publish: never
+mac:
+  category: public.app-category.developer-tools
+  icon: build/icon.png
+  identity: null
+  target:
+    - target: dmg
+  artifactName: Amber-macos-${arch}.${ext}
+dmg:
+  artifactName: Amber-macos-${arch}.${ext}
+win:
+  icon: build/icon.png
+  target:
+    - target: nsis
+      arch: [x64]
+  artifactName: Amber-windows-x64-setup.${ext}
+nsis:
+  oneClick: false
+  perMachine: false
+  allowToChangeInstallationDirectory: true
+  artifactName: Amber-windows-x64-setup.${ext}
+linux:
+  icon: build/icon.png
+  category: Development
+  maintainer: Amber contributors
+  synopsis: Read and understand large SQL scripts
+  target:
+    - target: deb
+      arch: [x64]
+    - target: rpm
+      arch: [x64]
+deb:
+  artifactName: Amber-linux-x64.${ext}
+rpm:
+  artifactName: Amber-linux-x64.${ext}

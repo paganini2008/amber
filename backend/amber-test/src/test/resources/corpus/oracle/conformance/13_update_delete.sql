@@ -1,0 +1,20 @@
+-- Oracle conformance: UPDATE and DELETE
+UPDATE orders SET status = 'SHIPPED' WHERE order_id = 1;
+UPDATE orders o SET o.status = 'CLOSED', o.closed_at = SYSDATE WHERE o.order_date < ADD_MONTHS(SYSDATE, -12);
+UPDATE orders SET (amount, status) = (SELECT amount, status FROM staging_orders s WHERE s.order_id = orders.order_id) WHERE order_id IN (SELECT order_id FROM staging_orders);
+UPDATE (SELECT o.amount, s.new_amount FROM orders o JOIN staging_orders s ON s.order_id = o.order_id) SET amount = new_amount;
+UPDATE orders SET amount = amount * 1.1 WHERE region = 'EU' RETURNING amount INTO :new_amount;
+UPDATE orders PARTITION (p_2024) SET status = 'ARCHIVED';
+UPDATE orders SET status = DEFAULT WHERE order_id = 5;
+UPDATE orders o SET o.amount = s.new_amount FROM staging_orders s WHERE s.order_id = o.order_id;
+UPDATE orders SET amount = 1 WHERE order_id = 3 LOG ERRORS INTO err$_orders REJECT LIMIT 10;
+DELETE FROM orders WHERE order_id = 1;
+DELETE orders WHERE status = 'CANCELLED';
+DELETE FROM orders o WHERE o.customer_id IN (SELECT customer_id FROM customers WHERE status = 'GONE');
+DELETE FROM orders WHERE order_id = 7 RETURNING amount INTO :deleted_amount;
+DELETE FROM (SELECT * FROM orders o JOIN customers c ON c.customer_id = o.customer_id WHERE c.region = 'XX');
+DELETE FROM orders PARTITION (p_2019);
+DELETE FROM orders o FROM customers c WHERE c.customer_id = o.customer_id AND c.status = 'GONE';
+TRUNCATE TABLE staging_orders;
+TRUNCATE TABLE staging_orders REUSE STORAGE;
+TRUNCATE TABLE staging_orders DROP STORAGE CASCADE;

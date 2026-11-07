@@ -1,0 +1,61 @@
+-- Partitioning and indexes
+CREATE TABLE sales_fact (
+  sale_id BIGINT NOT NULL,
+  sale_date DATE NOT NULL,
+  region_code CHAR(2) NOT NULL,
+  amount DECIMAL(12,2),
+  PRIMARY KEY (sale_id, sale_date)
+)
+PARTITION BY RANGE (YEAR(sale_date)) (
+  PARTITION p2022 VALUES LESS THAN (2023),
+  PARTITION p2023 VALUES LESS THAN (2024),
+  PARTITION p2024 VALUES LESS THAN (2025),
+  PARTITION pmax VALUES LESS THAN MAXVALUE
+);
+CREATE TABLE sales_by_region (id INT, region_code CHAR(2), PRIMARY KEY (id, region_code))
+PARTITION BY LIST COLUMNS (region_code) (
+  PARTITION p_east VALUES IN ('NY', 'NJ', 'MA'),
+  PARTITION p_west VALUES IN ('CA', 'OR', 'WA')
+);
+CREATE TABLE events_log (id BIGINT, created DATETIME, PRIMARY KEY (id, created))
+PARTITION BY RANGE COLUMNS (created) (
+  PARTITION p0 VALUES LESS THAN ('2024-01-01'),
+  PARTITION p1 VALUES LESS THAN (MAXVALUE)
+);
+CREATE TABLE sessions_hash (id INT PRIMARY KEY, data TEXT) PARTITION BY HASH (id) PARTITIONS 8;
+CREATE TABLE sessions_lhash (id INT PRIMARY KEY) PARTITION BY LINEAR HASH (id) PARTITIONS 4;
+CREATE TABLE sessions_key (id INT PRIMARY KEY) PARTITION BY KEY () PARTITIONS 4;
+CREATE TABLE sub_part (id INT, d DATE)
+PARTITION BY RANGE (YEAR(d)) SUBPARTITION BY HASH (TO_DAYS(d)) SUBPARTITIONS 2 (
+  PARTITION p0 VALUES LESS THAN (2000),
+  PARTITION p1 VALUES LESS THAN MAXVALUE
+);
+ALTER TABLE sales_fact ADD PARTITION (PARTITION p2025 VALUES LESS THAN (2026));
+ALTER TABLE sales_fact DROP PARTITION p2022;
+ALTER TABLE sales_fact TRUNCATE PARTITION p2023;
+ALTER TABLE sales_fact REORGANIZE PARTITION pmax INTO (PARTITION p2026 VALUES LESS THAN (2027), PARTITION pmax VALUES LESS THAN MAXVALUE);
+ALTER TABLE sales_fact EXCHANGE PARTITION p2023 WITH TABLE sales_2023 WITHOUT VALIDATION;
+ALTER TABLE sales_fact ANALYZE PARTITION p2024;
+ALTER TABLE sessions_hash COALESCE PARTITION 2;
+ALTER TABLE sessions_hash REMOVE PARTITIONING;
+SELECT * FROM sales_fact PARTITION (p2024, p2025) WHERE amount > 0;
+CREATE INDEX idx_sales_date ON sales_fact (sale_date);
+CREATE UNIQUE INDEX uq_sales ON sales_fact (sale_id, sale_date) USING BTREE;
+CREATE INDEX idx_amount_desc ON sales_fact (amount DESC, region_code ASC);
+CREATE INDEX idx_prefix ON customers (email(20));
+CREATE INDEX idx_func ON sales_fact ((YEAR(sale_date)));
+CREATE INDEX idx_json_multi ON customers ((CAST(prefs->'$.tags' AS CHAR(20) ARRAY)));
+CREATE FULLTEXT INDEX ft_bio ON customers (bio) WITH PARSER ngram;
+CREATE SPATIAL INDEX sp_loc ON customers (location);
+CREATE INDEX idx_inv ON sales_fact (region_code) INVISIBLE COMMENT 'testing';
+CREATE INDEX idx_online ON sales_fact (amount) ALGORITHM = INPLACE LOCK = NONE;
+DROP INDEX idx_inv ON sales_fact;
+ALTER TABLE sales_fact DROP INDEX idx_online, ADD INDEX idx_both (region_code, amount);
+ANALYZE TABLE sales_fact;
+ANALYZE TABLE customers UPDATE HISTOGRAM ON status, region WITH 16 BUCKETS;
+OPTIMIZE TABLE sales_fact;
+CHECK TABLE sales_fact;
+EXPLAIN SELECT * FROM sales_fact WHERE sale_date > '2024-01-01';
+EXPLAIN FORMAT=JSON SELECT * FROM sales_fact;
+EXPLAIN ANALYZE SELECT COUNT(*) FROM sales_fact;
+DESCRIBE sales_fact;

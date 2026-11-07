@@ -1,0 +1,11 @@
+create schema if not exists shop;
+create schema if not exists report;
+create table shop.orders (order_id bigint primary key, customer_id bigint not null, status varchar(16) not null, total_amount numeric(12,2) not null, placed_at timestamp not null);
+create index ix_orders_customer on shop.orders (customer_id);
+create index ix_orders_placed on shop.orders (placed_at);
+create table shop.addresses (customer_id bigint not null, city varchar(80), country char(2), primary key (customer_id, country));
+create table report.customer_snapshot (customer_id bigint primary key, tier varchar(10) not null);
+create table report.daily_revenue (revenue_day date not null, tier varchar(10) not null, revenue numeric(14,2), primary key (revenue_day, tier));
+insert into shop.orders values (1, 10, 'PAID', 25.50, now() - interval '1 day'), (2, 11, 'PAID', 99.00, now() - interval '1 day'), (3, 10, 'NEW', 12.00, now());
+insert into shop.addresses values (10, 'Lyon', 'FR'), (11, 'Porto', 'PT');
+insert into report.customer_snapshot values (10, 'GOLD'), (11, 'SILVER');

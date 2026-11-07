@@ -1,0 +1,15 @@
+SELECT region, SUM(amount) FROM dbo.Sales GROUP BY region;
+SELECT region, product, SUM(amount) FROM dbo.Sales GROUP BY region, product HAVING SUM(amount) > 1000;
+SELECT region, product, SUM(amount) FROM dbo.Sales GROUP BY ROLLUP (region, product);
+SELECT region, product, SUM(amount) FROM dbo.Sales GROUP BY CUBE (region, product);
+SELECT region, product, SUM(amount) FROM dbo.Sales GROUP BY GROUPING SETS ((region, product), (region), ());
+SELECT region, product, GROUPING(region) AS g_r, GROUPING_ID(region, product) AS gid, SUM(amount) FROM dbo.Sales GROUP BY ROLLUP (region, product);
+SELECT region, product, SUM(amount) FROM dbo.Sales GROUP BY region, product WITH ROLLUP;
+SELECT region, product, SUM(amount) FROM dbo.Sales GROUP BY region, product WITH CUBE;
+SELECT YEAR(sale_date) AS yr, MONTH(sale_date) AS mo, COUNT(*) FROM dbo.Sales GROUP BY YEAR(sale_date), MONTH(sale_date);
+SELECT region, STRING_AGG(product, ', ') WITHIN GROUP (ORDER BY product) AS products FROM dbo.Sales GROUP BY region;
+SELECT region, APPROX_COUNT_DISTINCT(customer_id) FROM dbo.Sales GROUP BY region;
+SELECT region, STDEV(amount), VAR(amount), MIN(amount), MAX(amount), AVG(CAST(amount AS FLOAT)), CHECKSUM_AGG(CAST(amount AS INT)) FROM dbo.Sales GROUP BY region;
+SELECT region, SUM(amount) FROM dbo.Sales GROUP BY ALL region;
+SELECT region, product, SUM(amount) FROM dbo.Sales GROUP BY region, ROLLUP (product);
+SELECT APPROX_PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount) AS med FROM dbo.Sales;

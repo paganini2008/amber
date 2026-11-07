@@ -1,0 +1,876 @@
+@import 'tailwindcss';
+
+/*
+ * Theme tokens (--canvas, --surface, --ink, …) are set at runtime from src/shared/themes.ts.
+ * Everything below derives from them, so a new theme only needs a new token set.
+ */
+:root {
+  --canvas: #f1ece1;
+  --surface: #faf7f0;
+  --ink: #17232a;
+  --ink-muted: #52616a;
+  --line: #dfd5c2;
+  --amber: #e8920c;
+  --amber-ink: #8a4b00;
+  --risk-high: #bf2f2c;
+  --risk-medium: #7438ad;
+  --risk-low: #1c5fae;
+  /* The deep second color: app chrome and structure */
+  --chrome: #0f2a33;
+  --chrome-ink: #e6efec;
+  --chrome-muted: #9db5b8;
+  --chrome-amber: #ffb547;
+
+  /* Derived. Tinted surfaces lean toward amber, so cards read as honey rather than grey. */
+  --surface-2: color-mix(in srgb, var(--surface) 91%, var(--amber-ink));
+  --surface-hover: color-mix(in srgb, var(--surface) 90%, var(--amber));
+  --line-strong: color-mix(in srgb, var(--line) 60%, var(--ink-muted));
+  --ink-faint: color-mix(in srgb, var(--ink-muted) 55%, var(--surface));
+  --amber-wash: color-mix(in srgb, var(--amber) 14%, transparent);
+  --amber-wash-strong: color-mix(in srgb, var(--amber) 26%, transparent);
+  --on-amber: #17232a;
+  --amber-glow: color-mix(in srgb, var(--amber) 38%, transparent);
+  --recede: 0.32;
+  --edge-rest: color-mix(in srgb, var(--ink-muted) 45%, var(--canvas));
+
+  /* Structure view block kinds; set per theme from lib/structure.ts structurePalette */
+  --qb-query: var(--ink-muted);
+  --qb-set: #d55181;
+  --qb-cte: #008300;
+  --qb-derived: #2a78d6;
+  --qb-subquery: #2a78d6;
+
+  --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-code: 'IBM Plex Mono', ui-monospace, monospace;
+  --code-size: 13px;
+  --motion: 180ms;
+
+  color-scheme: light;
+}
+
+:root[data-dark='true'] {
+  color-scheme: dark;
+  --on-amber: #14171b;
+  /* On the deep base, tints lean toward the light ink (cool petrol) and leave amber to accents. */
+  --surface-2: color-mix(in srgb, var(--surface) 90%, var(--ink-muted));
+  --surface-hover: color-mix(in srgb, var(--surface) 88%, var(--ink-muted));
+}
+
+:root[data-theme='high-contrast'] {
+  --recede: 0.45;
+  --edge-rest: var(--ink-muted);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion: 0ms;
+  }
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-surface-2: var(--surface-2);
+  --color-surface-hover: var(--surface-hover);
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-faint: var(--ink-faint);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-amber: var(--amber);
+  --color-amber-ink: var(--amber-ink);
+  --color-amber-wash: var(--amber-wash);
+  --color-chrome: var(--chrome);
+  --color-chrome-ink: var(--chrome-ink);
+  --color-chrome-muted: var(--chrome-muted);
+  --color-chrome-amber: var(--chrome-amber);
+  --color-on-amber: var(--on-amber);
+  --color-risk-high: var(--risk-high);
+  --color-risk-medium: var(--risk-medium);
+  --color-risk-low: var(--risk-low);
+  --font-sans: var(--font-ui);
+  --font-mono: var(--font-code);
+  --text-xs: 12px;
+  --text-xs--line-height: 16px;
+  --text-sm: 13px;
+  --text-sm--line-height: 18px;
+  --text-base: 14px;
+  --text-base--line-height: 20px;
+  --text-lg: 16px;
+  --text-lg--line-height: 22px;
+  --text-xl: 20px;
+  --text-xl--line-height: 26px;
+  --text-2xl: 24px;
+  --text-2xl--line-height: 30px;
+}
+
+/*
+ * Chrome: title bar, outline sidebar, view tabs, status bar. Inside it the surface tokens are
+ * re-pointed at the deep color, so components keep their classes and simply read light-on-deep.
+ * Derived tokens are re-derived here because custom properties resolve where they are declared.
+ */
+.chrome {
+  --surface: var(--chrome);
+  --canvas: color-mix(in srgb, var(--chrome) 88%, black);
+  --ink: var(--chrome-ink);
+  --ink-muted: var(--chrome-muted);
+  --line: color-mix(in srgb, var(--chrome-ink) 13%, var(--chrome));
+  --amber-ink: var(--chrome-amber);
+  --surface-2: color-mix(in srgb, var(--chrome) 86%, var(--chrome-ink));
+  --surface-hover: color-mix(in srgb, var(--chrome) 88%, var(--chrome-ink));
+  --line-strong: color-mix(in srgb, var(--chrome-ink) 28%, var(--chrome));
+  --ink-faint: color-mix(in srgb, var(--chrome-muted) 62%, var(--chrome));
+  --amber-wash: color-mix(in srgb, var(--amber) 20%, transparent);
+  --amber-wash-strong: color-mix(in srgb, var(--amber) 32%, transparent);
+  background: var(--chrome);
+  color: var(--chrome-ink);
+  color-scheme: dark;
+}
+
+html,
+body,
+#root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  background: var(--canvas);
+  color: var(--ink);
+  font-family: var(--font-ui);
+  font-size: 13px;
+  line-height: 18px;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+  user-select: none;
+}
+
+::selection {
+  background: var(--amber-wash-strong);
+}
+
+:focus-visible {
+  outline: 2px solid var(--amber);
+  outline-offset: 1px;
+}
+
+.drag {
+  -webkit-app-region: drag;
+}
+
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
+.selectable {
+  user-select: text;
+}
+
+.code {
+  font-family: var(--font-code);
+  font-size: var(--code-size);
+}
+
+/* Scrollbars stay quiet */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-thumb {
+  background: color-mix(in srgb, color-mix(in srgb, var(--ink-muted) 70%, var(--amber)) 34%, transparent);
+  border-radius: 10px;
+  border: 2px solid transparent;
+  background-clip: padding-box;
+}
+::-webkit-scrollbar-thumb:hover {
+  background-color: color-mix(in srgb, var(--ink-muted) 50%, transparent);
+}
+::-webkit-scrollbar-corner {
+  background: transparent;
+}
+
+/* Confidence is shown by line style, never by color */
+.conf-line {
+  display: inline-block;
+  width: 14px;
+  height: 0;
+  border-top-width: 2px;
+  border-top-color: currentColor;
+  vertical-align: middle;
+}
+.conf-CERTAIN {
+  border-top-style: solid;
+}
+.conf-INFERRED {
+  border-top-style: solid;
+  opacity: 0.7;
+}
+.conf-PARTIAL {
+  border-top-style: dashed;
+}
+.conf-UNRESOLVED {
+  border-top-style: dotted;
+}
+
+/* Recede: what is off the traced path steps back */
+.recede {
+  opacity: var(--recede);
+  transition: opacity var(--motion) ease;
+}
+
+/* Access markers (lifecycle matrix and details) */
+.mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 2px;
+  border-radius: 3px;
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1;
+}
+.mark-write {
+  background: var(--ink);
+  color: var(--surface);
+}
+.mark-read {
+  color: var(--ink-muted);
+  border: 1px solid transparent;
+}
+.mark-struct {
+  border: 1px solid var(--ink-muted);
+  color: var(--ink);
+}
+.mark-exec {
+  border: 1px dashed var(--ink-muted);
+  color: var(--ink-muted);
+}
+.lit .mark-write,
+.mark-write.lit {
+  background: var(--amber);
+  color: var(--on-amber);
+}
+.lit .mark-struct,
+.lit .mark-read,
+.lit .mark-exec {
+  border-color: var(--amber);
+  color: var(--amber-ink);
+}
+
+/* CodeMirror */
+.cm-editor {
+  height: 100%;
+  background: var(--surface);
+  color: var(--ink);
+  font-size: var(--code-size);
+}
+.cm-editor.cm-focused {
+  outline: none;
+}
+.cm-scroller {
+  font-family: var(--font-code) !important;
+  line-height: 1.55 !important;
+}
+.cm-gutters {
+  background: var(--surface) !important;
+  color: var(--ink-faint) !important;
+  border-right: 1px solid var(--line) !important;
+}
+.cm-activeLineGutter {
+  background: transparent !important;
+  color: var(--ink) !important;
+}
+.cm-activeLine {
+  background: color-mix(in srgb, var(--ink) 3.5%, transparent) !important;
+}
+.cm-cursor {
+  border-left-color: var(--ink) !important;
+}
+.cm-selectionBackground,
+.cm-focused .cm-selectionBackground {
+  background: color-mix(in srgb, var(--ink-muted) 22%, transparent) !important;
+}
+.cm-amber-range {
+  background: var(--amber-wash);
+}
+.cm-amber-line {
+  box-shadow: inset 3px 0 0 var(--amber);
+}
+.cm-amber-ref {
+  background: var(--amber-wash-strong);
+  border-bottom: 2px solid var(--amber);
+  border-radius: 2px;
+}
+.cm-play-line {
+  box-shadow: inset 3px 0 0 var(--amber);
+  background: var(--amber-wash);
+}
+.cm-diag-error {
+  text-decoration: underline wavy var(--risk-high);
+  text-underline-offset: 3px;
+  background: color-mix(in srgb, var(--risk-high) 10%, transparent);
+}
+.cm-diag-warning {
+  text-decoration: underline wavy var(--risk-medium);
+  text-underline-offset: 3px;
+}
+.cm-findings-gutter {
+  width: 18px;
+}
+.cm-finding-marker {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+}
+.cm-diag-gutter-error {
+  color: var(--risk-high);
+}
+.cm-panels {
+  background: var(--surface-2) !important;
+  color: var(--ink) !important;
+  border-color: var(--line) !important;
+}
+.cm-panels input,
+.cm-panels button {
+  font-family: var(--font-ui);
+  font-size: 12px;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+}
+.cm-searchMatch {
+  background: color-mix(in srgb, var(--risk-low) 18%, transparent) !important;
+}
+.cm-searchMatch-selected {
+  background: var(--amber-wash-strong) !important;
+}
+.cm-tooltip {
+  background: var(--surface) !important;
+  color: var(--ink) !important;
+  border: 1px solid var(--line) !important;
+}
+
+/* Syntax: calm; keywords in amber text (AA on the editor surfaces in every theme), the rest near-monochrome */
+.tok-keyword {
+  color: var(--amber-ink);
+  font-weight: 600;
+}
+.tok-string,
+.tok-string2 {
+  color: var(--ink-muted);
+}
+.tok-number,
+.tok-bool,
+.tok-null {
+  color: var(--ink-muted);
+  font-weight: 500;
+}
+.tok-comment {
+  color: var(--ink-faint);
+  font-style: italic;
+}
+.tok-typeName,
+.tok-function {
+  color: color-mix(in srgb, var(--ink) 80%, var(--ink-muted));
+}
+.tok-operator,
+.tok-punctuation {
+  color: var(--ink-muted);
+}
+.tok-variableName.tok-special {
+  color: var(--ink-muted);
+}
+
+/* React Flow */
+.react-flow {
+  --xy-background-color: var(--canvas);
+  --xy-edge-stroke: var(--edge-rest);
+  --xy-minimap-background-color: var(--surface);
+  --xy-minimap-mask-background-color: color-mix(in srgb, var(--canvas) 70%, transparent);
+  --xy-controls-button-background-color: var(--surface);
+  --xy-controls-button-background-color-hover: var(--surface-hover);
+  --xy-controls-button-color: var(--ink);
+  --xy-controls-button-border-color: var(--line);
+  --xy-attribution-background-color: transparent;
+}
+.react-flow__controls {
+  box-shadow: none !important;
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.react-flow__minimap {
+  border: 1px solid var(--line);
+  border-radius: 6px;
+}
+.react-flow__node {
+  transition: opacity var(--motion) ease;
+}
+.react-flow__edge path {
+  transition: stroke var(--motion) ease, opacity var(--motion) ease;
+}
+@keyframes amber-flow {
+  to {
+    stroke-dashoffset: -24;
+  }
+}
+.edge-flowing path.react-flow__edge-path {
+  stroke-dasharray: 6 6 !important;
+  animation: amber-flow 0.6s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .edge-flowing path.react-flow__edge-path {
+    animation: none;
+    stroke-dasharray: none !important;
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+.spin {
+  animation: spin 0.9s linear infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .spin {
+    animation-duration: 3s;
+  }
+}
+
+/* Structure view: nested query boxes. --qb is the accent of the box kind. */
+.qb-box {
+  border: 1px solid color-mix(in srgb, var(--qb) 38%, var(--line));
+  border-left: 3px solid var(--qb);
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--qb) 4%, var(--surface));
+}
+.qb-box.qb-odd {
+  background: color-mix(in srgb, var(--qb) 7%, var(--surface));
+}
+.qb-box.qb-active {
+  border-color: var(--amber);
+  border-left-color: var(--amber);
+  box-shadow: 0 0 0 2px var(--amber-wash-strong);
+}
+.qb-badge {
+  color: var(--ink);
+  background: color-mix(in srgb, var(--qb) 15%, transparent);
+  box-shadow: inset 2px 0 0 var(--qb);
+  border-radius: 3px;
+  padding: 0 6px;
+  font-size: 12px;
+  font-weight: 600;
+  line-height: 19px;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.qb-query {
+  --qb: var(--qb-query);
+}
+.qb-set {
+  --qb: var(--qb-set);
+}
+.qb-cte {
+  --qb: var(--qb-cte);
+}
+.qb-derived {
+  --qb: var(--qb-derived);
+}
+.qb-subquery {
+  --qb: var(--qb-subquery);
+}
+.qb-box.qb-subquery {
+  border-left-style: dashed;
+}
+
+/* Start screen: the amber gem glowing in deep Baltic water. The one bold moment of the app. */
+.hero {
+  background:
+    radial-gradient(120% 90% at 0% 100%, color-mix(in srgb, var(--chrome) 70%, black) 0%, transparent 60%),
+    var(--chrome);
+}
+.hero-glow {
+  position: absolute;
+  left: -120px;
+  top: 50%;
+  width: 560px;
+  height: 560px;
+  transform: translateY(-62%);
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--amber-glow) 0%, color-mix(in srgb, var(--amber) 10%, transparent) 38%, transparent 68%);
+  animation: amber-rise 1400ms ease-out both;
+  pointer-events: none;
+}
+.hero-logo {
+  filter: drop-shadow(0 10px 34px color-mix(in srgb, var(--amber) 55%, transparent));
+}
+@keyframes amber-rise {
+  from {
+    opacity: 0;
+    transform: translateY(-58%) scale(0.86);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .hero-glow {
+    animation: none;
+  }
+}
+.sample-card {
+  transition: border-color var(--motion) ease, background-color var(--motion) ease;
+}
+.sample-card:hover {
+  border-color: var(--amber);
+  background: color-mix(in srgb, var(--surface) 92%, var(--amber));
+}
+.monogram {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: 8px;
+  background: var(--chrome);
+  color: var(--chrome-amber);
+  font-family: var(--font-code);
+  font-size: 14px;
+  font-weight: 500;
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--amber) 55%, transparent);
+}
+.sample-card:hover .monogram {
+  background: var(--amber);
+  color: var(--on-amber);
+}
+
+/* Logical order: step numbers on boxes and in the list */
+.step-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  height: 20px;
+  padding: 0 7px 0 2px;
+  border-radius: 10px;
+  border: 1px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.step-num {
+  display: inline-flex;
+  min-width: 16px;
+  height: 16px;
+  padding: 0 4px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  background: var(--chrome);
+  color: var(--chrome-ink);
+  font-family: var(--font-code);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+}
+.step-chip-current {
+  border-color: var(--amber);
+  background: var(--amber-wash);
+}
+.step-chip-current .step-num {
+  background: var(--amber);
+  color: var(--on-amber);
+}
+.step-dot {
+  display: inline-flex;
+  flex-shrink: 0;
+  margin-top: 1px;
+  min-width: 20px;
+  height: 20px;
+  padding: 0 4px;
+  align-items: center;
+  justify-content: center;
+  border-radius: 10px;
+  border: 1px solid var(--line-strong);
+  color: var(--ink-muted);
+  font-family: var(--font-code);
+  font-size: 11.5px;
+  font-variant-numeric: tabular-nums;
+}
+.step-dot-done {
+  border-color: transparent;
+  background: var(--surface-2);
+  color: var(--ink-muted);
+}
+.step-dot-current {
+  border-color: var(--amber);
+  background: var(--amber);
+  color: var(--on-amber);
+}
+/* Boxes the step-through has not reached yet step back */
+.qb-box.qb-todo {
+  opacity: 0.42;
+  transition: opacity var(--motion) ease;
+}
+.qb-box.qb-todo:hover {
+  opacity: 0.75;
+}
+
+/* References: the name inside a snippet, and occurrences in the editor */
+mark.ref-hit {
+  background: var(--amber-wash-strong);
+  color: var(--ink);
+  border-radius: 2px;
+  padding: 0 1px;
+}
+.cm-ref {
+  background: color-mix(in srgb, var(--amber) 22%, transparent);
+  border-bottom: 1.5px solid color-mix(in srgb, var(--amber) 75%, transparent);
+  border-radius: 2px;
+}
+.cm-ref-def {
+  background: color-mix(in srgb, var(--amber) 34%, transparent);
+  outline: 1px solid var(--amber);
+  border-radius: 2px;
+}
+.cm-ref-line {
+  box-shadow: inset -3px 0 0 color-mix(in srgb, var(--amber) 70%, transparent);
+}
+.ref-ruler {
+  position: absolute;
+  top: 0;
+  right: 0;
+  bottom: 0;
+  width: 8px;
+  pointer-events: none;
+  z-index: 3;
+}
+.ref-ruler span {
+  position: absolute;
+  right: 1px;
+  width: 6px;
+  height: 3px;
+  border-radius: 1px;
+  background: var(--amber);
+}
+.ref-ruler span.def {
+  height: 4px;
+  background: var(--amber-ink);
+}
+
+/* Change impact (diff). Added/removed use green/red tints plus +/− signs, never color alone. */
+:root {
+  --diff-add: var(--qb-cte);
+  --diff-del: var(--risk-high);
+}
+.risk-banner {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--sev);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--sev) 7%, var(--surface));
+  padding: 14px 16px;
+}
+.risk-HIGH {
+  --sev: var(--risk-high);
+}
+.risk-MEDIUM {
+  --sev: var(--risk-medium);
+}
+.risk-LOW {
+  --sev: var(--risk-low);
+}
+.risk-none {
+  --sev: var(--line-strong);
+}
+.diff-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  min-width: 92px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 4px;
+  border: 1px solid var(--line-strong);
+  color: var(--ink);
+  font-size: 12px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.diff-MODIFIED {
+  border-color: var(--ink-muted);
+  background: var(--surface-2);
+  font-weight: 500;
+}
+.diff-ADDED {
+  border-color: color-mix(in srgb, var(--diff-add) 60%, transparent);
+  background: color-mix(in srgb, var(--diff-add) 12%, transparent);
+}
+.diff-REMOVED {
+  border-color: color-mix(in srgb, var(--diff-del) 55%, transparent);
+  background: color-mix(in srgb, var(--diff-del) 10%, transparent);
+}
+.diff-MOVED {
+  border-style: dashed;
+}
+.diff-FORMAT_ONLY {
+  border-style: dotted;
+  color: var(--ink-muted);
+}
+.diff-UNCHANGED {
+  border-color: var(--line);
+  color: var(--ink-faint);
+}
+.diff-chip-add {
+  border-color: color-mix(in srgb, var(--diff-add) 60%, transparent);
+  background: color-mix(in srgb, var(--diff-add) 13%, var(--surface));
+  color: var(--ink);
+}
+.diff-chip-del {
+  border-color: color-mix(in srgb, var(--diff-del) 55%, transparent);
+  background: color-mix(in srgb, var(--diff-del) 10%, var(--surface));
+  color: var(--ink);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--diff-del) 70%, transparent);
+}
+.diff-sign {
+  display: inline-flex;
+  width: 18px;
+  height: 18px;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+  font-weight: 600;
+  color: var(--ink);
+}
+.diff-sign-add {
+  background: color-mix(in srgb, var(--diff-add) 18%, transparent);
+}
+.diff-sign-del {
+  background: color-mix(in srgb, var(--diff-del) 15%, transparent);
+}
+.diff-pane .cm-editor {
+  height: 100%;
+}
+.cm-diff-pair {
+  background: color-mix(in srgb, var(--amber) 6%, transparent);
+  box-shadow: inset 3px 0 0 color-mix(in srgb, var(--amber) 55%, transparent);
+}
+.cm-diff-del {
+  background: color-mix(in srgb, var(--diff-del) 18%, transparent);
+  text-decoration: line-through;
+  text-decoration-color: color-mix(in srgb, var(--diff-del) 70%, transparent);
+  border-radius: 2px;
+}
+.cm-diff-add {
+  background: color-mix(in srgb, var(--diff-add) 22%, transparent);
+  border-radius: 2px;
+}
+.cm-diff-gap {
+  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--ink-muted) 50%, transparent);
+}
+.cm-diff-focus {
+  box-shadow: inset 0 -2px 0 var(--amber);
+}
+
+/* Quick fixes: lightbulb gutter */
+.cm-fix-gutter {
+  width: 16px;
+}
+.cm-fix-marker {
+  display: flex;
+  height: 100%;
+  align-items: center;
+  justify-content: center;
+  color: var(--amber-ink);
+  cursor: pointer;
+}
+.cm-fix-marker:hover {
+  color: var(--amber);
+}
+.fix-button {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 7px;
+  border-radius: 5px;
+  border: 1px solid color-mix(in srgb, var(--amber) 55%, var(--line));
+  background: color-mix(in srgb, var(--amber) 8%, var(--surface));
+  color: var(--ink);
+  font-size: 12px;
+  white-space: nowrap;
+}
+.fix-button:hover {
+  border-color: var(--amber);
+  background: var(--amber-wash);
+}
+.fix-button-compact {
+  height: 20px;
+  padding: 0 6px;
+}
+.safety-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  height: 22px;
+  padding: 0 8px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  font-size: 12px;
+  color: var(--ink);
+  white-space: nowrap;
+}
+.safety-same {
+  border-color: color-mix(in srgb, var(--diff-add) 55%, transparent);
+  background: color-mix(in srgb, var(--diff-add) 10%, var(--surface));
+}
+.safety-metadata {
+  border-color: color-mix(in srgb, var(--risk-low) 50%, transparent);
+  background: color-mix(in srgb, var(--risk-low) 9%, var(--surface));
+}
+.safety-edge {
+  border-color: color-mix(in srgb, var(--risk-medium) 60%, transparent);
+  background: color-mix(in srgb, var(--risk-medium) 10%, var(--surface));
+}
+.safety-edge svg {
+  color: var(--risk-medium);
+}
+.safety-note-edge {
+  border-color: color-mix(in srgb, var(--risk-medium) 55%, transparent);
+  border-left: 4px solid var(--risk-medium);
+  background: color-mix(in srgb, var(--risk-medium) 8%, var(--surface));
+}
+
+/* Model picker: provider has it */
+.model-tag {
+  flex-shrink: 0;
+  margin-top: 1px;
+  padding: 0 6px;
+  border-radius: 9px;
+  font-size: 11.5px;
+  line-height: 18px;
+  white-space: nowrap;
+}
+.model-tag-yes {
+  border: 1px solid color-mix(in srgb, var(--diff-add) 55%, transparent);
+  background: color-mix(in srgb, var(--diff-add) 10%, var(--surface));
+  color: var(--ink);
+}
+
+/* Horizontal scrollers that should not show a scrollbar (tab strips) */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}

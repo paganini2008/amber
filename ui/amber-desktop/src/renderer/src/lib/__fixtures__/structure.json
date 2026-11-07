@@ -1,0 +1,2946 @@
+{
+  "status" : "SUCCESS",
+  "dialect" : "postgresql",
+  "name" : "structure.sql",
+  "lineCount" : 19,
+  "elapsedMs" : 267,
+  "diagnostics" : [ ],
+  "statements" : [ {
+    "id" : 0,
+    "kind" : "INSERT",
+    "category" : "DML",
+    "container" : false,
+    "confidence" : "INFERRED",
+    "name" : null,
+    "summary" : "Insert into report.top_customer from sales.orders, crm.customer, crm.region, crm.blocked and 1 more via 2 CTEs",
+    "range" : {
+      "start" : {
+        "offset" : 0,
+        "line" : 1,
+        "column" : 1
+      },
+      "end" : {
+        "offset" : 791,
+        "line" : 14,
+        "column" : 70
+      }
+    },
+    "ctes" : [ "paid", "large_c" ],
+    "refs" : [ {
+      "name" : "report.top_customer",
+      "key" : "REPORT.TOP_CUSTOMER",
+      "kind" : "TABLE",
+      "access" : "INSERT",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 12,
+          "line" : 1,
+          "column" : 13
+        },
+        "end" : {
+          "offset" : 31,
+          "line" : 1,
+          "column" : 32
+        }
+      }
+    }, {
+      "name" : "sales.orders",
+      "key" : "SALES.ORDERS",
+      "kind" : "TABLE",
+      "access" : "READ",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 138,
+          "line" : 3,
+          "column" : 45
+        },
+        "end" : {
+          "offset" : 150,
+          "line" : 3,
+          "column" : 57
+        }
+      }
+    }, {
+      "name" : "paid",
+      "key" : "PAID",
+      "kind" : "CTE",
+      "access" : "READ",
+      "confidence" : "CERTAIN",
+      "range" : {
+        "start" : {
+          "offset" : 215,
+          "line" : 5,
+          "column" : 27
+        },
+        "end" : {
+          "offset" : 219,
+          "line" : 5,
+          "column" : 31
+        }
+      }
+    }, {
+      "name" : "paid",
+      "key" : "PAID",
+      "kind" : "CTE",
+      "access" : "READ",
+      "confidence" : "CERTAIN",
+      "range" : {
+        "start" : {
+          "offset" : 332,
+          "line" : 7,
+          "column" : 64
+        },
+        "end" : {
+          "offset" : 336,
+          "line" : 7,
+          "column" : 68
+        }
+      }
+    }, {
+      "name" : "sales.orders",
+      "key" : "SALES.ORDERS",
+      "kind" : "TABLE",
+      "access" : "READ",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 404,
+          "line" : 8,
+          "column" : 37
+        },
+        "end" : {
+          "offset" : 416,
+          "line" : 8,
+          "column" : 49
+        }
+      }
+    }, {
+      "name" : "crm.customer",
+      "key" : "CRM.CUSTOMER",
+      "kind" : "TABLE",
+      "access" : "READ",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 452,
+          "line" : 9,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 464,
+          "line" : 9,
+          "column" : 18
+        }
+      }
+    }, {
+      "name" : "crm.region",
+      "key" : "CRM.REGION",
+      "kind" : "TABLE",
+      "access" : "READ",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 528,
+          "line" : 10,
+          "column" : 62
+        },
+        "end" : {
+          "offset" : 538,
+          "line" : 10,
+          "column" : 72
+        }
+      }
+    }, {
+      "name" : "large_c",
+      "key" : "LARGE_C",
+      "kind" : "CTE",
+      "access" : "READ",
+      "confidence" : "CERTAIN",
+      "range" : {
+        "start" : {
+          "offset" : 629,
+          "line" : 11,
+          "column" : 40
+        },
+        "end" : {
+          "offset" : 636,
+          "line" : 11,
+          "column" : 47
+        }
+      }
+    }, {
+      "name" : "crm.blocked",
+      "key" : "CRM.BLOCKED",
+      "kind" : "TABLE",
+      "access" : "READ",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 670,
+          "line" : 12,
+          "column" : 33
+        },
+        "end" : {
+          "offset" : 681,
+          "line" : 12,
+          "column" : 44
+        }
+      }
+    }, {
+      "name" : "crm.vip",
+      "key" : "CRM.VIP",
+      "kind" : "TABLE",
+      "access" : "READ",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 763,
+          "line" : 14,
+          "column" : 42
+        },
+        "end" : {
+          "offset" : 770,
+          "line" : 14,
+          "column" : 49
+        }
+      }
+    } ],
+    "children" : [ ],
+    "structure" : [ {
+      "id" : 0,
+      "kind" : "CTE",
+      "name" : "paid",
+      "role" : null,
+      "range" : {
+        "start" : {
+          "offset" : 84,
+          "line" : 2,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 174,
+          "line" : 4,
+          "column" : 2
+        }
+      },
+      "sources" : [ {
+        "name" : "sales.orders",
+        "kind" : "TABLE",
+        "alias" : null
+      } ],
+      "outputs" : [ "customer_id", "order_id", "amount" ],
+      "clauses" : [ "WHERE" ],
+      "phases" : [ {
+        "name" : "FROM",
+        "rank" : 1,
+        "range" : {
+          "start" : {
+            "offset" : 133,
+            "line" : 3,
+            "column" : 40
+          },
+          "end" : {
+            "offset" : 150,
+            "line" : 3,
+            "column" : 57
+          }
+        }
+      }, {
+        "name" : "WHERE",
+        "rank" : 4,
+        "range" : {
+          "start" : {
+            "offset" : 151,
+            "line" : 3,
+            "column" : 58
+          },
+          "end" : {
+            "offset" : 172,
+            "line" : 3,
+            "column" : 79
+          }
+        }
+      }, {
+        "name" : "SELECT",
+        "rank" : 8,
+        "range" : {
+          "start" : {
+            "offset" : 96,
+            "line" : 3,
+            "column" : 3
+          },
+          "end" : {
+            "offset" : 132,
+            "line" : 3,
+            "column" : 39
+          }
+        }
+      } ],
+      "children" : [ ]
+    }, {
+      "id" : 1,
+      "kind" : "CTE",
+      "name" : "large_c",
+      "role" : null,
+      "range" : {
+        "start" : {
+          "offset" : 176,
+          "line" : 4,
+          "column" : 4
+        },
+        "end" : {
+          "offset" : 268,
+          "line" : 6,
+          "column" : 2
+        }
+      },
+      "sources" : [ {
+        "name" : "paid",
+        "kind" : "CTE",
+        "alias" : null
+      } ],
+      "outputs" : [ "customer_id" ],
+      "clauses" : [ "GROUP BY", "HAVING" ],
+      "phases" : [ {
+        "name" : "FROM",
+        "rank" : 1,
+        "range" : {
+          "start" : {
+            "offset" : 210,
+            "line" : 5,
+            "column" : 22
+          },
+          "end" : {
+            "offset" : 219,
+            "line" : 5,
+            "column" : 31
+          }
+        }
+      }, {
+        "name" : "GROUP BY",
+        "rank" : 5,
+        "range" : {
+          "start" : {
+            "offset" : 220,
+            "line" : 5,
+            "column" : 32
+          },
+          "end" : {
+            "offset" : 240,
+            "line" : 5,
+            "column" : 52
+          }
+        }
+      }, {
+        "name" : "HAVING",
+        "rank" : 6,
+        "range" : {
+          "start" : {
+            "offset" : 241,
+            "line" : 5,
+            "column" : 53
+          },
+          "end" : {
+            "offset" : 266,
+            "line" : 5,
+            "column" : 78
+          }
+        }
+      }, {
+        "name" : "SELECT",
+        "rank" : 8,
+        "range" : {
+          "start" : {
+            "offset" : 191,
+            "line" : 5,
+            "column" : 3
+          },
+          "end" : {
+            "offset" : 209,
+            "line" : 5,
+            "column" : 21
+          }
+        }
+      } ],
+      "children" : [ ]
+    }, {
+      "id" : 2,
+      "kind" : "SET",
+      "name" : "UNION ALL",
+      "role" : null,
+      "range" : {
+        "start" : {
+          "offset" : 79,
+          "line" : 2,
+          "column" : 1
+        },
+        "end" : {
+          "offset" : 791,
+          "line" : 14,
+          "column" : 70
+        }
+      },
+      "sources" : [ ],
+      "outputs" : [ ],
+      "clauses" : [ ],
+      "phases" : [ ],
+      "children" : [ {
+        "id" : 3,
+        "kind" : "QUERY",
+        "name" : null,
+        "role" : null,
+        "range" : {
+          "start" : {
+            "offset" : 269,
+            "line" : 7,
+            "column" : 1
+          },
+          "end" : {
+            "offset" : 711,
+            "line" : 12,
+            "column" : 74
+          }
+        },
+        "sources" : [ {
+          "name" : "crm.customer",
+          "kind" : "TABLE",
+          "alias" : "c"
+        }, {
+          "name" : "r",
+          "kind" : "SUBQUERY",
+          "alias" : null
+        } ],
+        "outputs" : [ "id", "name", "region_name", "(select sum(p.amount) from paid p whe…", "(select max(o.order_id) from sales.or…" ],
+        "clauses" : [ "JOIN", "WHERE" ],
+        "phases" : [ {
+          "name" : "FROM",
+          "rank" : 1,
+          "range" : {
+            "start" : {
+              "offset" : 447,
+              "line" : 9,
+              "column" : 1
+            },
+            "end" : {
+              "offset" : 589,
+              "line" : 10,
+              "column" : 123
+            }
+          }
+        }, {
+          "name" : "WHERE",
+          "rank" : 4,
+          "range" : {
+            "start" : {
+              "offset" : 590,
+              "line" : 11,
+              "column" : 1
+            },
+            "end" : {
+              "offset" : 711,
+              "line" : 12,
+              "column" : 74
+            }
+          }
+        }, {
+          "name" : "SELECT",
+          "rank" : 8,
+          "range" : {
+            "start" : {
+              "offset" : 269,
+              "line" : 7,
+              "column" : 1
+            },
+            "end" : {
+              "offset" : 446,
+              "line" : 8,
+              "column" : 79
+            }
+          }
+        } ],
+        "children" : [ {
+          "id" : 4,
+          "kind" : "SUBQUERY",
+          "name" : null,
+          "role" : "SELECT scalar",
+          "range" : {
+            "start" : {
+              "offset" : 305,
+              "line" : 7,
+              "column" : 37
+            },
+            "end" : {
+              "offset" : 366,
+              "line" : 7,
+              "column" : 98
+            }
+          },
+          "sources" : [ {
+            "name" : "paid",
+            "kind" : "CTE",
+            "alias" : "p"
+          } ],
+          "outputs" : [ "sum(p.amount)" ],
+          "clauses" : [ "WHERE" ],
+          "phases" : [ {
+            "name" : "FROM",
+            "rank" : 1,
+            "range" : {
+              "start" : {
+                "offset" : 327,
+                "line" : 7,
+                "column" : 59
+              },
+              "end" : {
+                "offset" : 338,
+                "line" : 7,
+                "column" : 70
+              }
+            }
+          }, {
+            "name" : "WHERE",
+            "rank" : 4,
+            "range" : {
+              "start" : {
+                "offset" : 339,
+                "line" : 7,
+                "column" : 71
+              },
+              "end" : {
+                "offset" : 365,
+                "line" : 7,
+                "column" : 97
+              }
+            }
+          }, {
+            "name" : "SELECT",
+            "rank" : 8,
+            "range" : {
+              "start" : {
+                "offset" : 306,
+                "line" : 7,
+                "column" : 38
+              },
+              "end" : {
+                "offset" : 326,
+                "line" : 7,
+                "column" : 58
+              }
+            }
+          } ],
+          "children" : [ ]
+        }, {
+          "id" : 5,
+          "kind" : "SUBQUERY",
+          "name" : null,
+          "role" : "SELECT scalar",
+          "range" : {
+            "start" : {
+              "offset" : 375,
+              "line" : 8,
+              "column" : 8
+            },
+            "end" : {
+              "offset" : 446,
+              "line" : 8,
+              "column" : 79
+            }
+          },
+          "sources" : [ {
+            "name" : "sales.orders",
+            "kind" : "TABLE",
+            "alias" : "o"
+          } ],
+          "outputs" : [ "max(o.order_id)" ],
+          "clauses" : [ "WHERE" ],
+          "phases" : [ {
+            "name" : "FROM",
+            "rank" : 1,
+            "range" : {
+              "start" : {
+                "offset" : 399,
+                "line" : 8,
+                "column" : 32
+              },
+              "end" : {
+                "offset" : 418,
+                "line" : 8,
+                "column" : 51
+              }
+            }
+          }, {
+            "name" : "WHERE",
+            "rank" : 4,
+            "range" : {
+              "start" : {
+                "offset" : 419,
+                "line" : 8,
+                "column" : 52
+              },
+              "end" : {
+                "offset" : 445,
+                "line" : 8,
+                "column" : 78
+              }
+            }
+          }, {
+            "name" : "SELECT",
+            "rank" : 8,
+            "range" : {
+              "start" : {
+                "offset" : 376,
+                "line" : 8,
+                "column" : 9
+              },
+              "end" : {
+                "offset" : 398,
+                "line" : 8,
+                "column" : 31
+              }
+            }
+          } ],
+          "children" : [ ]
+        }, {
+          "id" : 6,
+          "kind" : "DERIVED",
+          "name" : "r",
+          "role" : "FROM",
+          "range" : {
+            "start" : {
+              "offset" : 472,
+              "line" : 10,
+              "column" : 6
+            },
+            "end" : {
+              "offset" : 558,
+              "line" : 10,
+              "column" : 92
+            }
+          },
+          "sources" : [ {
+            "name" : "crm.region",
+            "kind" : "TABLE",
+            "alias" : null
+          } ],
+          "outputs" : [ "region_id", "region_name" ],
+          "clauses" : [ "GROUP BY" ],
+          "phases" : [ {
+            "name" : "FROM",
+            "rank" : 1,
+            "range" : {
+              "start" : {
+                "offset" : 523,
+                "line" : 10,
+                "column" : 57
+              },
+              "end" : {
+                "offset" : 538,
+                "line" : 10,
+                "column" : 72
+              }
+            }
+          }, {
+            "name" : "GROUP BY",
+            "rank" : 5,
+            "range" : {
+              "start" : {
+                "offset" : 539,
+                "line" : 10,
+                "column" : 73
+              },
+              "end" : {
+                "offset" : 557,
+                "line" : 10,
+                "column" : 91
+              }
+            }
+          }, {
+            "name" : "SELECT",
+            "rank" : 8,
+            "range" : {
+              "start" : {
+                "offset" : 473,
+                "line" : 10,
+                "column" : 7
+              },
+              "end" : {
+                "offset" : 522,
+                "line" : 10,
+                "column" : 56
+              }
+            }
+          } ],
+          "children" : [ ]
+        }, {
+          "id" : 7,
+          "kind" : "SUBQUERY",
+          "name" : null,
+          "role" : "WHERE IN",
+          "range" : {
+            "start" : {
+              "offset" : 604,
+              "line" : 11,
+              "column" : 15
+            },
+            "end" : {
+              "offset" : 637,
+              "line" : 11,
+              "column" : 48
+            }
+          },
+          "sources" : [ {
+            "name" : "large_c",
+            "kind" : "CTE",
+            "alias" : null
+          } ],
+          "outputs" : [ "customer_id" ],
+          "clauses" : [ ],
+          "phases" : [ {
+            "name" : "FROM",
+            "rank" : 1,
+            "range" : {
+              "start" : {
+                "offset" : 624,
+                "line" : 11,
+                "column" : 35
+              },
+              "end" : {
+                "offset" : 636,
+                "line" : 11,
+                "column" : 47
+              }
+            }
+          }, {
+            "name" : "SELECT",
+            "rank" : 8,
+            "range" : {
+              "start" : {
+                "offset" : 605,
+                "line" : 11,
+                "column" : 16
+              },
+              "end" : {
+                "offset" : 623,
+                "line" : 11,
+                "column" : 34
+              }
+            }
+          } ],
+          "children" : [ ]
+        }, {
+          "id" : 8,
+          "kind" : "SUBQUERY",
+          "name" : null,
+          "role" : "WHERE NOT EXISTS",
+          "range" : {
+            "start" : {
+              "offset" : 655,
+              "line" : 12,
+              "column" : 18
+            },
+            "end" : {
+              "offset" : 711,
+              "line" : 12,
+              "column" : 74
+            }
+          },
+          "sources" : [ {
+            "name" : "crm.blocked",
+            "kind" : "TABLE",
+            "alias" : "b"
+          } ],
+          "outputs" : [ "1" ],
+          "clauses" : [ "WHERE" ],
+          "phases" : [ {
+            "name" : "FROM",
+            "rank" : 1,
+            "range" : {
+              "start" : {
+                "offset" : 665,
+                "line" : 12,
+                "column" : 28
+              },
+              "end" : {
+                "offset" : 683,
+                "line" : 12,
+                "column" : 46
+              }
+            }
+          }, {
+            "name" : "WHERE",
+            "rank" : 4,
+            "range" : {
+              "start" : {
+                "offset" : 684,
+                "line" : 12,
+                "column" : 47
+              },
+              "end" : {
+                "offset" : 710,
+                "line" : 12,
+                "column" : 73
+              }
+            }
+          }, {
+            "name" : "SELECT",
+            "rank" : 8,
+            "range" : {
+              "start" : {
+                "offset" : 656,
+                "line" : 12,
+                "column" : 19
+              },
+              "end" : {
+                "offset" : 664,
+                "line" : 12,
+                "column" : 27
+              }
+            }
+          } ],
+          "children" : [ ]
+        } ]
+      }, {
+        "id" : 9,
+        "kind" : "QUERY",
+        "name" : null,
+        "role" : null,
+        "range" : {
+          "start" : {
+            "offset" : 722,
+            "line" : 14,
+            "column" : 1
+          },
+          "end" : {
+            "offset" : 791,
+            "line" : 14,
+            "column" : 70
+          }
+        },
+        "sources" : [ {
+          "name" : "crm.vip",
+          "kind" : "TABLE",
+          "alias" : "v"
+        } ],
+        "outputs" : [ "id", "name", "'VIP'", "0", "null" ],
+        "clauses" : [ "WHERE" ],
+        "phases" : [ {
+          "name" : "FROM",
+          "rank" : 1,
+          "range" : {
+            "start" : {
+              "offset" : 758,
+              "line" : 14,
+              "column" : 37
+            },
+            "end" : {
+              "offset" : 772,
+              "line" : 14,
+              "column" : 51
+            }
+          }
+        }, {
+          "name" : "WHERE",
+          "rank" : 4,
+          "range" : {
+            "start" : {
+              "offset" : 773,
+              "line" : 14,
+              "column" : 52
+            },
+            "end" : {
+              "offset" : 791,
+              "line" : 14,
+              "column" : 70
+            }
+          }
+        }, {
+          "name" : "SELECT",
+          "rank" : 8,
+          "range" : {
+            "start" : {
+              "offset" : 722,
+              "line" : 14,
+              "column" : 1
+            },
+            "end" : {
+              "offset" : 757,
+              "line" : 14,
+              "column" : 36
+            }
+          }
+        } ],
+        "children" : [ ]
+      } ]
+    } ],
+    "executionOrder" : [ {
+      "step" : 1,
+      "block" : 0,
+      "depth" : 0,
+      "phase" : "FROM",
+      "detail" : "sales.orders",
+      "range" : {
+        "start" : {
+          "offset" : 133,
+          "line" : 3,
+          "column" : 40
+        },
+        "end" : {
+          "offset" : 150,
+          "line" : 3,
+          "column" : 57
+        }
+      }
+    }, {
+      "step" : 2,
+      "block" : 0,
+      "depth" : 0,
+      "phase" : "WHERE",
+      "detail" : null,
+      "range" : {
+        "start" : {
+          "offset" : 151,
+          "line" : 3,
+          "column" : 58
+        },
+        "end" : {
+          "offset" : 172,
+          "line" : 3,
+          "column" : 79
+        }
+      }
+    }, {
+      "step" : 3,
+      "block" : 0,
+      "depth" : 0,
+      "phase" : "SELECT",
+      "detail" : "3 columns",
+      "range" : {
+        "start" : {
+          "offset" : 96,
+          "line" : 3,
+          "column" : 3
+        },
+        "end" : {
+          "offset" : 132,
+          "line" : 3,
+          "column" : 39
+        }
+      }
+    }, {
+      "step" : 4,
+      "block" : 0,
+      "depth" : 0,
+      "phase" : "CTE",
+      "detail" : "paid is ready",
+      "range" : {
+        "start" : {
+          "offset" : 84,
+          "line" : 2,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 174,
+          "line" : 4,
+          "column" : 2
+        }
+      }
+    }, {
+      "step" : 5,
+      "block" : 1,
+      "depth" : 0,
+      "phase" : "FROM",
+      "detail" : "paid",
+      "range" : {
+        "start" : {
+          "offset" : 210,
+          "line" : 5,
+          "column" : 22
+        },
+        "end" : {
+          "offset" : 219,
+          "line" : 5,
+          "column" : 31
+        }
+      }
+    }, {
+      "step" : 6,
+      "block" : 1,
+      "depth" : 0,
+      "phase" : "GROUP BY",
+      "detail" : null,
+      "range" : {
+        "start" : {
+          "offset" : 220,
+          "line" : 5,
+          "column" : 32
+        },
+        "end" : {
+          "offset" : 240,
+          "line" : 5,
+          "column" : 52
+        }
+      }
+    }, {
+      "step" : 7,
+      "block" : 1,
+      "depth" : 0,
+      "phase" : "HAVING",
+      "detail" : null,
+      "range" : {
+        "start" : {
+          "offset" : 241,
+          "line" : 5,
+          "column" : 53
+        },
+        "end" : {
+          "offset" : 266,
+          "line" : 5,
+          "column" : 78
+        }
+      }
+    }, {
+      "step" : 8,
+      "block" : 1,
+      "depth" : 0,
+      "phase" : "SELECT",
+      "detail" : "1 column",
+      "range" : {
+        "start" : {
+          "offset" : 191,
+          "line" : 5,
+          "column" : 3
+        },
+        "end" : {
+          "offset" : 209,
+          "line" : 5,
+          "column" : 21
+        }
+      }
+    }, {
+      "step" : 9,
+      "block" : 1,
+      "depth" : 0,
+      "phase" : "CTE",
+      "detail" : "large_c is ready",
+      "range" : {
+        "start" : {
+          "offset" : 176,
+          "line" : 4,
+          "column" : 4
+        },
+        "end" : {
+          "offset" : 268,
+          "line" : 6,
+          "column" : 2
+        }
+      }
+    }, {
+      "step" : 10,
+      "block" : 6,
+      "depth" : 2,
+      "phase" : "FROM",
+      "detail" : "crm.region",
+      "range" : {
+        "start" : {
+          "offset" : 523,
+          "line" : 10,
+          "column" : 57
+        },
+        "end" : {
+          "offset" : 538,
+          "line" : 10,
+          "column" : 72
+        }
+      }
+    }, {
+      "step" : 11,
+      "block" : 6,
+      "depth" : 2,
+      "phase" : "GROUP BY",
+      "detail" : null,
+      "range" : {
+        "start" : {
+          "offset" : 539,
+          "line" : 10,
+          "column" : 73
+        },
+        "end" : {
+          "offset" : 557,
+          "line" : 10,
+          "column" : 91
+        }
+      }
+    }, {
+      "step" : 12,
+      "block" : 6,
+      "depth" : 2,
+      "phase" : "SELECT",
+      "detail" : "2 columns",
+      "range" : {
+        "start" : {
+          "offset" : 473,
+          "line" : 10,
+          "column" : 7
+        },
+        "end" : {
+          "offset" : 522,
+          "line" : 10,
+          "column" : 56
+        }
+      }
+    }, {
+      "step" : 13,
+      "block" : 3,
+      "depth" : 1,
+      "phase" : "FROM",
+      "detail" : "crm.customer c, r",
+      "range" : {
+        "start" : {
+          "offset" : 447,
+          "line" : 9,
+          "column" : 1
+        },
+        "end" : {
+          "offset" : 589,
+          "line" : 10,
+          "column" : 123
+        }
+      }
+    }, {
+      "step" : 14,
+      "block" : 7,
+      "depth" : 2,
+      "phase" : "FROM",
+      "detail" : "large_c",
+      "range" : {
+        "start" : {
+          "offset" : 624,
+          "line" : 11,
+          "column" : 35
+        },
+        "end" : {
+          "offset" : 636,
+          "line" : 11,
+          "column" : 47
+        }
+      }
+    }, {
+      "step" : 15,
+      "block" : 7,
+      "depth" : 2,
+      "phase" : "SELECT",
+      "detail" : "1 column",
+      "range" : {
+        "start" : {
+          "offset" : 605,
+          "line" : 11,
+          "column" : 16
+        },
+        "end" : {
+          "offset" : 623,
+          "line" : 11,
+          "column" : 34
+        }
+      }
+    }, {
+      "step" : 16,
+      "block" : 8,
+      "depth" : 2,
+      "phase" : "FROM",
+      "detail" : "crm.blocked b",
+      "range" : {
+        "start" : {
+          "offset" : 665,
+          "line" : 12,
+          "column" : 28
+        },
+        "end" : {
+          "offset" : 683,
+          "line" : 12,
+          "column" : 46
+        }
+      }
+    }, {
+      "step" : 17,
+      "block" : 8,
+      "depth" : 2,
+      "phase" : "WHERE",
+      "detail" : null,
+      "range" : {
+        "start" : {
+          "offset" : 684,
+          "line" : 12,
+          "column" : 47
+        },
+        "end" : {
+          "offset" : 710,
+          "line" : 12,
+          "column" : 73
+        }
+      }
+    }, {
+      "step" : 18,
+      "block" : 8,
+      "depth" : 2,
+      "phase" : "SELECT",
+      "detail" : "1 column",
+      "range" : {
+        "start" : {
+          "offset" : 656,
+          "line" : 12,
+          "column" : 19
+        },
+        "end" : {
+          "offset" : 664,
+          "line" : 12,
+          "column" : 27
+        }
+      }
+    }, {
+      "step" : 19,
+      "block" : 3,
+      "depth" : 1,
+      "phase" : "WHERE",
+      "detail" : null,
+      "range" : {
+        "start" : {
+          "offset" : 590,
+          "line" : 11,
+          "column" : 1
+        },
+        "end" : {
+          "offset" : 711,
+          "line" : 12,
+          "column" : 74
+        }
+      }
+    }, {
+      "step" : 20,
+      "block" : 4,
+      "depth" : 2,
+      "phase" : "FROM",
+      "detail" : "paid p",
+      "range" : {
+        "start" : {
+          "offset" : 327,
+          "line" : 7,
+          "column" : 59
+        },
+        "end" : {
+          "offset" : 338,
+          "line" : 7,
+          "column" : 70
+        }
+      }
+    }, {
+      "step" : 21,
+      "block" : 4,
+      "depth" : 2,
+      "phase" : "WHERE",
+      "detail" : null,
+      "range" : {
+        "start" : {
+          "offset" : 339,
+          "line" : 7,
+          "column" : 71
+        },
+        "end" : {
+          "offset" : 365,
+          "line" : 7,
+          "column" : 97
+        }
+      }
+    }, {
+      "step" : 22,
+      "block" : 4,
+      "depth" : 2,
+      "phase" : "SELECT",
+      "detail" : "1 column",
+      "range" : {
+        "start" : {
+          "offset" : 306,
+          "line" : 7,
+          "column" : 38
+        },
+        "end" : {
+          "offset" : 326,
+          "line" : 7,
+          "column" : 58
+        }
+      }
+    }, {
+      "step" : 23,
+      "block" : 5,
+      "depth" : 2,
+      "phase" : "FROM",
+      "detail" : "sales.orders o",
+      "range" : {
+        "start" : {
+          "offset" : 399,
+          "line" : 8,
+          "column" : 32
+        },
+        "end" : {
+          "offset" : 418,
+          "line" : 8,
+          "column" : 51
+        }
+      }
+    }, {
+      "step" : 24,
+      "block" : 5,
+      "depth" : 2,
+      "phase" : "WHERE",
+      "detail" : null,
+      "range" : {
+        "start" : {
+          "offset" : 419,
+          "line" : 8,
+          "column" : 52
+        },
+        "end" : {
+          "offset" : 445,
+          "line" : 8,
+          "column" : 78
+        }
+      }
+    }, {
+      "step" : 25,
+      "block" : 5,
+      "depth" : 2,
+      "phase" : "SELECT",
+      "detail" : "1 column",
+      "range" : {
+        "start" : {
+          "offset" : 376,
+          "line" : 8,
+          "column" : 9
+        },
+        "end" : {
+          "offset" : 398,
+          "line" : 8,
+          "column" : 31
+        }
+      }
+    }, {
+      "step" : 26,
+      "block" : 3,
+      "depth" : 1,
+      "phase" : "SELECT",
+      "detail" : "5 columns",
+      "range" : {
+        "start" : {
+          "offset" : 269,
+          "line" : 7,
+          "column" : 1
+        },
+        "end" : {
+          "offset" : 446,
+          "line" : 8,
+          "column" : 79
+        }
+      }
+    }, {
+      "step" : 27,
+      "block" : 9,
+      "depth" : 1,
+      "phase" : "FROM",
+      "detail" : "crm.vip v",
+      "range" : {
+        "start" : {
+          "offset" : 758,
+          "line" : 14,
+          "column" : 37
+        },
+        "end" : {
+          "offset" : 772,
+          "line" : 14,
+          "column" : 51
+        }
+      }
+    }, {
+      "step" : 28,
+      "block" : 9,
+      "depth" : 1,
+      "phase" : "WHERE",
+      "detail" : null,
+      "range" : {
+        "start" : {
+          "offset" : 773,
+          "line" : 14,
+          "column" : 52
+        },
+        "end" : {
+          "offset" : 791,
+          "line" : 14,
+          "column" : 70
+        }
+      }
+    }, {
+      "step" : 29,
+      "block" : 9,
+      "depth" : 1,
+      "phase" : "SELECT",
+      "detail" : "5 columns",
+      "range" : {
+        "start" : {
+          "offset" : 722,
+          "line" : 14,
+          "column" : 1
+        },
+        "end" : {
+          "offset" : 757,
+          "line" : 14,
+          "column" : 36
+        }
+      }
+    }, {
+      "step" : 30,
+      "block" : 2,
+      "depth" : 0,
+      "phase" : "UNION ALL",
+      "detail" : "combine 2 branches",
+      "range" : {
+        "start" : {
+          "offset" : 79,
+          "line" : 2,
+          "column" : 1
+        },
+        "end" : {
+          "offset" : 791,
+          "line" : 14,
+          "column" : 70
+        }
+      }
+    }, {
+      "step" : 31,
+      "block" : -1,
+      "depth" : 0,
+      "phase" : "WRITE",
+      "detail" : "Insert into report.top_customer",
+      "range" : {
+        "start" : {
+          "offset" : 0,
+          "line" : 1,
+          "column" : 1
+        },
+        "end" : {
+          "offset" : 791,
+          "line" : 14,
+          "column" : 70
+        }
+      }
+    } ]
+  }, {
+    "id" : 1,
+    "kind" : "UPDATE",
+    "category" : "DML",
+    "container" : false,
+    "confidence" : "INFERRED",
+    "name" : null,
+    "summary" : "Update sales.orders using sales.orders",
+    "range" : {
+      "start" : {
+        "offset" : 794,
+        "line" : 16,
+        "column" : 1
+      },
+      "end" : {
+        "offset" : 947,
+        "line" : 16,
+        "column" : 154
+      }
+    },
+    "ctes" : [ ],
+    "refs" : [ {
+      "name" : "sales.orders",
+      "key" : "SALES.ORDERS",
+      "kind" : "TABLE",
+      "access" : "UPDATE",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 801,
+          "line" : 16,
+          "column" : 8
+        },
+        "end" : {
+          "offset" : 813,
+          "line" : 16,
+          "column" : 20
+        }
+      }
+    }, {
+      "name" : "sales.orders",
+      "key" : "SALES.ORDERS",
+      "kind" : "TABLE",
+      "access" : "READ",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 854,
+          "line" : 16,
+          "column" : 61
+        },
+        "end" : {
+          "offset" : 866,
+          "line" : 16,
+          "column" : 73
+        }
+      }
+    }, {
+      "name" : "sales.orders",
+      "key" : "SALES.ORDERS",
+      "kind" : "TABLE",
+      "access" : "READ",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 914,
+          "line" : 16,
+          "column" : 121
+        },
+        "end" : {
+          "offset" : 926,
+          "line" : 16,
+          "column" : 133
+        }
+      }
+    } ],
+    "children" : [ ],
+    "structure" : [ {
+      "id" : 0,
+      "kind" : "SUBQUERY",
+      "name" : null,
+      "role" : "SET scalar",
+      "range" : {
+        "start" : {
+          "offset" : 829,
+          "line" : 16,
+          "column" : 36
+        },
+        "end" : {
+          "offset" : 867,
+          "line" : 16,
+          "column" : 74
+        }
+      },
+      "sources" : [ {
+        "name" : "sales.orders",
+        "kind" : "TABLE",
+        "alias" : null
+      } ],
+      "outputs" : [ "avg(amount)" ],
+      "clauses" : [ ],
+      "phases" : [ {
+        "name" : "FROM",
+        "rank" : 1,
+        "range" : {
+          "start" : {
+            "offset" : 849,
+            "line" : 16,
+            "column" : 56
+          },
+          "end" : {
+            "offset" : 866,
+            "line" : 16,
+            "column" : 73
+          }
+        }
+      }, {
+        "name" : "SELECT",
+        "rank" : 8,
+        "range" : {
+          "start" : {
+            "offset" : 830,
+            "line" : 16,
+            "column" : 37
+          },
+          "end" : {
+            "offset" : 848,
+            "line" : 16,
+            "column" : 55
+          }
+        }
+      } ],
+      "children" : [ ]
+    }, {
+      "id" : 1,
+      "kind" : "SUBQUERY",
+      "name" : null,
+      "role" : "WHERE IN",
+      "range" : {
+        "start" : {
+          "offset" : 882,
+          "line" : 16,
+          "column" : 89
+        },
+        "end" : {
+          "offset" : 947,
+          "line" : 16,
+          "column" : 154
+        }
+      },
+      "sources" : [ {
+        "name" : "x",
+        "kind" : "SUBQUERY",
+        "alias" : null
+      } ],
+      "outputs" : [ "id" ],
+      "clauses" : [ ],
+      "phases" : [ {
+        "name" : "FROM",
+        "rank" : 1,
+        "range" : {
+          "start" : {
+            "offset" : 893,
+            "line" : 16,
+            "column" : 100
+          },
+          "end" : {
+            "offset" : 946,
+            "line" : 16,
+            "column" : 153
+          }
+        }
+      }, {
+        "name" : "SELECT",
+        "rank" : 8,
+        "range" : {
+          "start" : {
+            "offset" : 883,
+            "line" : 16,
+            "column" : 90
+          },
+          "end" : {
+            "offset" : 892,
+            "line" : 16,
+            "column" : 99
+          }
+        }
+      } ],
+      "children" : [ {
+        "id" : 2,
+        "kind" : "DERIVED",
+        "name" : "x",
+        "role" : "FROM",
+        "range" : {
+          "start" : {
+            "offset" : 898,
+            "line" : 16,
+            "column" : 105
+          },
+          "end" : {
+            "offset" : 944,
+            "line" : 16,
+            "column" : 151
+          }
+        },
+        "sources" : [ {
+          "name" : "sales.orders",
+          "kind" : "TABLE",
+          "alias" : null
+        } ],
+        "outputs" : [ "id" ],
+        "clauses" : [ "WHERE" ],
+        "phases" : [ {
+          "name" : "FROM",
+          "rank" : 1,
+          "range" : {
+            "start" : {
+              "offset" : 909,
+              "line" : 16,
+              "column" : 116
+            },
+            "end" : {
+              "offset" : 926,
+              "line" : 16,
+              "column" : 133
+            }
+          }
+        }, {
+          "name" : "WHERE",
+          "rank" : 4,
+          "range" : {
+            "start" : {
+              "offset" : 927,
+              "line" : 16,
+              "column" : 134
+            },
+            "end" : {
+              "offset" : 943,
+              "line" : 16,
+              "column" : 150
+            }
+          }
+        }, {
+          "name" : "SELECT",
+          "rank" : 8,
+          "range" : {
+            "start" : {
+              "offset" : 899,
+              "line" : 16,
+              "column" : 106
+            },
+            "end" : {
+              "offset" : 908,
+              "line" : 16,
+              "column" : 115
+            }
+          }
+        } ],
+        "children" : [ ]
+      } ]
+    } ],
+    "executionOrder" : [ {
+      "step" : 1,
+      "block" : 2,
+      "depth" : 1,
+      "phase" : "FROM",
+      "detail" : "sales.orders",
+      "range" : {
+        "start" : {
+          "offset" : 909,
+          "line" : 16,
+          "column" : 116
+        },
+        "end" : {
+          "offset" : 926,
+          "line" : 16,
+          "column" : 133
+        }
+      }
+    }, {
+      "step" : 2,
+      "block" : 2,
+      "depth" : 1,
+      "phase" : "WHERE",
+      "detail" : null,
+      "range" : {
+        "start" : {
+          "offset" : 927,
+          "line" : 16,
+          "column" : 134
+        },
+        "end" : {
+          "offset" : 943,
+          "line" : 16,
+          "column" : 150
+        }
+      }
+    }, {
+      "step" : 3,
+      "block" : 2,
+      "depth" : 1,
+      "phase" : "SELECT",
+      "detail" : "1 column",
+      "range" : {
+        "start" : {
+          "offset" : 899,
+          "line" : 16,
+          "column" : 106
+        },
+        "end" : {
+          "offset" : 908,
+          "line" : 16,
+          "column" : 115
+        }
+      }
+    }, {
+      "step" : 4,
+      "block" : 1,
+      "depth" : 0,
+      "phase" : "FROM",
+      "detail" : "x",
+      "range" : {
+        "start" : {
+          "offset" : 893,
+          "line" : 16,
+          "column" : 100
+        },
+        "end" : {
+          "offset" : 946,
+          "line" : 16,
+          "column" : 153
+        }
+      }
+    }, {
+      "step" : 5,
+      "block" : 1,
+      "depth" : 0,
+      "phase" : "SELECT",
+      "detail" : "1 column",
+      "range" : {
+        "start" : {
+          "offset" : 883,
+          "line" : 16,
+          "column" : 90
+        },
+        "end" : {
+          "offset" : 892,
+          "line" : 16,
+          "column" : 99
+        }
+      }
+    }, {
+      "step" : 6,
+      "block" : 0,
+      "depth" : 0,
+      "phase" : "FROM",
+      "detail" : "sales.orders",
+      "range" : {
+        "start" : {
+          "offset" : 849,
+          "line" : 16,
+          "column" : 56
+        },
+        "end" : {
+          "offset" : 866,
+          "line" : 16,
+          "column" : 73
+        }
+      }
+    }, {
+      "step" : 7,
+      "block" : 0,
+      "depth" : 0,
+      "phase" : "SELECT",
+      "detail" : "1 column",
+      "range" : {
+        "start" : {
+          "offset" : 830,
+          "line" : 16,
+          "column" : 37
+        },
+        "end" : {
+          "offset" : 848,
+          "line" : 16,
+          "column" : 55
+        }
+      }
+    }, {
+      "step" : 8,
+      "block" : -1,
+      "depth" : 0,
+      "phase" : "WRITE",
+      "detail" : "Update sales.orders",
+      "range" : {
+        "start" : {
+          "offset" : 794,
+          "line" : 16,
+          "column" : 1
+        },
+        "end" : {
+          "offset" : 947,
+          "line" : 16,
+          "column" : 154
+        }
+      }
+    } ]
+  }, {
+    "id" : 2,
+    "kind" : "CREATE_TABLE",
+    "category" : "DDL",
+    "container" : false,
+    "confidence" : "INFERRED",
+    "name" : "t1",
+    "summary" : "Create table t1",
+    "range" : {
+      "start" : {
+        "offset" : 950,
+        "line" : 18,
+        "column" : 1
+      },
+      "end" : {
+        "offset" : 974,
+        "line" : 18,
+        "column" : 25
+      }
+    },
+    "ctes" : [ ],
+    "refs" : [ {
+      "name" : "t1",
+      "key" : "T1",
+      "kind" : "TABLE",
+      "access" : "CREATE",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 963,
+          "line" : 18,
+          "column" : 14
+        },
+        "end" : {
+          "offset" : 965,
+          "line" : 18,
+          "column" : 16
+        }
+      }
+    } ],
+    "children" : [ ],
+    "structure" : [ ],
+    "executionOrder" : [ ]
+  } ],
+  "lifecycles" : [ {
+    "name" : "report.top_customer",
+    "key" : "REPORT.TOP_CUSTOMER",
+    "kind" : "TABLE",
+    "role" : "TARGET",
+    "createdInScript" : false,
+    "droppedInScript" : false,
+    "events" : [ {
+      "step" : 0,
+      "access" : "INSERT",
+      "range" : {
+        "start" : {
+          "offset" : 12,
+          "line" : 1,
+          "column" : 13
+        },
+        "end" : {
+          "offset" : 31,
+          "line" : 1,
+          "column" : 32
+        }
+      }
+    } ]
+  }, {
+    "name" : "sales.orders",
+    "key" : "SALES.ORDERS",
+    "kind" : "TABLE",
+    "role" : "INTERMEDIATE",
+    "createdInScript" : false,
+    "droppedInScript" : false,
+    "events" : [ {
+      "step" : 0,
+      "access" : "READ",
+      "range" : {
+        "start" : {
+          "offset" : 138,
+          "line" : 3,
+          "column" : 45
+        },
+        "end" : {
+          "offset" : 150,
+          "line" : 3,
+          "column" : 57
+        }
+      }
+    }, {
+      "step" : 0,
+      "access" : "READ",
+      "range" : {
+        "start" : {
+          "offset" : 404,
+          "line" : 8,
+          "column" : 37
+        },
+        "end" : {
+          "offset" : 416,
+          "line" : 8,
+          "column" : 49
+        }
+      }
+    }, {
+      "step" : 1,
+      "access" : "UPDATE",
+      "range" : {
+        "start" : {
+          "offset" : 801,
+          "line" : 16,
+          "column" : 8
+        },
+        "end" : {
+          "offset" : 813,
+          "line" : 16,
+          "column" : 20
+        }
+      }
+    }, {
+      "step" : 1,
+      "access" : "READ",
+      "range" : {
+        "start" : {
+          "offset" : 854,
+          "line" : 16,
+          "column" : 61
+        },
+        "end" : {
+          "offset" : 866,
+          "line" : 16,
+          "column" : 73
+        }
+      }
+    }, {
+      "step" : 1,
+      "access" : "READ",
+      "range" : {
+        "start" : {
+          "offset" : 914,
+          "line" : 16,
+          "column" : 121
+        },
+        "end" : {
+          "offset" : 926,
+          "line" : 16,
+          "column" : 133
+        }
+      }
+    } ]
+  }, {
+    "name" : "crm.customer",
+    "key" : "CRM.CUSTOMER",
+    "kind" : "TABLE",
+    "role" : "SOURCE",
+    "createdInScript" : false,
+    "droppedInScript" : false,
+    "events" : [ {
+      "step" : 0,
+      "access" : "READ",
+      "range" : {
+        "start" : {
+          "offset" : 452,
+          "line" : 9,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 464,
+          "line" : 9,
+          "column" : 18
+        }
+      }
+    } ]
+  }, {
+    "name" : "crm.region",
+    "key" : "CRM.REGION",
+    "kind" : "TABLE",
+    "role" : "SOURCE",
+    "createdInScript" : false,
+    "droppedInScript" : false,
+    "events" : [ {
+      "step" : 0,
+      "access" : "READ",
+      "range" : {
+        "start" : {
+          "offset" : 528,
+          "line" : 10,
+          "column" : 62
+        },
+        "end" : {
+          "offset" : 538,
+          "line" : 10,
+          "column" : 72
+        }
+      }
+    } ]
+  }, {
+    "name" : "crm.blocked",
+    "key" : "CRM.BLOCKED",
+    "kind" : "TABLE",
+    "role" : "SOURCE",
+    "createdInScript" : false,
+    "droppedInScript" : false,
+    "events" : [ {
+      "step" : 0,
+      "access" : "READ",
+      "range" : {
+        "start" : {
+          "offset" : 670,
+          "line" : 12,
+          "column" : 33
+        },
+        "end" : {
+          "offset" : 681,
+          "line" : 12,
+          "column" : 44
+        }
+      }
+    } ]
+  }, {
+    "name" : "crm.vip",
+    "key" : "CRM.VIP",
+    "kind" : "TABLE",
+    "role" : "SOURCE",
+    "createdInScript" : false,
+    "droppedInScript" : false,
+    "events" : [ {
+      "step" : 0,
+      "access" : "READ",
+      "range" : {
+        "start" : {
+          "offset" : 763,
+          "line" : 14,
+          "column" : 42
+        },
+        "end" : {
+          "offset" : 770,
+          "line" : 14,
+          "column" : 49
+        }
+      }
+    } ]
+  }, {
+    "name" : "t1",
+    "key" : "T1",
+    "kind" : "TABLE",
+    "role" : "STRUCTURE",
+    "createdInScript" : true,
+    "droppedInScript" : false,
+    "events" : [ {
+      "step" : 2,
+      "access" : "CREATE",
+      "range" : {
+        "start" : {
+          "offset" : 963,
+          "line" : 18,
+          "column" : 14
+        },
+        "end" : {
+          "offset" : 965,
+          "line" : 18,
+          "column" : 16
+        }
+      }
+    } ]
+  } ],
+  "stepCount" : 3,
+  "lineage" : {
+    "nodes" : [ {
+      "id" : 0,
+      "ownerKind" : "TABLE",
+      "owner" : "sales.orders",
+      "ownerKey" : "SALES.ORDERS",
+      "column" : "customer_id"
+    }, {
+      "id" : 1,
+      "ownerKind" : "CTE",
+      "owner" : "paid",
+      "ownerKey" : "cte:PAID@84",
+      "column" : "customer_id"
+    }, {
+      "id" : 2,
+      "ownerKind" : "TABLE",
+      "owner" : "sales.orders",
+      "ownerKey" : "SALES.ORDERS",
+      "column" : "order_id"
+    }, {
+      "id" : 3,
+      "ownerKind" : "CTE",
+      "owner" : "paid",
+      "ownerKey" : "cte:PAID@84",
+      "column" : "order_id"
+    }, {
+      "id" : 4,
+      "ownerKind" : "TABLE",
+      "owner" : "sales.orders",
+      "ownerKey" : "SALES.ORDERS",
+      "column" : "amount"
+    }, {
+      "id" : 5,
+      "ownerKind" : "CTE",
+      "owner" : "paid",
+      "ownerKey" : "cte:PAID@84",
+      "column" : "amount"
+    }, {
+      "id" : 6,
+      "ownerKind" : "TABLE",
+      "owner" : "sales.orders",
+      "ownerKey" : "SALES.ORDERS",
+      "column" : "status"
+    }, {
+      "id" : 7,
+      "ownerKind" : "CTE",
+      "owner" : "paid",
+      "ownerKey" : "cte:PAID@84",
+      "column" : "*rows*"
+    }, {
+      "id" : 8,
+      "ownerKind" : "CTE",
+      "owner" : "large_c",
+      "ownerKey" : "cte:LARGE_C@176",
+      "column" : "customer_id"
+    }, {
+      "id" : 9,
+      "ownerKind" : "CTE",
+      "owner" : "large_c",
+      "ownerKey" : "cte:LARGE_C@176",
+      "column" : "*rows*"
+    }, {
+      "id" : 10,
+      "ownerKind" : "TABLE",
+      "owner" : "crm.region",
+      "ownerKey" : "CRM.REGION",
+      "column" : "region_id"
+    }, {
+      "id" : 11,
+      "ownerKind" : "SUBQUERY",
+      "owner" : "r",
+      "ownerKey" : "sub:R@472",
+      "column" : "region_id"
+    }, {
+      "id" : 12,
+      "ownerKind" : "TABLE",
+      "owner" : "crm.region",
+      "ownerKey" : "CRM.REGION",
+      "column" : "region_name"
+    }, {
+      "id" : 13,
+      "ownerKind" : "SUBQUERY",
+      "owner" : "r",
+      "ownerKey" : "sub:R@472",
+      "column" : "region_name"
+    }, {
+      "id" : 14,
+      "ownerKind" : "SUBQUERY",
+      "owner" : "r",
+      "ownerKey" : "sub:R@472",
+      "column" : "*rows*"
+    }, {
+      "id" : 15,
+      "ownerKind" : "TABLE",
+      "owner" : "crm.customer",
+      "ownerKey" : "CRM.CUSTOMER",
+      "column" : "id"
+    }, {
+      "id" : 16,
+      "ownerKind" : "TABLE",
+      "owner" : "report.top_customer",
+      "ownerKey" : "REPORT.TOP_CUSTOMER",
+      "column" : "customer_id"
+    }, {
+      "id" : 17,
+      "ownerKind" : "TABLE",
+      "owner" : "crm.vip",
+      "ownerKey" : "CRM.VIP",
+      "column" : "id"
+    }, {
+      "id" : 18,
+      "ownerKind" : "TABLE",
+      "owner" : "crm.customer",
+      "ownerKey" : "CRM.CUSTOMER",
+      "column" : "name"
+    }, {
+      "id" : 19,
+      "ownerKind" : "TABLE",
+      "owner" : "report.top_customer",
+      "ownerKey" : "REPORT.TOP_CUSTOMER",
+      "column" : "name"
+    }, {
+      "id" : 20,
+      "ownerKind" : "TABLE",
+      "owner" : "crm.vip",
+      "ownerKey" : "CRM.VIP",
+      "column" : "name"
+    }, {
+      "id" : 21,
+      "ownerKind" : "TABLE",
+      "owner" : "report.top_customer",
+      "ownerKey" : "REPORT.TOP_CUSTOMER",
+      "column" : "region"
+    }, {
+      "id" : 22,
+      "ownerKind" : "TABLE",
+      "owner" : "report.top_customer",
+      "ownerKey" : "REPORT.TOP_CUSTOMER",
+      "column" : "total"
+    }, {
+      "id" : 23,
+      "ownerKind" : "TABLE",
+      "owner" : "report.top_customer",
+      "ownerKey" : "REPORT.TOP_CUSTOMER",
+      "column" : "best_order"
+    }, {
+      "id" : 24,
+      "ownerKind" : "TABLE",
+      "owner" : "report.top_customer",
+      "ownerKey" : "REPORT.TOP_CUSTOMER",
+      "column" : "*rows*"
+    }, {
+      "id" : 25,
+      "ownerKind" : "TABLE",
+      "owner" : "crm.blocked",
+      "ownerKey" : "CRM.BLOCKED",
+      "column" : "customer_id"
+    }, {
+      "id" : 26,
+      "ownerKind" : "TABLE",
+      "owner" : "crm.customer",
+      "ownerKey" : "CRM.CUSTOMER",
+      "column" : "region_id"
+    }, {
+      "id" : 27,
+      "ownerKind" : "TABLE",
+      "owner" : "crm.vip",
+      "ownerKey" : "CRM.VIP",
+      "column" : "active"
+    }, {
+      "id" : 28,
+      "ownerKind" : "TABLE",
+      "owner" : "sales.orders",
+      "ownerKey" : "SALES.ORDERS",
+      "column" : "id"
+    }, {
+      "id" : 29,
+      "ownerKind" : "SUBQUERY",
+      "owner" : "x",
+      "ownerKey" : "sub:X@898",
+      "column" : "id"
+    }, {
+      "id" : 30,
+      "ownerKind" : "SUBQUERY",
+      "owner" : "x",
+      "ownerKey" : "sub:X@898",
+      "column" : "*rows*"
+    }, {
+      "id" : 31,
+      "ownerKind" : "TABLE",
+      "owner" : "sales.orders",
+      "ownerKey" : "SALES.ORDERS",
+      "column" : "*rows*"
+    } ],
+    "edges" : [ {
+      "from" : 0,
+      "to" : 1,
+      "kind" : "DIRECT",
+      "transform" : "PASS_THROUGH",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 103,
+          "line" : 3,
+          "column" : 10
+        },
+        "end" : {
+          "offset" : 114,
+          "line" : 3,
+          "column" : 21
+        }
+      }
+    }, {
+      "from" : 2,
+      "to" : 3,
+      "kind" : "DIRECT",
+      "transform" : "PASS_THROUGH",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 116,
+          "line" : 3,
+          "column" : 23
+        },
+        "end" : {
+          "offset" : 124,
+          "line" : 3,
+          "column" : 31
+        }
+      }
+    }, {
+      "from" : 4,
+      "to" : 5,
+      "kind" : "DIRECT",
+      "transform" : "PASS_THROUGH",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 126,
+          "line" : 3,
+          "column" : 33
+        },
+        "end" : {
+          "offset" : 132,
+          "line" : 3,
+          "column" : 39
+        }
+      }
+    }, {
+      "from" : 6,
+      "to" : 7,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 151,
+          "line" : 3,
+          "column" : 58
+        },
+        "end" : {
+          "offset" : 172,
+          "line" : 3,
+          "column" : 79
+        }
+      }
+    }, {
+      "from" : 1,
+      "to" : 8,
+      "kind" : "DIRECT",
+      "transform" : "PASS_THROUGH",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 198,
+          "line" : 5,
+          "column" : 10
+        },
+        "end" : {
+          "offset" : 209,
+          "line" : 5,
+          "column" : 21
+        }
+      }
+    }, {
+      "from" : 5,
+      "to" : 9,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 241,
+          "line" : 5,
+          "column" : 53
+        },
+        "end" : {
+          "offset" : 266,
+          "line" : 5,
+          "column" : 78
+        }
+      }
+    }, {
+      "from" : 1,
+      "to" : 9,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "GROUP",
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 229,
+          "line" : 5,
+          "column" : 41
+        },
+        "end" : {
+          "offset" : 240,
+          "line" : 5,
+          "column" : 52
+        }
+      }
+    }, {
+      "from" : 10,
+      "to" : 11,
+      "kind" : "DIRECT",
+      "transform" : "PASS_THROUGH",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 480,
+          "line" : 10,
+          "column" : 14
+        },
+        "end" : {
+          "offset" : 489,
+          "line" : 10,
+          "column" : 23
+        }
+      }
+    }, {
+      "from" : 12,
+      "to" : 13,
+      "kind" : "DIRECT",
+      "transform" : "AGGREGATE",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 491,
+          "line" : 10,
+          "column" : 25
+        },
+        "end" : {
+          "offset" : 522,
+          "line" : 10,
+          "column" : 56
+        }
+      }
+    }, {
+      "from" : 10,
+      "to" : 14,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "GROUP",
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 548,
+          "line" : 10,
+          "column" : 82
+        },
+        "end" : {
+          "offset" : 557,
+          "line" : 10,
+          "column" : 91
+        }
+      }
+    }, {
+      "from" : 15,
+      "to" : 16,
+      "kind" : "DIRECT",
+      "transform" : "PASS_THROUGH",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 276,
+          "line" : 7,
+          "column" : 8
+        },
+        "end" : {
+          "offset" : 280,
+          "line" : 7,
+          "column" : 12
+        }
+      }
+    }, {
+      "from" : 17,
+      "to" : 16,
+      "kind" : "DIRECT",
+      "transform" : "PASS_THROUGH",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 276,
+          "line" : 7,
+          "column" : 8
+        },
+        "end" : {
+          "offset" : 280,
+          "line" : 7,
+          "column" : 12
+        }
+      }
+    }, {
+      "from" : 18,
+      "to" : 19,
+      "kind" : "DIRECT",
+      "transform" : "PASS_THROUGH",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 282,
+          "line" : 7,
+          "column" : 14
+        },
+        "end" : {
+          "offset" : 288,
+          "line" : 7,
+          "column" : 20
+        }
+      }
+    }, {
+      "from" : 20,
+      "to" : 19,
+      "kind" : "DIRECT",
+      "transform" : "PASS_THROUGH",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 282,
+          "line" : 7,
+          "column" : 14
+        },
+        "end" : {
+          "offset" : 288,
+          "line" : 7,
+          "column" : 20
+        }
+      }
+    }, {
+      "from" : 13,
+      "to" : 21,
+      "kind" : "DIRECT",
+      "transform" : "EXPRESSION",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 290,
+          "line" : 7,
+          "column" : 22
+        },
+        "end" : {
+          "offset" : 303,
+          "line" : 7,
+          "column" : 35
+        }
+      }
+    }, {
+      "from" : 5,
+      "to" : 22,
+      "kind" : "DIRECT",
+      "transform" : "EXPRESSION",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 305,
+          "line" : 7,
+          "column" : 37
+        },
+        "end" : {
+          "offset" : 366,
+          "line" : 7,
+          "column" : 98
+        }
+      }
+    }, {
+      "from" : 2,
+      "to" : 23,
+      "kind" : "DIRECT",
+      "transform" : "EXPRESSION",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 375,
+          "line" : 8,
+          "column" : 8
+        },
+        "end" : {
+          "offset" : 446,
+          "line" : 8,
+          "column" : 79
+        }
+      }
+    }, {
+      "from" : 1,
+      "to" : 24,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 305,
+          "line" : 7,
+          "column" : 37
+        },
+        "end" : {
+          "offset" : 366,
+          "line" : 7,
+          "column" : 98
+        }
+      }
+    }, {
+      "from" : 15,
+      "to" : 24,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 305,
+          "line" : 7,
+          "column" : 37
+        },
+        "end" : {
+          "offset" : 366,
+          "line" : 7,
+          "column" : 98
+        }
+      }
+    }, {
+      "from" : 0,
+      "to" : 24,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 375,
+          "line" : 8,
+          "column" : 8
+        },
+        "end" : {
+          "offset" : 446,
+          "line" : 8,
+          "column" : 79
+        }
+      }
+    }, {
+      "from" : 8,
+      "to" : 24,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 590,
+          "line" : 11,
+          "column" : 1
+        },
+        "end" : {
+          "offset" : 711,
+          "line" : 12,
+          "column" : 74
+        }
+      }
+    }, {
+      "from" : 25,
+      "to" : 24,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 590,
+          "line" : 11,
+          "column" : 1
+        },
+        "end" : {
+          "offset" : 711,
+          "line" : 12,
+          "column" : 74
+        }
+      }
+    }, {
+      "from" : 11,
+      "to" : 24,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "JOIN",
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 561,
+          "line" : 10,
+          "column" : 95
+        },
+        "end" : {
+          "offset" : 589,
+          "line" : 10,
+          "column" : 123
+        }
+      }
+    }, {
+      "from" : 26,
+      "to" : 24,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "JOIN",
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 561,
+          "line" : 10,
+          "column" : 95
+        },
+        "end" : {
+          "offset" : 589,
+          "line" : 10,
+          "column" : 123
+        }
+      }
+    }, {
+      "from" : 27,
+      "to" : 24,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 0,
+      "range" : {
+        "start" : {
+          "offset" : 773,
+          "line" : 14,
+          "column" : 52
+        },
+        "end" : {
+          "offset" : 791,
+          "line" : 14,
+          "column" : 70
+        }
+      }
+    }, {
+      "from" : 4,
+      "to" : 4,
+      "kind" : "DIRECT",
+      "transform" : "AGGREGATE",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 1,
+      "range" : {
+        "start" : {
+          "offset" : 820,
+          "line" : 16,
+          "column" : 27
+        },
+        "end" : {
+          "offset" : 867,
+          "line" : 16,
+          "column" : 74
+        }
+      }
+    }, {
+      "from" : 28,
+      "to" : 29,
+      "kind" : "DIRECT",
+      "transform" : "PASS_THROUGH",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 1,
+      "range" : {
+        "start" : {
+          "offset" : 906,
+          "line" : 16,
+          "column" : 113
+        },
+        "end" : {
+          "offset" : 908,
+          "line" : 16,
+          "column" : 115
+        }
+      }
+    }, {
+      "from" : 4,
+      "to" : 30,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 1,
+      "range" : {
+        "start" : {
+          "offset" : 927,
+          "line" : 16,
+          "column" : 134
+        },
+        "end" : {
+          "offset" : 943,
+          "line" : 16,
+          "column" : 150
+        }
+      }
+    }, {
+      "from" : 28,
+      "to" : 31,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 1,
+      "range" : {
+        "start" : {
+          "offset" : 868,
+          "line" : 16,
+          "column" : 75
+        },
+        "end" : {
+          "offset" : 947,
+          "line" : 16,
+          "column" : 154
+        }
+      }
+    }, {
+      "from" : 29,
+      "to" : 31,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 1,
+      "range" : {
+        "start" : {
+          "offset" : 868,
+          "line" : 16,
+          "column" : 75
+        },
+        "end" : {
+          "offset" : 947,
+          "line" : 16,
+          "column" : 154
+        }
+      }
+    } ]
+  },
+  "findings" : [ {
+    "rule" : "AMB-S005",
+    "severity" : "MEDIUM",
+    "title" : "Table read several times",
+    "message" : "sales.orders is read 2 times in this statement.",
+    "suggestion" : "Read it once in a CTE (or with conditional aggregation) and reuse the result.",
+    "statement" : 0,
+    "range" : {
+      "start" : {
+        "offset" : 404,
+        "line" : 8,
+        "column" : 37
+      },
+      "end" : {
+        "offset" : 416,
+        "line" : 8,
+        "column" : 49
+      }
+    },
+    "confidence" : "CERTAIN"
+  }, {
+    "rule" : "AMB-S005",
+    "severity" : "MEDIUM",
+    "title" : "Table read several times",
+    "message" : "sales.orders is read 2 times in this statement.",
+    "suggestion" : "Read it once in a CTE (or with conditional aggregation) and reuse the result.",
+    "statement" : 1,
+    "range" : {
+      "start" : {
+        "offset" : 914,
+        "line" : 16,
+        "column" : 121
+      },
+      "end" : {
+        "offset" : 926,
+        "line" : 16,
+        "column" : 133
+      }
+    },
+    "confidence" : "CERTAIN"
+  } ]
+}

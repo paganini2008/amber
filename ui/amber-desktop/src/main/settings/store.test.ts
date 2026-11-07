@@ -1,0 +1,89 @@
+import { mkdtempSync, readFileSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { describe, expect, it } from 'vitest'
+import { SettingsStore, type SecretBox } from './store'
+
+const box: SecretBox = {
+  available: async () => true,
+  encrypt: async (s) => Buffer.from(s.split('').reverse().join('')).toString('base64'),
+  decrypt: async (s) => Buffer.from(s, 'base64').toString().split('').reverse().join('')
+}
+
+function makeStore(): { store: SettingsStore; dir: string } {
+  const dir = mkdtempSync(join(tmpdir(), 'amber-settings-'))
+  return { store: new SettingsStore(join(dir, 'settings.json'), join(dir, 'secrets.json'), box), dir }
+}
+
+describe('SettingsStore', () => {
+  it('starts with defaults and persists patches', () => {
+    const { store, dir } = makeStore()
+    expect(store.get().theme).toBe('system')
+    store.update({ theme: 'resin', ai: { ollama: { model: 'qwen' } } })
+    const reloaded = new SettingsStore(join(dir, 'settings.json'), join(dir, 'secrets.json'), box)
+    expect(reloaded.get().theme).toBe('resin')
+    expect(reloaded.get().ai.ollama.model).toBe('qwen')
+    expect(reloaded.get().ai.ollama.baseUrl).toBe('http://localhost:11434')
+  })
+
+  it('keeps secrets out of settings and the settings file', async () => {
+    const { store, dir } = makeStore()
+    const settings = await store.setAiKey('openai', 'sk-secret-123')
+    expect(settings.ai.openai.hasApiKey).toBe(true)
+    expect(JSON.stringify(settings)).not.toContain('sk-secret-123')
+    expect(readFileSync(join(dir, 'settings.json'), 'utf8')).not.toContain('sk-secret-123')
+    expect(readFileSync(join(dir, 'secrets.json'), 'utf8')).not.toContain('sk-secret-123')
+    expect(await store.getAiKey('openai')).toBe('sk-secret-123')
+    expect((await store.setAiKey('openai', null)).ai.openai.hasApiKey).toBe(false)
+  })
+
+  it('stores connection passwords separately', async () => {
+    const { store } = makeStore()
+    const profile = { id: 'c1', name: 'Dev', dialect: 'postgresql', host: 'localhost', port: 5432, database: 'dw', user: 'reader' }
+    const settings = await store.saveConnection(profile, 'pw')
+    expect(settings.connections[0]).toMatchObject({ id: 'c1', hasPassword: true })
+    expect(await store.getDbPassword('c1')).toBe('pw')
+    await store.saveConnection({ ...profile, name: 'Dev 2' })
+    expect(await store.getDbPassword('c1')).toBe('pw')
+    expect(store.deleteConnection('c1').connections).toHaveLength(0)
+    expect(await store.getDbPassword('c1')).toBeNull()
+  })
+
+  it('refuses to save a secret when secure storage is unavailable, without blocking', async () => {
+    const dir = mkdtempSync(join(tmpdir(), 'amber-settings-'))
+    const locked: SecretBox = { ...box, available: async () => false }
+    const store = new SettingsStore(join(dir, 'settings.json'), join(dir, 'secrets.json'), locked)
+    await expect(store.setAiKey('openai', 'sk-x')).rejects.toThrow(/Secure storage is not available/)
+    expect(store.get().ai.openai.hasApiKey).toBe(false)
+  })
+
+  it('keeps the ten most recent files, newest first', () => {
+    const { store } = makeStore()
+    for (let i = 0; i < 12; i++) store.addRecentFile(`/f${i}.sql`)
+    store.addRecentFile('/f5.sql')
+    const recent = store.get().recentFiles
+    expect(recent).toHaveLength(10)
+    expect(recent[0]).toBe('/f5.sql')
+    expect(recent.filter((p) => p === '/f5.sql')).toHaveLength(1)
+  })
+
+  it('keeps online mode off by default and forgets deleted connections', async () => {
+    const { store, dir } = makeStore()
+    expect(store.get().online).toEqual({ enabled: false, connectionIds: [] })
+    await store.saveConnection({ id: 'a', name: 'A', dialect: 'sqlite', host: '', port: 0, database: '', user: '', url: 'jdbc:sqlite:/tmp/a.db' })
+    await store.saveConnection({ id: 'b', name: 'B', dialect: 'postgresql', host: 'h', port: 5432, database: 'd', user: 'u' })
+    store.update({ online: { enabled: true, connectionIds: ['b', 'a', 'b'] } })
+    const reloaded = new SettingsStore(join(dir, 'settings.json'), join(dir, 'secrets.json'), box)
+    expect(reloaded.get().online).toEqual({ enabled: true, connectionIds: ['b', 'a'] })
+    expect(reloaded.get().connections.find((c) => c.id === 'a')?.url).toBe('jdbc:sqlite:/tmp/a.db')
+    expect(reloaded.deleteConnection('b').online.connectionIds).toEqual(['a'])
+  })
+
+  it('keeps format options within sensible bounds', () => {
+    const { store } = makeStore()
+    expect(store.get().format).toEqual({ indentSize: 4, keywordCase: 'UPPER', maxLineWidth: 100, commaStyle: 'TRAILING' })
+    const f = store.update({ format: { indentSize: 99, keywordCase: 'LOWER', maxLineWidth: 10, commaStyle: 'LEADING' } }).format
+    expect(f).toEqual({ indentSize: 8, keywordCase: 'LOWER', maxLineWidth: 40, commaStyle: 'LEADING' })
+    expect(store.update({ format: { ...f, keywordCase: 'weird' as never } }).format.keywordCase).toBe('UPPER')
+  })
+})

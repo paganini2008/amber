@@ -1,0 +1,63 @@
+-- Users, roles, privileges, transactions, prepared statements, LOAD DATA, client commands
+CREATE USER IF NOT EXISTS 'report_user'@'%' IDENTIFIED BY 'S3cret!pass' PASSWORD EXPIRE INTERVAL 90 DAY;
+CREATE USER 'app'@'10.0.%' IDENTIFIED WITH caching_sha2_password BY 'pw' REQUIRE SSL WITH MAX_USER_CONNECTIONS 20;
+ALTER USER 'report_user'@'%' IDENTIFIED BY 'N3w!pass';
+ALTER USER 'app'@'10.0.%' ACCOUNT LOCK;
+RENAME USER 'app'@'10.0.%' TO 'app2'@'10.0.%';
+CREATE ROLE IF NOT EXISTS 'r_read', 'r_write';
+GRANT SELECT ON sales_db.* TO 'r_read';
+GRANT INSERT, UPDATE, DELETE ON sales_db.orders TO 'r_write';
+GRANT SELECT (email, display_name), UPDATE (display_name) ON sales_db.customers TO 'report_user'@'%';
+GRANT EXECUTE ON PROCEDURE sales_db.sp_refresh_totals TO 'report_user'@'%';
+GRANT ALL PRIVILEGES ON *.* TO 'admin'@'localhost' WITH GRANT OPTION;
+GRANT 'r_read', 'r_write' TO 'report_user'@'%';
+SET DEFAULT ROLE ALL TO 'report_user'@'%';
+SET ROLE 'r_read';
+REVOKE UPDATE ON sales_db.orders FROM 'r_write';
+REVOKE 'r_write' FROM 'report_user'@'%';
+REVOKE ALL PRIVILEGES, GRANT OPTION FROM 'admin'@'localhost';
+DROP ROLE IF EXISTS 'r_write';
+DROP USER IF EXISTS 'app2'@'10.0.%';
+FLUSH PRIVILEGES;
+START TRANSACTION;
+START TRANSACTION READ ONLY;
+START TRANSACTION WITH CONSISTENT SNAPSHOT, READ WRITE;
+BEGIN;
+BEGIN WORK;
+SAVEPOINT sp1;
+ROLLBACK TO SAVEPOINT sp1;
+RELEASE SAVEPOINT sp1;
+COMMIT;
+COMMIT WORK AND NO CHAIN;
+ROLLBACK;
+SET autocommit = 0;
+SET TRANSACTION ISOLATION LEVEL READ COMMITTED;
+SET SESSION TRANSACTION ISOLATION LEVEL REPEATABLE READ, READ WRITE;
+LOCK TABLES customers READ, orders WRITE;
+UNLOCK TABLES;
+LOCK INSTANCE FOR BACKUP;
+UNLOCK INSTANCE;
+XA START 'xid1';
+XA END 'xid1';
+XA PREPARE 'xid1';
+XA COMMIT 'xid1';
+PREPARE stmt1 FROM 'SELECT * FROM customers WHERE customer_id = ?';
+SET @id = 5;
+EXECUTE stmt1 USING @id;
+DEALLOCATE PREPARE stmt1;
+DROP PREPARE stmt1;
+LOAD DATA INFILE '/var/lib/mysql-files/orders.csv' INTO TABLE orders FIELDS TERMINATED BY ',' ENCLOSED BY '"' LINES TERMINATED BY '\n' IGNORE 1 LINES (customer_id, @d, qty, unit_price) SET order_date = STR_TO_DATE(@d, '%Y-%m-%d');
+LOAD DATA LOCAL INFILE 'customers.tsv' REPLACE INTO TABLE customers CHARACTER SET utf8mb4 (email, display_name);
+LOAD XML LOCAL INFILE 'items.xml' INTO TABLE order_items ROWS IDENTIFIED BY '<item>';
+KILL QUERY 1234;
+SET FOREIGN_KEY_CHECKS = 0;
+SET UNIQUE_CHECKS = 1, SQL_LOG_BIN = 0;
+SET TIME_ZONE = '+00:00';
+use sales_db
+SOURCE /opt/scripts/seed_data.sql
+\. /opt/scripts/more_data.sql
+SELECT COUNT(*) FROM customers\G
+SHOW FUNCTION STATUS LIKE 'fn%';
+ALTER INSTANCE ROTATE INNODB MASTER KEY;
+RESET MASTER;
+SELECT CAST(NOW() AT TIME ZONE '+00:00' AS DATETIME) AS utc_now;

@@ -1,0 +1,18 @@
+SELECT order_id, ROW_NUMBER() OVER (ORDER BY order_date) AS rn FROM dbo.Orders;
+SELECT order_id, RANK() OVER (PARTITION BY customer_id ORDER BY amount DESC) AS rk, DENSE_RANK() OVER (ORDER BY amount) AS dr, NTILE(4) OVER (ORDER BY amount) AS q FROM dbo.Orders;
+SELECT order_id, SUM(amount) OVER (PARTITION BY customer_id ORDER BY order_date ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) AS running FROM dbo.Orders;
+SELECT order_id, AVG(amount) OVER (ORDER BY order_date ROWS BETWEEN 2 PRECEDING AND 2 FOLLOWING) AS moving FROM dbo.Orders;
+SELECT order_id, SUM(amount) OVER (ORDER BY order_date RANGE BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW) FROM dbo.Orders;
+SELECT order_id, LAG(amount, 1, 0) OVER (PARTITION BY customer_id ORDER BY order_date) AS prev, LEAD(amount) OVER (ORDER BY order_date) AS nxt FROM dbo.Orders;
+SELECT order_id, FIRST_VALUE(amount) OVER (PARTITION BY customer_id ORDER BY order_date) AS first_amt, LAST_VALUE(amount) OVER (PARTITION BY customer_id ORDER BY order_date ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS last_amt FROM dbo.Orders;
+SELECT order_id, PERCENT_RANK() OVER (ORDER BY amount), CUME_DIST() OVER (ORDER BY amount) FROM dbo.Orders;
+SELECT DISTINCT customer_id, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY amount) OVER (PARTITION BY customer_id) AS median FROM dbo.Orders;
+SELECT DISTINCT customer_id, PERCENTILE_DISC(0.9) WITHIN GROUP (ORDER BY amount) OVER (PARTITION BY customer_id) AS p90 FROM dbo.Orders;
+SELECT order_id, COUNT(*) OVER () AS total_rows, SUM(amount) OVER (PARTITION BY customer_id) AS cust_total FROM dbo.Orders;
+SELECT order_id, SUM(amount) OVER w AS s, AVG(amount) OVER w AS a FROM dbo.Orders WINDOW w AS (PARTITION BY customer_id ORDER BY order_date);
+SELECT order_id, LAG(amount) IGNORE NULLS OVER (ORDER BY order_date) AS prev_nn FROM dbo.Orders;
+SELECT order_id, FIRST_VALUE(amount) RESPECT NULLS OVER (ORDER BY order_date) FROM dbo.Orders;
+SELECT customer_id, amount, amount * 100.0 / SUM(amount) OVER (PARTITION BY customer_id) AS pct FROM dbo.Orders;
+SELECT order_id, ROW_NUMBER() OVER (PARTITION BY customer_id, YEAR(order_date) ORDER BY amount DESC, order_id) FROM dbo.Orders;
+SELECT order_id, MAX(amount) OVER (ORDER BY order_date ROWS UNBOUNDED PRECEDING) FROM dbo.Orders;
+SELECT order_id, MIN(amount) OVER (ORDER BY order_date ROWS 3 PRECEDING) FROM dbo.Orders;

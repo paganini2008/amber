@@ -1,0 +1,30 @@
+-- Top-level WITH, recursive CTE, set operations, table value constructors
+WITH t AS (SELECT 1 AS n) SELECT n FROM t;
+WITH RECURSIVE r (n) AS (SELECT 1 UNION ALL SELECT n + 1 FROM r WHERE n < 10) SELECT * FROM r;
+WITH a AS (SELECT id FROM orders), b AS (SELECT id FROM a WHERE id > 10) SELECT COUNT(*) FROM b;
+WITH RECURSIVE tree AS (
+    SELECT id, parent_id, name, CAST(name AS CHAR(1000)) AS path FROM categories WHERE parent_id IS NULL
+    UNION ALL
+    SELECT c.id, c.parent_id, c.name, CONCAT(tree.path, '/', c.name) FROM categories c JOIN tree ON c.parent_id = tree.id
+)
+CYCLE id RESTRICT
+SELECT * FROM tree;
+SELECT id FROM t1 UNION SELECT id FROM t2;
+SELECT id FROM t1 UNION ALL SELECT id FROM t2 ORDER BY id LIMIT 3;
+SELECT id FROM t1 INTERSECT SELECT id FROM t2;
+SELECT id FROM t1 INTERSECT ALL SELECT id FROM t2;
+SELECT id FROM t1 EXCEPT SELECT id FROM t2;
+SELECT id FROM t1 EXCEPT ALL SELECT id FROM t2;
+SELECT id FROM t1 MINUS SELECT id FROM t2;
+(SELECT id FROM t1 LIMIT 2) UNION (SELECT id FROM t2 LIMIT 2);
+VALUES (1, 'a'), (2, 'b');
+VALUES (1), (2) ORDER BY 1 DESC LIMIT 1;
+SELECT * FROM (VALUES (1, 'a'), (2, 'b')) AS v;
+SELECT region, SUM(amount) FROM sales GROUP BY region WITH ROLLUP;
+SELECT region, product, SUM(amount) FROM sales GROUP BY region, product WITH ROLLUP HAVING SUM(amount) > 0;
+SELECT id, ROW_NUMBER() OVER (PARTITION BY grp ORDER BY ts) rn, SUM(v) OVER (ORDER BY ts ROWS BETWEEN 2 PRECEDING AND CURRENT ROW) FROM t;
+SELECT id, LAG(v) OVER w, LEAD(v, 2, 0) OVER w, NTILE(3) OVER w, PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY v) OVER (PARTITION BY grp) FROM t WINDOW w AS (ORDER BY id);
+SELECT id, MEDIAN(v) OVER (PARTITION BY grp) FROM t;
+SELECT grp, GROUP_CONCAT(v ORDER BY v SEPARATOR '|' LIMIT 3), JSON_ARRAYAGG(v), JSON_OBJECTAGG(id, v) FROM t GROUP BY grp;
+SELECT * FROM t, JSON_TABLE(t.doc, '$.items[*]' COLUMNS (seq FOR ORDINALITY, sku VARCHAR(20) PATH '$.sku', qty INT PATH '$.qty' DEFAULT '1' ON EMPTY, NESTED PATH '$.tags[*]' COLUMNS (tag VARCHAR(20) PATH '$'))) AS jt;
+SELECT JSON_VALUE(doc, '$.a'), JSON_QUERY(doc, '$.b'), JSON_EXTRACT(doc, '$.c'), doc->'$.d', JSON_DETAILED(doc), JSON_EQUALS('{}', doc), JSON_NORMALIZE(doc) FROM t;

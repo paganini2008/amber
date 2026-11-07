@@ -1,0 +1,3 @@
+PostgreSQL-mode syntax (id::VARCHAR casts, ~ regex match) that H2 only accepts after SET MODE
+PostgreSQL. Amber's H2 grammar follows H2's own documented grammar; for such scripts choose the
+PostgreSQL dialect, or use allowFallback to keep these statements as UNPARSED.

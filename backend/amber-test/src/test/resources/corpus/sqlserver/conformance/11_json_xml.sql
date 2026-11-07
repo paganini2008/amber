@@ -1,0 +1,27 @@
+SELECT customer_id, name FROM dbo.Customers FOR JSON PATH;
+SELECT customer_id AS [id], name AS [info.name], country AS [info.country] FROM dbo.Customers FOR JSON PATH, ROOT('customers'), INCLUDE_NULL_VALUES;
+SELECT customer_id, name FROM dbo.Customers FOR JSON AUTO, WITHOUT_ARRAY_WRAPPER;
+DECLARE @j NVARCHAR(MAX) = N'{"orders":[{"id":1,"amount":10.5},{"id":2,"amount":20}]}';
+SELECT * FROM OPENJSON(@j, '$.orders') WITH (id INT '$.id', amount DECIMAL(10, 2) '$.amount', raw NVARCHAR(MAX) '$' AS JSON);
+SELECT [key], [value], [type] FROM OPENJSON(@j);
+SELECT JSON_VALUE(@j, '$.orders[0].id') AS first_id, JSON_QUERY(@j, '$.orders') AS arr, ISJSON(@j) AS ok;
+SELECT JSON_MODIFY(@j, '$.status', 'done') AS modified;
+SELECT JSON_OBJECT('id': 1, 'name': 'x') AS obj, JSON_ARRAY(1, 2, 'three') AS arr;
+SELECT c.customer_id, o.* FROM dbo.Customers c CROSS APPLY OPENJSON(c.prefs) WITH (theme NVARCHAR(20), lang NVARCHAR(5)) AS o;
+SELECT ISJSON(@j, OBJECT) AS is_obj;
+SELECT JSON_PATH_EXISTS(@j, '$.orders') AS has_orders;
+SELECT customer_id, name FROM dbo.Customers FOR XML RAW('customer'), ROOT('customers'), ELEMENTS;
+SELECT customer_id, name FROM dbo.Customers FOR XML AUTO, TYPE;
+SELECT customer_id AS '@id', name AS 'name/text()' FROM dbo.Customers FOR XML PATH('customer'), ROOT('list');
+SELECT STUFF((SELECT ',' + name FROM dbo.Customers FOR XML PATH(''), TYPE).value('.', 'NVARCHAR(MAX)'), 1, 1, '') AS names;
+DECLARE @x XML = N'<items><item id="1" qty="3"/><item id="2" qty="5"/></items>';
+SELECT n.value('@id', 'INT') AS id, n.value('@qty', 'INT') AS qty FROM @x.nodes('/items/item') AS t(n);
+SELECT @x.query('/items/item[@id=1]') AS q, @x.exist('/items/item[@qty>4]') AS e;
+SET @x.modify('replace value of (/items/item/@qty)[1] with 10');
+SELECT d.doc.value('(/order/@id)[1]', 'INT') FROM dbo.Documents d;
+WITH XMLNAMESPACES ('urn:example:orders' AS ord)
+SELECT order_id AS 'ord:id' FROM dbo.Orders FOR XML PATH('ord:order');
+DECLARE @hdoc INT;
+EXEC sp_xml_preparedocument @hdoc OUTPUT, @x;
+SELECT * FROM OPENXML(@hdoc, '/items/item', 1) WITH (id INT, qty INT);
+EXEC sp_xml_removedocument @hdoc;

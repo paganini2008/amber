@@ -1,0 +1,27 @@
+# GitHub Pages (Jekyll) configuration for https://paganini2008.github.io/amber/
+title: Amber
+description: Read and understand large SQL scripts. Open source, offline first, never runs your SQL.
+url: https://paganini2008.github.io
+baseurl: /amber
+lang: en
+
+markdown: kramdown
+kramdown:
+  input: GFM
+
+# docs/examples holds confidential scripts and must never be published.
+exclude:
+  - examples
+  - examples/
+  - "*.sql"
+  - Gemfile
+  - Gemfile.lock
+  - README.md
+
+# Markdown pages (design.md, protocol.md) use the site layout in _layouts/default.html.
+# index.html has no front matter and is copied as is.
+defaults:
+  - scope:
+      path: ""
+    values:
+      layout: default

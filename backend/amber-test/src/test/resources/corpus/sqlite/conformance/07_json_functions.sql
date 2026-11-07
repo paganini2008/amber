@@ -1,0 +1,21 @@
+-- JSON functions and operators
+SELECT json('{"a":1}'), json_array(1, 2, 'x'), json_object('k', 1, 'm', json_array());
+SELECT json_extract(payload, '$.kind'), json_extract(payload, '$.items[0].sku') FROM account_event;
+SELECT payload -> '$.kind', payload ->> '$.kind', payload ->> 'kind', payload -> 0 FROM account_event;
+SELECT * FROM account_event WHERE payload ->> '$.status' = 'done';
+SELECT json_insert(payload, '$.x', 1), json_replace(payload, '$.y', 2), json_set(payload, '$.z', json('[1]')) FROM account_event;
+SELECT json_remove(payload, '$.tmp'), json_patch(payload, '{"a":null}'), json_type(payload, '$.a'), json_valid(payload) FROM account_event;
+SELECT json_array_length(payload, '$.items'), json_quote('text') FROM account_event;
+SELECT json_group_array(display_name), json_group_object(customer_id, display_name) FROM customer;
+SELECT e.event_id, j.key, j.value, j.type, j.path FROM account_event e, json_each(e.payload, '$.items') AS j;
+SELECT t.fullkey, t.atom FROM json_tree('{"a":{"b":1}}') AS t WHERE t.type <> 'object';
+SELECT jsonb('{"a":1}'), jsonb_extract(jsonb('{"a":1}'), '$.a'), json_pretty('{"a":1}');
+SELECT json_error_position('{bad');
+UPDATE account_event SET payload = json_set(payload, '$.seen', json('true')) WHERE payload ->> '$.seen' IS NULL;
+SELECT date('now'), time('now', 'localtime'), datetime('now', '-1 day'), julianday('2024-01-01'), strftime('%Y-%m', created_at), unixepoch(), timediff('2024-02-01', '2024-01-01') FROM customer;
+SELECT printf('%05d', 42), format('%s-%s', 'a', 'b'), hex(randomblob(4)), quote('x'), zeroblob(4), unicode('A'), char(65, 66);
+SELECT round(2.567, 2), trim('  x  '), ltrim('xxa', 'x'), rtrim('a  '), replace('abc', 'b', 'z'), upper('a'), lower('B'), likely(1), unlikely(0);
+SELECT changes(), last_insert_rowid(), total_changes(), sqlite_version(), random();
+SELECT octet_length('abc'), concat('a', 'b'), concat_ws('-', 'a', 'b'), unhex('41'), median(amount) FROM account_event;
+SELECT max(1, 2, 3), min(4, 5);
+SELECT rowid, _rowid_, oid FROM customer;

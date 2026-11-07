@@ -1,0 +1,21 @@
+-- INSERT variants
+INSERT INTO sales.customer (customer_id, name) VALUES (1, 'Acme');
+INSERT INTO sales.customer VALUES (2, 'Globex', DEFAULT, NULL);
+INSERT INTO sales.customer (customer_id, name) VALUES (3, 'A'), (4, 'B'), (5, 'C');
+INSERT INTO sales.customer DEFAULT VALUES;
+INSERT INTO sales.customer_copy SELECT * FROM sales.customer WHERE active;
+INSERT INTO sales.customer AS c (customer_id, name) VALUES (6, 'X') RETURNING c.customer_id, name;
+INSERT INTO sales.customer (customer_id, name) VALUES (7, 'Y') RETURNING *;
+INSERT INTO sales.customer (customer_id, name) VALUES (1, 'Acme') ON CONFLICT DO NOTHING;
+INSERT INTO sales.customer (customer_id, name) VALUES (1, 'Acme') ON CONFLICT (customer_id) DO NOTHING;
+INSERT INTO sales.customer (customer_id, name) VALUES (1, 'Acme Inc') ON CONFLICT (customer_id) DO UPDATE SET name = EXCLUDED.name, updated_at = now();
+INSERT INTO sales.customer AS c (customer_id, name) VALUES (1, 'Z') ON CONFLICT (customer_id) DO UPDATE SET name = EXCLUDED.name WHERE c.name IS DISTINCT FROM EXCLUDED.name RETURNING c.customer_id;
+INSERT INTO sales.customer (customer_id, name) VALUES (1, 'Z') ON CONFLICT ON CONSTRAINT customer_pkey DO UPDATE SET (name, region) = (EXCLUDED.name, EXCLUDED.region);
+INSERT INTO sales.customer (email, name) VALUES ('a@b.c', 'Q') ON CONFLICT (lower(email)) WHERE active DO NOTHING;
+INSERT INTO sales.customer (customer_id, name) OVERRIDING SYSTEM VALUE VALUES (100, 'Manual');
+INSERT INTO sales.customer (customer_id, name) OVERRIDING USER VALUE SELECT customer_id, name FROM staging.customer;
+INSERT INTO sales.customer (customer_id, name) SELECT g, 'gen ' || g FROM generate_series(1, 100) g;
+INSERT INTO sales.customer (customer_id, tags) VALUES (8, ARRAY['a','b']), (9, '{c,d}');
+INSERT INTO sales.customer (customer_id, profile) VALUES (10, '{"vip": true}'::jsonb);
+INSERT INTO sales.customer (customer_id, name) VALUES ((SELECT max(customer_id) + 1 FROM sales.customer), 'Next');
+INSERT INTO "Sales"."Customer Archive" ("Id") VALUES (1);

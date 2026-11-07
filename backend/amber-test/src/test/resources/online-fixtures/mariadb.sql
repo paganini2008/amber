@@ -1,0 +1,11 @@
+create database if not exists desk;
+create table desk.queues (id int primary key, name varchar(60) not null unique, parent_id int);
+create table desk.tickets (id bigint primary key, queue_id int not null, priority tinyint not null, opened_at datetime not null, closed_at datetime, key ix_tickets_open (closed_at, opened_at));
+create table desk.sla_rules (queue_id int not null, priority tinyint not null, max_hours int not null, primary key (queue_id, priority));
+create table desk.sla_breaches (ticket_id bigint primary key, queue_name varchar(60), priority tinyint, age_h int, noted_at datetime);
+create table desk.agents (id int primary key, open_load int default 0);
+create table desk.assignments (ticket_id bigint not null, agent_id int not null, primary key (ticket_id, agent_id));
+insert into desk.queues values (1, 'Support', null), (2, 'Billing', 1);
+insert into desk.tickets values (1, 2, 2, now() - interval 3 day, null);
+insert into desk.agents (id) values (1);
+insert into desk.assignments values (1, 1);

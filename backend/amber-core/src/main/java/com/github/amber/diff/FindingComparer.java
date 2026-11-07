@@ -1,0 +1,89 @@
+package com.github.amber.diff;
+
+import com.github.amber.dialect.findings.Finding;
+import com.github.amber.diff.DiffResult.FindingChange;
+import com.github.amber.diff.DiffResult.Risk;
+
+import java.util.ArrayList;
+import java.util.List;
+import java.util.function.BiPredicate;
+
+/**
+ * Findings introduced or resolved by the change. A finding of the old version and one of the new
+ * version are the same when they have the same rule and, in order of preference: their statements are
+ * aligned and the flagged text is the same after normalization; their statements are aligned; or the
+ * flagged text is the same anywhere.
+ *
+ * @Author: Fred Feng
+ * @Date: 07/11/2026
+ * @Version 1.0.0
+ */
+final class FindingComparer {
+
+    private FindingComparer() {
+    }
+
+    static List<FindingChange> compare(DiffContext ctx) {
+        List<Finding> fb = ctx.before.findings;
+        List<Finding> fa = ctx.after.findings;
+        boolean[] mb = new boolean[fb.size()];
+        boolean[] ma = new boolean[fa.size()];
+        long[] hb = fb.stream().mapToLong(f -> textHash(ctx.before, f)).toArray();
+        long[] ha = fa.stream().mapToLong(f -> textHash(ctx.after, f)).toArray();
+        BiPredicate<Integer, Integer> paired = (i, j) -> {
+            Integer sb = ctx.before.id(fb.get(i).statement());
+            Integer sa = ctx.after.id(fa.get(j).statement());
+            return sb != null && sa != null && sa.equals(ctx.beforeToAfter.get(sb));
+        };
+        pass(fb, fa, mb, ma, (i, j) -> paired.test(i, j) && hb[i] == ha[j]);
+        pass(fb, fa, mb, ma, paired);
+        pass(fb, fa, mb, ma, (i, j) -> hb[i] == ha[j]);
+        List<FindingChange> out = new ArrayList<>();
+        for (int j = 0; j < fa.size(); j++) {
+            if (!ma[j]) {
+                Finding f = fa.get(j);
+                Integer sa = ctx.after.id(f.statement());
+                Integer sb = sa == null ? null : ctx.afterToBefore.get(sa);
+                out.add(new FindingChange("NEW", f.rule(), f.severity().name(), f.title(), f.message(), sb, sa, null,
+                        f.range()));
+                Risk level = f.severity() == Finding.Severity.HIGH ? Risk.MEDIUM : Risk.LOW;
+                ctx.reason(level, "NEW_FINDING", "New " + f.severity() + " finding " + f.rule() + " (" + f.title() + ")",
+                        sb, sa, null, f.range());
+            }
+        }
+        for (int i = 0; i < fb.size(); i++) {
+            if (!mb[i]) {
+                Finding f = fb.get(i);
+                Integer sb = ctx.before.id(f.statement());
+                Integer sa = sb == null ? null : ctx.beforeToAfter.get(sb);
+                out.add(new FindingChange("RESOLVED", f.rule(), f.severity().name(), f.title(), f.message(), sb, sa,
+                        f.range(), null));
+            }
+        }
+        return out;
+    }
+
+    private static void pass(List<Finding> fb, List<Finding> fa, boolean[] mb, boolean[] ma,
+                             BiPredicate<Integer, Integer> same) {
+        for (int i = 0; i < fb.size(); i++) {
+            if (mb[i]) {
+                continue;
+            }
+            for (int j = 0; j < fa.size(); j++) {
+                if (!ma[j] && fb.get(i).rule().equals(fa.get(j).rule()) && same.test(i, j)) {
+                    mb[i] = true;
+                    ma[j] = true;
+                    break;
+                }
+            }
+        }
+    }
+
+    private static long textHash(Version v, Finding f) {
+        if (f.range() == null) {
+            return 0;
+        }
+        return SqlTokens.hash(SqlTokens.of(v.dialect, v.source.text(), f.range().start().offset(),
+                f.range().end().offset()));
+    }
+}
