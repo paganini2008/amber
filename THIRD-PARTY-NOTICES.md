@@ -37,6 +37,17 @@ This file is shipped inside every installer and is shown on the About screen.
 | Electron | Desktop shell | MIT |
 | Chromium and Node.js (inside Electron) | Desktop shell | Various open-source licenses (see below) |
 | IBM Plex Sans, IBM Plex Mono | Fonts in the app and on the website | SIL Open Font License 1.1 |
+| React, React DOM | Desktop user interface | MIT |
+| CodeMirror 6, Lezer | SQL editor and highlighting | MIT |
+| React Flow (@xyflow/react) | Lineage, call and ER diagrams | MIT |
+| ELK (elkjs) | Diagram layout | EPL-2.0 (chosen from EPL-2.0 OR GPL-3.0-or-later) |
+| Radix UI primitives | Dialogs, menus, tabs, tooltips | MIT |
+| TanStack Virtual | Long lists | MIT |
+| Zustand | UI state | MIT |
+| Lucide icons (lucide-react) | Icons | ISC |
+| Tailwind CSS (generated styles) | Styling | MIT |
+| clsx | Class names | MIT |
+| Simple Icons (path data of 5 database marks) | Database icons | CC0-1.0 |
 
 Further npm packages bundled into the desktop app (React, CodeMirror, React Flow, elkjs, Radix UI,
 Zustand, Lucide and others) are distributed under their own permissive licenses (mostly MIT,
@@ -193,3 +204,36 @@ statements to a database.
 - License: SIL Open Font License, version 1.1 (<https://openfontlicense.org>).
   Copyright © 2017 IBM Corp. with Reserved Font Name "Plex".
 - Bundled in the desktop app; the website loads them from Google Fonts.
+
+## Desktop user-interface libraries
+
+These libraries are compiled into the desktop app's user interface. Each keeps its own copyright; the
+license texts are in the packages on npm (and in `node_modules/<package>/LICENSE` of a source checkout).
+
+| Library | Copyright | License |
+|---|---|---|
+| React, React DOM <https://react.dev> | Meta Platforms, Inc. and affiliates | MIT |
+| CodeMirror 6 (`@codemirror/*`), Lezer (`@lezer/*`) <https://codemirror.net> | Marijn Haverbeke and others | MIT |
+| React Flow (`@xyflow/react`) <https://reactflow.dev> | webkid GmbH | MIT |
+| Radix UI primitives (`@radix-ui/*`) <https://www.radix-ui.com> | WorkOS | MIT |
+| TanStack Virtual <https://tanstack.com/virtual> | Tanner Linsley | MIT |
+| Zustand <https://github.com/pmndrs/zustand> | Paul Henschel | MIT |
+| Lucide (`lucide-react`) <https://lucide.dev> | Lucide Contributors (parts © Cole Bemis, Feather) | ISC |
+| Tailwind CSS <https://tailwindcss.com> | Tailwind Labs, Inc. | MIT |
+| clsx <https://github.com/lukeed/clsx> | Luke Edwards | MIT |
+
+### Database icons: Simple Icons
+
+- The PostgreSQL, MySQL, MariaDB, H2 and SQLite marks in `ui/amber-desktop/src/renderer/src/assets/db/` use
+  path data from Simple Icons 16.35.0, <https://simpleicons.org>, released under **CC0 1.0 Universal**
+  (public domain dedication). The Oracle, SQL Server and Db2 marks and the generic database glyph are
+  original Amber drawings; all marks sit on the same Amber tile.
+- Database names and logos are trademarks of their respective owners; used only to identify compatibility.
+
+### ELK (elkjs)
+
+- Eclipse Layout Kernel compiled to JavaScript, <https://github.com/kieler/elkjs>, used unmodified to lay
+  out diagrams.
+- Offered under EPL-2.0 OR GPL-3.0-or-later; Amber uses it under the **Eclipse Public License 2.0**
+  (<https://www.eclipse.org/legal/epl-2.0/>). Its source code is available at the address above.
+  Copyright © Kiel University and others.

@@ -1,5 +1,6 @@
 package com.github.amber.rewrite;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.Dialect;
 import com.github.amber.dialect.split.ScanToken;
 
@@ -134,37 +135,31 @@ final class DateRangeRule implements RewriteRule {
             return null;                            // not a date/time column: the function means something else
         }
         boolean aligned = lo.dayAligned && hi.dayAligned;
-        String explanation = sql.slice(f.start, f.end - 1) + " hides " + col + " inside a function, so an index on "
-                + col + " cannot be used. The same filter written as a range on the bare column can use it.";
+        String explanation = Messages.t("rewrite.dateRange.explanation", sql.slice(f.start, f.end - 1), col);
         Safety safety;
         String note;
-        String value = op.equals("BETWEEN") ? lo.text + " and " + hi.text : lo.text;
-        String whole = op.equals("BETWEEN") ? " are whole days" : " is a whole day";
-        String carries = op.equals("=") ? ", " + original.replaceAll("\\s+", " ") + " matches nothing while the range "
-                + "matches part of that day" : ", rows on the boundary day can differ";
+        boolean between = op.equals("BETWEEN");
+        String value = between ? Messages.t("rewrite.dateRange.between", lo.text, hi.text) : lo.text;
         if (ctx.dialect() == Dialect.SQLITE) {
             safety = Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES;
-            note = "SQLite stores dates as text or numbers: the range is equivalent when " + col + " holds ISO-8601 "
-                    + "text ('YYYY-MM-DD…'), the usual format, and differs for numeric (Julian / Unix) values.";
+            note = Messages.t("rewrite.dateRange.safety.sqlite", col);
         } else if (type == null) {
             safety = Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES;
-            note = "The type of " + col + " is unknown (add metadata): the range is equivalent for a DATE / TIMESTAMP "
-                    + "column" + (aligned ? "" : " when " + value + " has no time of day") + ", and not for other types.";
+            note = aligned ? Messages.t("rewrite.dateRange.safety.unknownType", col)
+                    : Messages.t("rewrite.dateRange.safety.unknownType.time", col, value);
         } else if (ZONED_TYPE.matcher(type).matches()) {
             safety = Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES;
-            note = col + " is " + type + ": the day of a value with a time zone depends on the zone used, so the range "
-                    + "can include or miss values near midnight.";
+            note = Messages.t("rewrite.dateRange.safety.zoned", col, type);
         } else if (!aligned) {
             safety = Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES;
-            note = "Equivalent when " + value + " has no time of day (the usual case for a date parameter); if it "
-                    + "carries a time" + carries + ".";
+            note = op.equals("=") ? Messages.t("rewrite.dateRange.safety.timeEquals", value,
+                    original.replaceAll("\\s+", " ")) : Messages.t("rewrite.dateRange.safety.timeRange", value);
         } else {
             safety = Safety.EQUIVALENT_WITH_METADATA;
-            note = col + " is " + type + " in the known metadata and " + value + whole + ", so the range "
-                    + "selects exactly the same rows.";
+            note = Messages.t(between ? "rewrite.dateRange.safety.wholeDays" : "rewrite.dateRange.safety.wholeDay",
+                    col, type, value);
         }
-        return new Candidate(id(), "Function on a filtered column → range on the column", explanation, List.of(edit),
-                safety, note);
+        return new Candidate(id(), Messages.t("rewrite.dateRange.title"), explanation, List.of(edit), safety, note);
     }
 
     // ----- the truncation ---------------------------------------------------------------------------
@@ -409,7 +404,7 @@ final class DateRangeRule implements RewriteRule {
             return sources.stream().filter(s -> q.equals(s.exposed(sql))).findFirst().orElse(null);
         }
         if (sources.size() == 1) {
-            return sources.getFirst();
+            return sources.get(0);
         }
         String col = Sql.key(sql.tok(f.colEnd).text());
         Source found = null;

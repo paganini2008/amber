@@ -155,8 +155,12 @@ public final class MySqlSplitter implements ScriptSplitter {
                 || t.type() == ScanToken.Type.UNTERMINATED) {
             return -1;
         }
-        int at = text.indexOf(delimiter, t.start());
-        return at >= 0 && at < t.end() ? at : -1;
+        for (int at = t.start(); at < t.end(); at++) {         // only inside the token: indexOf would scan the rest
+            if (text.startsWith(delimiter, at)) {              // of the text for every token of a long statement
+                return at;
+            }
+        }
+        return -1;
     }
 
     private static boolean isGo(String text, int offset) {

@@ -59,6 +59,8 @@ public final class CallLinker {
                 l.routines.putIfAbsent(st.name().key(), st);
             }
         }));
+        // Column lineage through calls: arguments into parameters, OUT parameters and results back.
+        com.github.amber.dialect.lineage.CallLineage.link(dialect, source, statements, l::find);
         if (l.routines.isEmpty()) {
             return;
         }

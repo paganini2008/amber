@@ -1,5 +1,6 @@
 import type { LineageEdge } from '@shared/protocol'
-import { isRows, ownerKindLabel, ownerTitle, type LineageIndex, type LineageTrace } from './lineage'
+import { isRows, isVariableKind, ownerSubtitle, ownerTitle, type LineageIndex, type LineageTrace } from './lineage'
+import { t } from '../i18n'
 
 /**
  * View model for the Lineage view: the traced subgraph as owner cards with column rows.
@@ -68,7 +69,9 @@ export function buildLineageView(index: LineageIndex, trace: LineageTrace, label
     const rows = ids.map((nodeId, i) => {
       const n = index.nodes.get(nodeId)!
       rowIndex.set(nodeId, { card: id, row: i })
-      return { nodeId, label: isRows(n) ? 'which rows arrive' : n.column, rows: isRows(n), traced: tracedSet.has(nodeId) }
+      // A variable's card is titled with its name; its row is simply its value.
+      const label = isRows(n) ? t('lineage.card.rows') : isVariableKind(owner.kind) ? t('lineage.card.value') : n.column
+      return { nodeId, label, rows: isRows(n), traced: tracedSet.has(nodeId) }
     })
     const hidden = context.length - shown.length
     cards.push({
@@ -76,7 +79,7 @@ export function buildLineageView(index: LineageIndex, trace: LineageTrace, label
       ownerKey,
       kind: owner.kind,
       title: ownerTitle(owner),
-      subtitle: owner.kind === 'UNKNOWN' ? 'unresolved: the table could not be determined' : ownerKindLabel(owner.kind),
+      subtitle: ownerSubtitle(owner),
       rows,
       hidden,
       width: CARD.WIDTH,

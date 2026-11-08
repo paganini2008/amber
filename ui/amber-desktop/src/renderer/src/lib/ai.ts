@@ -1,4 +1,5 @@
 import type { AiCheckLabel, Range } from '@shared/protocol'
+import { t, tOr } from '../i18n'
 
 /**
  * Helpers for the optional AI suggestions: reading the model's answer, restoring masked names for
@@ -116,16 +117,8 @@ export function sliceRange(text: string, range: Range): string {
 
 /** How a check result is worded. Never "equivalent" or "safe": a parser compared structure only. */
 export function checkLabelText(label: AiCheckLabel | string): string {
-  switch (label) {
-    case 'STRUCTURE_PRESERVED':
-      return 'Structure preserved'
-    case 'STRUCTURE_CHANGED':
-      return 'Structure changed'
-    case 'INVALID_SQL':
-      return 'Invalid SQL'
-    default:
-      return label ? label.charAt(0) + label.slice(1).toLowerCase().replace(/_/g, ' ') : 'Not checked'
-  }
+  if (!label) return t('ai.check.none')
+  return tOr(`ai.check.${label}`, label.charAt(0) + label.slice(1).toLowerCase().replace(/_/g, ' '))
 }
 
 /** One exchange with the model: what was sent as the user message, and what came back. */

@@ -1,5 +1,6 @@
 package com.github.amber.rewrite;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.dialect.split.ScanToken;
 
 import java.util.ArrayList;
@@ -51,14 +52,10 @@ final class LeftJoinRule implements RewriteRule {
                             edits.add(ctx.deleteWord(k));
                         }
                         String cond = sql.slice(c[0], c[1] - 1);
-                        out.add(new Candidate(id(), "LEFT JOIN → JOIN",
-                                "The WHERE condition " + cond + " is never true for the rows the LEFT JOIN adds when "
-                                + s.exposed(sql).toLowerCase(java.util.Locale.ROOT) + " has no match (their columns are "
-                                + "NULL), so those rows are filtered out and the join already behaves as an inner join. "
-                                + "Writing JOIN says so. If the outer join was intended, move the condition into the "
-                                + "ON clause instead.",
-                                edits, Safety.EQUIVALENT, "The WHERE condition rejects NULL, so the result is the same "
-                                + "for any data."));
+                        out.add(new Candidate(id(), Messages.t("rewrite.leftJoin.title"),
+                                Messages.t("rewrite.leftJoin.explanation", cond,
+                                        s.exposed(sql).toLowerCase(java.util.Locale.ROOT)),
+                                edits, Safety.EQUIVALENT, Messages.t("rewrite.leftJoin.safety")));
                         break;
                     }
                 }

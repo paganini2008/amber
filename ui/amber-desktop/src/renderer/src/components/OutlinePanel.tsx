@@ -3,7 +3,8 @@ import clsx from 'clsx'
 import { ChevronDown, ChevronRight, ChevronsDownUp, ChevronsUpDown, Repeat } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import { usePlaybackView, useTrace } from '@/hooks'
-import { KindIcon, isMuted, kindText } from '@/lib/kinds'
+import { t } from '@/i18n'
+import { KindIcon, confidenceText, isMuted, kindText } from '@/lib/kinds'
 import { worstByStatement } from '@/lib/findings'
 import { flattenOutline, pathTo, visibleRowFor } from '@/lib/outline'
 import { SeverityIcon } from './StatusParts'
@@ -64,23 +65,23 @@ export function OutlinePanel(): React.JSX.Element {
   }
 
   return (
-    <section className="chrome flex h-full min-h-0 flex-col" aria-label="Outline">
-      <header className="flex h-9 shrink-0 items-center justify-between border-b border-line pr-1.5 pl-3">
-        <h2 className="text-sm font-medium">Outline</h2>
+    <section className="chrome flex h-full min-h-0 flex-col" aria-label={t('app.outline.title')}>
+      <header className="flex h-9 shrink-0 items-center justify-between gap-2 border-b border-line pr-1.5 pl-3">
+        <h2 className="min-w-0 truncate text-sm font-medium">{t('app.outline.title')}</h2>
         <div className="flex items-center">
-          {analysis ? <span className="mr-1 text-xs text-ink-muted">{analysis.stepCount} {analysis.stepCount === 1 ? "step" : "steps"}</span> : null}
-          <IconButton label="Expand all" onClick={() => setCollapsedAll(false)} disabled={!analysis}>
+          {analysis ? <span className="mr-1 text-xs whitespace-nowrap text-ink-muted">{t('app.outline.steps', { count: analysis.stepCount })}</span> : null}
+          <IconButton label={t('app.outline.expandAll')} onClick={() => setCollapsedAll(false)} disabled={!analysis}>
             <ChevronsUpDown size={14} />
           </IconButton>
-          <IconButton label="Collapse all" onClick={() => setCollapsedAll(true)} disabled={!analysis}>
+          <IconButton label={t('app.outline.collapseAll')} onClick={() => setCollapsedAll(true)} disabled={!analysis}>
             <ChevronsDownUp size={14} />
           </IconButton>
         </div>
       </header>
       {rows.length === 0 ? (
-        <p className="px-3 py-4 text-sm text-ink-muted">{analysis ? 'No statements.' : 'Open a script to see its statements.'}</p>
+        <p className="px-3 py-4 text-sm text-ink-muted">{analysis ? t('app.outline.noStatements') : t('app.outline.openScript')}</p>
       ) : (
-        <div ref={parent} className="min-h-0 flex-1 overflow-auto outline-none" tabIndex={0} role="tree" onKeyDown={onKeyDown} aria-label="Statements">
+        <div ref={parent} className="min-h-0 flex-1 overflow-auto outline-none" tabIndex={0} role="tree" onKeyDown={onKeyDown} aria-label={t('app.outline.statements')}>
           <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
             {virtualizer.getVirtualItems().map((item) => {
               const row = rows[item.index]!
@@ -99,7 +100,7 @@ export function OutlinePanel(): React.JSX.Element {
                   aria-level={row.depth + 1}
                   data-statement={s.id}
                   onClick={() => selectStatement(s.id, 'view')}
-                  title={`${kindText(s.kind)} · line ${s.range.start.line}\n${s.summary}`}
+                  title={`${kindText(s.kind)} · ${t('common.line', { line: s.range.start.line })}\n${s.summary}`}
                   className={clsx(
                     'absolute left-0 flex w-full cursor-default items-center gap-1.5 pr-2 text-sm',
                     selected || current ? 'bg-amber-wash' : 'hover:bg-surface-hover',
@@ -110,7 +111,7 @@ export function OutlinePanel(): React.JSX.Element {
                   <button
                     type="button"
                     tabIndex={-1}
-                    aria-label={row.collapsed ? 'Expand' : 'Collapse'}
+                    aria-label={row.collapsed ? t('app.outline.expand') : t('app.outline.collapse')}
                     className={clsx('flex h-4 w-4 shrink-0 items-center justify-center text-ink-muted', !row.hasChildren && 'invisible')}
                     onClick={(e) => {
                       e.stopPropagation()
@@ -129,13 +130,13 @@ export function OutlinePanel(): React.JSX.Element {
                   >
                     {s.summary || kindText(s.kind)}
                   </span>
-                  {s.kind === 'LOOP' ? <Repeat size={12} className="shrink-0 text-ink-muted" aria-label="Loop" /> : null}
+                  {s.kind === 'LOOP' ? <Repeat size={12} className="shrink-0 text-ink-muted" aria-label={kindText('LOOP')} /> : null}
                   {marks.has(s.id) ? (
-                    <span className="shrink-0" title={`${marks.get(s.id)!.count} ${marks.get(s.id)!.count === 1 ? 'finding' : 'findings'}`}>
+                    <span className="shrink-0" title={t('app.outline.findings', { count: marks.get(s.id)!.count })}>
                       <SeverityIcon severity={marks.get(s.id)!.severity} size={12} />
                     </span>
                   ) : null}
-                  {muted ? <span className={`conf-line conf-${s.confidence} shrink-0 text-ink-muted`} title={s.confidence.toLowerCase()} /> : null}
+                  {muted ? <span className={`conf-line conf-${s.confidence} shrink-0 text-ink-muted`} title={confidenceText(s.confidence)} /> : null}
                   <span className="code shrink-0 text-xs text-ink-faint tabular-nums">{s.range.start.line}</span>
                 </div>
               )

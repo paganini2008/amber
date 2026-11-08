@@ -118,7 +118,7 @@ final class Block {
             }
         }
         if (!clauseStarts.isEmpty()) {
-            listEnd = clauseStarts.getFirst();
+            listEnd = clauseStarts.get(0);
         }
     }
 

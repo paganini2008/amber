@@ -2,24 +2,27 @@ import clsx from 'clsx'
 import { ChevronDown, ChevronUp, CircleDot, Database, Lightbulb, Info, OctagonExclamationPoint, RotateCw, TriangleExclamationPoint, X } from 'lucide-react'
 import { useMemo, useState } from 'react'
 import type { Diagnostic } from '@shared/protocol'
+import { fmt, t } from '@/i18n'
 import { api } from '@/lib/api'
-import { countBySeverity, severityText, sortedFindings } from '@/lib/findings'
+import { countBySeverity, sortedFindings } from '@/lib/findings'
+import { findingTitle, severityText } from '@/lib/kinds'
 import { metadataStatusText } from '@/lib/metadata'
 import { statementAtOffset } from '@/lib/model'
 import { useStore } from '@/store'
 import { MetadataPanel } from './Metadata'
 import { FixButton, FixesPanel, useFreshRewrites } from './Fixes'
+import { useFreshOptimize } from './Optimized'
 import { ReferencesPanel } from './References'
 import { Button, Spinner } from './ui'
 
 /** Severity: high = red, medium = violet, low = blue, always with an icon; info is neutral. */
 export function SeverityIcon({ severity, size = 13 }: { severity: string; size?: number }): React.JSX.Element {
   if (severity === 'ERROR' || severity === 'HIGH')
-    return <OctagonExclamationPoint size={size} className="shrink-0 text-risk-high" aria-label={severity === 'HIGH' ? 'High' : 'Error'} />
+    return <OctagonExclamationPoint size={size} className="shrink-0 text-risk-high" aria-label={severity === 'HIGH' ? severityText('HIGH') : t('app.status.error')} />
   if (severity === 'WARNING' || severity === 'MEDIUM')
-    return <TriangleExclamationPoint size={size} className="shrink-0 text-risk-medium" aria-label={severity === 'MEDIUM' ? 'Medium' : 'Warning'} />
-  if (severity === 'LOW') return <Info size={size} className="shrink-0 text-risk-low" aria-label="Low" />
-  return <CircleDot size={size} className="shrink-0 text-ink-muted" aria-label="Info" />
+    return <TriangleExclamationPoint size={size} className="shrink-0 text-risk-medium" aria-label={severity === 'MEDIUM' ? severityText('MEDIUM') : t('app.status.warning')} />
+  if (severity === 'LOW') return <Info size={size} className="shrink-0 text-risk-low" aria-label={severityText('LOW')} />
+  return <CircleDot size={size} className="shrink-0 text-ink-muted" aria-label={severityText('INFO')} />
 }
 
 function goTo(d: Diagnostic): void {
@@ -57,6 +60,7 @@ export function ProblemsBar(): React.JSX.Element {
   const toggle = (next: 'findings' | 'fixes' | 'syntax' | 'metadata' | 'references' | 'format'): void => setPanel(panel === next ? null : next)
   const formatReport = useStore((s) => s.formatReport)
   const fixes = useFreshRewrites()
+  const optimized = useFreshOptimize()
 
   return (
     <footer className="shrink-0 border-t border-line bg-surface">
@@ -64,7 +68,7 @@ export function ProblemsBar(): React.JSX.Element {
         <div
           className="max-h-56 overflow-auto border-b border-line"
           role={tab === 'metadata' || tab === 'references' || tab === 'fixes' ? 'region' : 'list'}
-          aria-label={tab === 'findings' ? 'Findings' : tab === 'metadata' ? 'Metadata' : tab === 'references' ? 'References' : tab === 'fixes' ? 'Suggested fixes' : 'Syntax problems'}
+          aria-label={tab === 'findings' ? t('app.status.findings') : tab === 'metadata' ? t('app.status.metadata') : tab === 'references' ? t('app.status.references') : tab === 'fixes' ? t('app.status.suggestedFixes') : t('app.status.syntaxProblems')}
         >
           {tab === 'metadata' ? (
             <MetadataPanel />
@@ -76,9 +80,9 @@ export function ProblemsBar(): React.JSX.Element {
             <FormatReport />
           ) : tab === 'findings' ? (
             findings === undefined ? (
-              <p className="px-3 py-2 text-sm text-ink-muted">Findings are not available in this engine version.</p>
+              <p className="px-3 py-2 text-sm text-ink-muted">{t('app.status.findingsUnavailable')}</p>
             ) : sorted.length === 0 ? (
-              <p className="px-3 py-2 text-sm text-ink-muted">No findings. Amber's rules found nothing risky in this script.</p>
+              <p className="px-3 py-2 text-sm text-ink-muted">{t('app.status.noFindings')}</p>
             ) : (
               sorted.map(({ finding: f, index }) => (
                 <div
@@ -91,9 +95,9 @@ export function ProblemsBar(): React.JSX.Element {
                 >
                 <button type="button" onClick={() => selectFinding(index)} className="flex min-w-0 flex-1 items-center gap-2 py-1 pl-3 text-left text-sm">
                   <SeverityIcon severity={f.severity} />
-                  <span className="shrink-0 text-ink">{f.title}</span>
+                  <span className="shrink-0 text-ink">{findingTitle(f)}</span>
                   <span className="min-w-0 flex-1 truncate text-ink-muted">
-                    {f.confidence === 'INFERRED' ? 'Possible: ' : ''}
+                    {f.confidence === 'INFERRED' ? t('app.status.possible') : ''}
                     {f.message}
                   </span>
                   <span className="code shrink-0 text-xs text-ink-faint">{f.rule}</span>
@@ -106,7 +110,7 @@ export function ProblemsBar(): React.JSX.Element {
               ))
             )
           ) : diagnostics.length === 0 ? (
-            <p className="px-3 py-2 text-sm text-ink-muted">No syntax problems.</p>
+            <p className="px-3 py-2 text-sm text-ink-muted">{t('app.status.noSyntaxProblems')}</p>
           ) : (
             diagnostics.map((d, i) => (
               <button
@@ -134,12 +138,12 @@ export function ProblemsBar(): React.JSX.Element {
           className={clsx('flex items-center gap-3 hover:text-ink', open && tab === 'findings' && 'text-ink')}
           onClick={() => toggle('findings')}
           aria-expanded={open && tab === 'findings'}
-          aria-label="Findings"
+          aria-label={t('app.status.findings')}
         >
           {open && tab === 'findings' ? <ChevronDown size={13} /> : <ChevronUp size={13} />}
-          <span className="font-medium text-ink">Findings</span>
+          <span className="font-medium text-ink">{t('app.status.findings')}</span>
           {!analysis ? null : findings === undefined ? (
-            <span>not available in this engine version</span>
+            <span>{t('app.status.notAvailable')}</span>
           ) : (
             (['HIGH', 'MEDIUM', 'LOW', 'INFO'] as const).map((sev) => (
               <span key={sev} className="flex items-center gap-1" title={`${severityText(sev)}: ${counts[sev] ?? 0}`}>
@@ -149,17 +153,17 @@ export function ProblemsBar(): React.JSX.Element {
             ))
           )}
         </button>
-        {fixes.length ? (
+        {fixes.length + optimized.length ? (
           <button
             type="button"
             className={clsx('flex items-center gap-1.5 hover:text-ink', open && tab === 'fixes' && 'text-ink')}
             onClick={() => toggle('fixes')}
             aria-expanded={open && tab === 'fixes'}
-            aria-label="Suggested fixes"
+            aria-label={t('app.status.suggestedFixes')}
           >
             <Lightbulb size={12} className="text-amber-ink" />
-            <span className="font-medium text-ink">Fixes</span>
-            <span className="tabular-nums">{fixes.length}</span>
+            <span className="font-medium text-ink">{t('app.status.fixes')}</span>
+            <span className="tabular-nums">{fixes.length + optimized.length}</span>
           </button>
         ) : null}
         <button
@@ -167,9 +171,9 @@ export function ProblemsBar(): React.JSX.Element {
           className={clsx('flex items-center gap-3 hover:text-ink', open && tab === 'syntax' && 'text-ink')}
           onClick={() => toggle('syntax')}
           aria-expanded={open && tab === 'syntax'}
-          aria-label="Syntax problems"
+          aria-label={t('app.status.syntaxProblems')}
         >
-          <span className="font-medium text-ink">Syntax</span>
+          <span className="font-medium text-ink">{t('app.status.syntax')}</span>
           <span className="flex items-center gap-1">
             <SeverityIcon severity="ERROR" size={12} /> {errors}
           </span>
@@ -183,9 +187,9 @@ export function ProblemsBar(): React.JSX.Element {
             className={clsx('flex items-center gap-1.5 hover:text-ink', open && tab === 'format' && 'text-ink')}
             onClick={() => toggle('format')}
             aria-expanded={open && tab === 'format'}
-            aria-label="Format report"
+            aria-label={t('app.status.formatReport')}
           >
-            <span className="font-medium text-ink">Kept as written</span>
+            <span className="font-medium text-ink">{t('app.status.keptAsWritten')}</span>
             <span className="tabular-nums">{formatReport.skipped.length || formatReport.warnings.length}</span>
           </button>
         ) : null}
@@ -195,9 +199,9 @@ export function ProblemsBar(): React.JSX.Element {
             className={clsx('flex items-center gap-1.5 hover:text-ink', open && tab === 'references' && 'text-ink')}
             onClick={() => toggle('references')}
             aria-expanded={open && tab === 'references'}
-            aria-label="References"
+            aria-label={t('app.status.references')}
           >
-            <span className="font-medium text-ink">References</span>
+            <span className="font-medium text-ink">{t('app.status.references')}</span>
             {refs.status === 'loading' ? <Spinner size={11} /> : refs.result ? <span className="tabular-nums">{refs.result.occurrences.length || (refs.result.definition ? 1 : 0)}</span> : null}
           </button>
         ) : null}
@@ -208,7 +212,7 @@ export function ProblemsBar(): React.JSX.Element {
             className={clsx('flex min-w-0 items-center gap-1.5 hover:text-ink', open && tab === 'metadata' && 'text-ink')}
             onClick={() => toggle('metadata')}
             aria-expanded={open && tab === 'metadata'}
-            title="Metadata used by the analysis"
+            title={t('app.status.metadataTitle')}
           >
             {online.status === 'loading' ? <Spinner size={11} /> : <Database size={12} className={online.status === 'error' ? 'text-risk-high' : undefined} />}
             <span className="min-w-0 truncate">{metadataText}</span>
@@ -216,15 +220,15 @@ export function ProblemsBar(): React.JSX.Element {
         ) : null}
         {analyzing ? (
           <span className="flex items-center gap-1.5">
-            <Spinner size={12} /> Analyzing
+            <Spinner size={12} /> {t('app.analysis.analyzing')}
           </span>
         ) : analysis ? (
           <>
-            <span>
-              Parse: {analysis.status === 'FAILED' ? 'failed' : analysis.status === 'PARTIAL' ? 'fallback, partial' : usedFallback ? 'fallback allowed, complete' : 'strict ✓'}
+            <span className="whitespace-nowrap max-[700px]:hidden">
+              {t('app.status.parse', { state: analysis.status === 'FAILED' ? 'failed' : analysis.status === 'PARTIAL' ? 'partial' : usedFallback ? 'complete' : 'strict' })}
             </span>
-            <span className="max-[1000px]:hidden">{analysis.lineCount.toLocaleString('en-US')} lines</span>
-            <span className="max-[1280px]:hidden">{analysis.elapsedMs} ms</span>
+            <span className="max-[1000px]:hidden">{t('app.status.lines', { count: analysis.lineCount })}</span>
+            <span className="max-[1280px]:hidden">{fmt.duration(analysis.elapsedMs)}</span>
           </>
         ) : null}
         {doc ? <span className="max-[1100px]:hidden">{doc.encoding}</span> : null}
@@ -235,19 +239,20 @@ export function ProblemsBar(): React.JSX.Element {
 }
 
 function EngineStatusLabel({ state, message, version }: { state: string; message?: string; version?: string }): React.JSX.Element {
-  if (state === 'ready') return <span title={`Engine ${version ?? ''}`}>Engine {version}</span>
+  // The engine version is the least important item: it gives way first on a narrow window (or high zoom).
+  if (state === 'ready') return <span className="whitespace-nowrap max-[760px]:hidden" title={t('app.status.engine', { version: version ?? '' })}>{t('app.status.engine', { version: version ?? '' })}</span>
   if (state === 'failed')
     return (
       <span className="flex items-center gap-1.5 text-risk-high" title={message}>
-        <OctagonExclamationPoint size={12} /> Engine stopped
+        <OctagonExclamationPoint size={12} /> {t('app.status.engineStopped')}
         <button type="button" className="flex items-center gap-1 text-ink underline" onClick={() => void api().engine.restart()}>
-          <RotateCw size={11} /> Restart
+          <RotateCw size={11} /> {t('app.status.restart')}
         </button>
       </span>
     )
   return (
     <span className="flex items-center gap-1.5">
-      <Spinner size={12} /> {state === 'restarting' ? 'Engine restarting' : 'Engine starting'}
+      <Spinner size={12} /> {state === 'restarting' ? t('app.status.engineRestarting') : t('app.status.engineStarting')}
     </span>
   )
 }
@@ -267,19 +272,18 @@ export function ErrorScreen(): React.JSX.Element {
           <OctagonExclamationPoint size={22} className="mt-0.5 shrink-0 text-risk-high" />
           <div>
             <h2 className="text-xl font-semibold">
-              {analysis.name} does not parse in strict mode
+              {t('app.error.title', { name: analysis.name })}
             </h2>
             <p className="mt-1 max-w-[640px] text-base text-ink-muted">
-              {errors.length === 1 ? 'One syntax error stops' : `${errors.length} syntax errors stop`} the analysis. Check that the dialect is right, fix
-              the script, or analyze with fallback: statements that do not parse are then kept as unparsed blocks and marked as partial.
+              {t('app.error.lead', { count: errors.length })}
             </p>
             <div className="mt-4 flex gap-2">
               <Button variant="primary" disabled={analyzing} onClick={() => void analyze({ allowFallback: true })}>
                 {analyzing ? <Spinner size={13} /> : null}
-                Analyze with fallback
+                {t('app.error.withFallback')}
               </Button>
               <Button onClick={() => void analyze()} disabled={analyzing}>
-                Analyze again
+                {t('app.analysis.again')}
               </Button>
             </div>
           </div>
@@ -290,12 +294,12 @@ export function ErrorScreen(): React.JSX.Element {
               <button type="button" onClick={() => goTo(d)} className="flex w-full items-start gap-2 px-3 py-2 text-left hover:bg-surface-hover">
                 <SeverityIcon severity={d.severity} size={14} />
                 <span className="min-w-0 flex-1 text-sm">
-                  <span className="text-ink">{d.offending ? `Unexpected "${d.offending}"` : d.message}</span>
+                  <span className="text-ink">{d.offending ? t('app.error.unexpected', { token: d.offending }) : d.message}</span>
                   <span className="ml-2 text-ink-muted">
-                    line {d.range.start.line}, column {d.range.start.column}
+                    {t('app.error.lineColumn', { line: d.range.start.line, column: d.range.start.column })}
                   </span>
                   {d.expected?.length ? (
-                    <span className="mt-0.5 block truncate text-xs text-ink-muted">Expected {d.expected.slice(0, 8).join(', ')}</span>
+                    <span className="mt-0.5 block truncate text-xs text-ink-muted">{t('app.error.expected', { tokens: d.expected.slice(0, 8).join(', ') })}</span>
                   ) : null}
                 </span>
               </button>
@@ -345,10 +349,9 @@ export function PartialBanner(): React.JSX.Element | null {
     <div className="flex shrink-0 items-center gap-2 border-b border-line bg-[color-mix(in_srgb,var(--risk-medium)_9%,var(--surface))] px-4 py-1.5 text-sm" role="status">
       <TriangleExclamationPoint size={14} className="text-risk-medium" />
       <span>
-        Parsed with fallback. {partial} {partial === 1 ? 'statement was' : 'statements were'} only partly understood and {partial === 1 ? 'is' : 'are'} shown
-        muted; {analysis.diagnostics.length} syntax {analysis.diagnostics.length === 1 ? 'error' : 'errors'} in Problems.
+        {t('app.partial.banner', { partial, errors: analysis.diagnostics.length })}
       </span>
-      <button type="button" className="ml-auto text-ink-muted hover:text-ink" aria-label="Dismiss" onClick={() => setDismissed(analysis)}>
+      <button type="button" className="ml-auto text-ink-muted hover:text-ink" aria-label={t('app.toast.dismiss')} onClick={() => setDismissed(analysis)}>
         <X size={14} />
       </button>
     </div>
@@ -359,12 +362,12 @@ export function PartialBanner(): React.JSX.Element | null {
 function FormatReport(): React.JSX.Element {
   const report = useStore((s) => s.formatReport)
   const markRange = useStore((s) => s.markRange)
-  if (!report) return <p className="px-3 py-2 text-sm text-ink-muted">Nothing to report from the last formatting.</p>
+  if (!report) return <p className="px-3 py-2 text-sm text-ink-muted">{t('app.format.nothing')}</p>
   const rows = Math.max(report.warnings.length, report.skipped.length)
   return (
     <div className="text-sm">
       <p className="px-3 py-1.5 text-xs text-ink-muted">
-        The formatter keeps a statement exactly as written when it cannot prove the new layout has the same tokens, for example around an unterminated string.
+        {t('app.format.explain')}
       </p>
       {Array.from({ length: rows }, (_, i) => {
         const r = report.skipped[i]
@@ -377,7 +380,7 @@ function FormatReport(): React.JSX.Element {
             className="flex w-full items-center gap-2 px-3 py-1 text-left hover:bg-surface-hover disabled:hover:bg-transparent"
           >
             <SeverityIcon severity="INFO" size={12} />
-            <span className="min-w-0 flex-1 truncate">{report.warnings[i] ?? 'Kept as written'}</span>
+            <span className="min-w-0 flex-1 truncate">{report.warnings[i] ?? t('app.status.keptAsWritten')}</span>
             {r ? <span className="code w-12 shrink-0 text-right text-xs text-ink-muted">{r.start.line}:{r.start.column}</span> : null}
           </button>
         )

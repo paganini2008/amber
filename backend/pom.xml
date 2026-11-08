@@ -27,11 +27,11 @@
 
     <modules>
         <module>amber-core</module>
-        <module>amber-test</module>
     </modules>
 
     <properties>
-        <java.version>25</java.version>
+        <!-- Amber runs on Java 17 and later: compiled for 17, built with any JDK 17+ (the installers bundle a JDK 25 runtime) -->
+        <java.version>17</java.version>
         <amber.buildDir>${project.basedir}/target</amber.buildDir>
         <maven.compiler.release>${java.version}</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
@@ -166,8 +166,8 @@
                         <configuration>
                             <rules>
                                 <requireJavaVersion>
-                                    <version>[25,)</version>
-                                    <message>Amber needs JDK 25 or later. Point JAVA_HOME at a JDK 25 before running Maven.</message>
+                                    <version>[17,)</version>
+                                    <message>Amber needs JDK 17 or later. Point JAVA_HOME at a JDK 17+ before running Maven.</message>
                                 </requireJavaVersion>
                                 <requireMavenVersion>
                                     <version>[3.9,)</version>

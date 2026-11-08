@@ -22,6 +22,10 @@ import java.util.Set;
  *                     also sets system variables
  * @param atNames      what {@code @name} means: {@link AtNames#ROUTINE} (T-SQL locals of the batch or
  *                     routine), {@link AtNames#SESSION} (MySQL user variables) or {@link AtNames#NONE}
+ * @param returns      rules of {@code RETURN expr} whose value is the function result (written to the
+ *                     function's {@code return} variable, see {@link VariableScopes#returnNode})
+ * @param loopRecords  rules of a cursor FOR-loop header ({@code r IN (SELECT …)}, {@code r IN cursor}):
+ *                     {@code r.col} then reads the query's output column
  *
  * @Author: Fred Feng
  * @Date: 07/11/2026
@@ -29,7 +33,16 @@ import java.util.Set;
  */
 public record VariableRules(Set<String> parameters, Set<String> declarations, Set<String> assignments,
                             Set<String> intoClauses, Set<String> fetches, boolean blockScopes,
-                            boolean assignedAreVariables, AtNames atNames) {
+                            boolean assignedAreVariables, AtNames atNames, Set<String> returns,
+                            Set<String> loopRecords) {
+
+    /** Rules without RETURN values and cursor FOR-loop records. */
+    public VariableRules(Set<String> parameters, Set<String> declarations, Set<String> assignments,
+                         Set<String> intoClauses, Set<String> fetches, boolean blockScopes,
+                         boolean assignedAreVariables, AtNames atNames) {
+        this(parameters, declarations, assignments, intoClauses, fetches, blockScopes, assignedAreVariables, atNames,
+                Set.of(), Set.of());
+    }
 
     /** Meaning of {@code @name} references. */
     public enum AtNames {

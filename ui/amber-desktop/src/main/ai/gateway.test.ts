@@ -12,6 +12,24 @@ function streamResponse(chunks: string[]): Response {
   return new Response(body, { status: 200 })
 }
 
+
+/** A response whose chunks arrive with the given delays (ms); it fails when the request's signal aborts. */
+function slowResponse(chunks: [number, string][], signal: AbortSignal | null | undefined): Response {
+  const encoder = new TextEncoder()
+  const body = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      signal?.addEventListener('abort', () => controller.error(signal.reason))
+      for (const [delay, text] of chunks) {
+        await new Promise((r) => setTimeout(r, delay))
+        if (signal?.aborted) return
+        controller.enqueue(encoder.encode(text))
+      }
+      controller.close()
+    }
+  })
+  return new Response(body, { status: 200 })
+}
+
 describe('AI gateway', () => {
   it('lists Ollama models from /api/tags', async () => {
     const fetchFn: FetchLike = async (url) => {
@@ -134,4 +152,28 @@ describe('OpenAI-compatible model list', () => {
     expect(bodies[0]).not.toHaveProperty('temperature')
     expect(bodies[1]).toMatchObject({ temperature: 0.2 })
   })
+  it('times out on silence, not on the total length of a streamed answer', async () => {
+    const ollama = { kind: 'ollama' as const, baseUrl: 'http://x', model: 'm', temperature: 0, timeoutSec: 1 }
+    // About 2.4 s in total, never silent for 1 s: thinking chunks count as progress but are not answer text.
+    const steady: [number, string][] = [
+      [400, '{"message":{"thinking":"Let me"}}\n'],
+      [400, '{"message":{"thinking":" think."}}\n'],
+      [400, '{"message":{"content":"A"}}\n'],
+      [400, '{"message":{"content":"B"}}\n'],
+      [400, '{"message":{"content":"C"}}\n'],
+      [400, '{"done":true}\n']
+    ]
+    const parts: string[] = []
+    await streamChat(async (_url, init) => slowResponse(steady, init?.signal), ollama, [{ role: 'user', content: 'hi' }], (t) => parts.push(t))
+    expect(parts.join('')).toBe('ABC')
+
+    // Silent for 1.6 s after the first chunk: aborted with a timeout.
+    const stalled: [number, string][] = [
+      [100, '{"message":{"content":"A"}}\n'],
+      [1600, '{"message":{"content":"B"}}\n']
+    ]
+    await expect(
+      streamChat(async (_url, init) => slowResponse(stalled, init?.signal), ollama, [{ role: 'user', content: 'hi' }], () => {})
+    ).rejects.toThrow(/timeout/i)
+  }, 10000)
 })

@@ -46,6 +46,10 @@ public final class SqlServerSplitter implements ScriptSplitter {
             }
             if (sc.startsLine(t) && (t.isSymbol('!') && sc.peek() != null && sc.peek().isSymbol('!')
                     || (t.isWordIn(java.util.Set.of("EXIT", "QUIT")) && sc.restOfLineEmpty(t.end()) && batchStart < 0))) {
+                if (batchStart >= 0) {
+                    units.add(UnitKind.SQL, batchStart, batchEnd);   // units stay in order and never overlap
+                    batchStart = -1;
+                }
                 int end = sc.lineEnd(t.start());
                 units.add(UnitKind.CLIENT_COMMAND, t.start(), end);
                 sc.reset(end);

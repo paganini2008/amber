@@ -10,6 +10,7 @@ import com.github.amber.dialect.split.StatementUnit;
 import org.antlr.v4.runtime.CharStream;
 import org.antlr.v4.runtime.CommonTokenStream;
 import org.antlr.v4.runtime.ParserRuleContext;
+import org.antlr.v4.runtime.Token;
 
 /**
  * MySQL frontend. Grammar: grammars-v4 mysql/Oracle (see UPSTREAM.md).
@@ -40,6 +41,40 @@ public final class MySqlFrontend extends AntlrFrontend<MySQLLexer, MySQLParser> 
     @Override
     protected String prepare(StatementUnit unit, String unitText) {
         return unwrapVersionedComments(terminatorToSemicolon(unit, unitText));
+    }
+
+    /** Opening parentheses in a row before a query that the grammar still predicts quickly (about 0.3 s). */
+    static final int MAX_QUERY_PARENS = 12;
+
+    /**
+     * The grammar's {@code selectStatementWithInto} and {@code queryExpressionParens} both recurse on
+     * {@code (}, so each parenthesis that opens a query at statement level (at the start, or after
+     * UNION / EXCEPT / INTERSECT) about doubles prediction work: 16 of them filled a 2 GB heap. Parentheses
+     * inside a query (subqueries, IN lists, expressions) are not affected.
+     */
+    @Override
+    protected String tooComplex(CommonTokenStream tokens) {
+        int run = 0;
+        boolean queryPosition = true;
+        for (Token t : tokens.getTokens()) {
+            if (t.getChannel() != Token.DEFAULT_CHANNEL || t.getType() == Token.EOF) {
+                continue;
+            }
+            String text = t.getText();
+            if (queryPosition && text.equals("(")) {
+                if (++run > MAX_QUERY_PARENS) {
+                    return "More than " + MAX_QUERY_PARENS + " parentheses in a row before a query; Amber cannot parse "
+                            + "this statement (the MySQL grammar needs exponential time for it)";
+                }
+                continue;
+            }
+            run = 0;
+            boolean setOperator = text.equalsIgnoreCase("UNION") || text.equalsIgnoreCase("EXCEPT")
+                    || text.equalsIgnoreCase("INTERSECT");
+            boolean quantifier = text.equalsIgnoreCase("ALL") || text.equalsIgnoreCase("DISTINCT");
+            queryPosition = setOperator || quantifier && queryPosition || text.equals(";");
+        }
+        return null;
     }
 
     @Override

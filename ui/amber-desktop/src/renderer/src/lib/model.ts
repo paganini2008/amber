@@ -1,4 +1,5 @@
 import type { AnalysisResult, Lifecycle, Ref, Statement } from '@shared/protocol'
+import { t } from '../i18n'
 
 /** Object kinds that carry data and appear in the lifecycle matrix and data-flow graph. */
 export const DATA_KINDS = new Set(['TABLE', 'TEMP_TABLE', 'TABLE_VARIABLE', 'VIEW', 'MATERIALIZED_VIEW', 'SYNONYM', 'OTHER'])
@@ -115,7 +116,7 @@ export function writesData(statement: Statement, ref: Ref): boolean {
 export function lineLabel(s: Statement): string {
   const a = s.range.start.line
   const b = s.range.end.line
-  return a === b ? `Line ${a}` : `Lines ${a}–${b}`
+  return a === b ? t('common.lineCap', { line: a }) : t('common.linesCap', { from: a, to: b })
 }
 
 export function humanize(value: string): string {

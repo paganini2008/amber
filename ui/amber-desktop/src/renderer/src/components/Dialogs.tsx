@@ -1,74 +1,164 @@
 import { useEffect, useState } from 'react'
 import type { AppInfo } from '@shared/api'
 import logo from '@/assets/logo.png'
+import { t } from '@/i18n'
 import { api } from '@/lib/api'
+import { platformName, versionInfo } from '@/lib/about'
 import { useStore } from '@/store'
 import { exportHandover, generateHandover } from '@/actions'
 import { Button, Dialog, Spinner, inputClass } from './ui'
 
-const COMPONENTS: [string, string][] = [
-  ['Electron, Chromium, Node.js', 'MIT and others'],
-  ['React, Zustand, Radix UI, Lucide', 'MIT / ISC'],
-  ['CodeMirror', 'MIT'],
-  ['React Flow (@xyflow/react)', 'MIT'],
-  ['ELK (elkjs)', 'EPL-2.0'],
-  ['IBM Plex Sans and Mono', 'SIL OFL 1.1'],
-  ['Amber engine, ANTLR runtime, Jackson', 'Apache-2.0 / BSD-3'],
-  ['Java runtime (jlink)', 'GPLv2 with Classpath Exception'],
-  ['JDBC drivers', 'see THIRD-PARTY-NOTICES.md']
-]
+type Links = Awaited<ReturnType<ReturnType<typeof api>['app']['links']>>
 
+/** About Amber: what it is, versions, updates, links, author, license and third-party notices. */
 export function AboutDialog(): React.JSX.Element {
   const open = useStore((s) => s.dialogs.about)
   const closeDialog = useStore((s) => s.closeDialog)
+  const toast = useStore((s) => s.toast)
   const engine = useStore((s) => s.engine)
   const [info, setInfo] = useState<AppInfo | null>(null)
+  const [links, setLinks] = useState<Links | null>(null)
+  const [update, setUpdate] = useState<{ checking: boolean; message: string | null; url?: string }>({ checking: false, message: null })
+  const [notices, setNotices] = useState<{ open: boolean; text: string | null; error: string | null }>({ open: false, text: null, error: null })
   useEffect(() => {
-    if (open && !info) void api().app.info().then(setInfo)
-  }, [open, info])
+    if (!open) return
+    if (!info) void api().app.info().then(setInfo)
+    if (!links) void api().app.links().then(setLinks)
+  }, [open, info, links])
+
+  const checkUpdates = async (): Promise<void> => {
+    setUpdate({ checking: true, message: null })
+    const r = await api().app.checkForUpdates(true)
+    if (!r.ok) setUpdate({ checking: false, message: t('dialogs.about.checkFailed', { reason: r.error.message }) })
+    else if (r.value?.newer) setUpdate({ checking: false, message: t('dialogs.about.available', { version: r.value.latest }), url: r.value.url })
+    else setUpdate({ checking: false, message: r.value ? t('dialogs.about.latestVersion', { version: r.value.current }) : t('dialogs.about.latest') })
+  }
+  const openNotices = async (): Promise<void> => {
+    setNotices({ open: true, text: notices.text, error: null })
+    if (notices.text) return
+    const r = await api().app.thirdPartyNotices()
+    setNotices({ open: true, text: r.ok ? r.value : null, error: r.ok ? null : r.error.message })
+  }
+  const external = (url: string | undefined): void => {
+    if (url) void api().app.openExternal(url)
+  }
+  const engineText = engine.info
+    ? t('dialogs.about.engineOnJava', { version: engine.info.version, java: engine.info.java })
+    : engine.state === 'failed'
+      ? t('dialogs.about.notRunning')
+      : t('dialogs.about.starting')
 
   return (
-    <Dialog open={open} onOpenChange={(o) => !o && closeDialog('about')} title="About Amber" width={520}>
-      <div className="px-6 py-5">
-        <div className="flex items-center gap-4">
-          <img src={logo} alt="Amber logo" className="h-20 w-20" />
-          <div>
-            <div className="text-2xl font-semibold tracking-[-0.01em]">Amber</div>
-            <div className="text-sm text-ink-muted">Read and understand large SQL scripts.</div>
-            <div className="mt-1 text-sm">Version {info?.version ?? '…'}</div>
+    <>
+      <Dialog open={open} onOpenChange={(o) => !o && closeDialog('about')} title={t('dialogs.about.title')} width={600}>
+        <div className="space-y-5 px-6 py-5">
+          <div className="chrome hero relative -mx-6 -mt-5 flex items-center gap-5 overflow-hidden px-6 py-6">
+            <div className="hero-glow" aria-hidden style={{ left: -200, width: 420, height: 420 }} />
+            <img src={logo} alt="" className="hero-logo relative h-20 w-20 shrink-0" draggable={false} />
+            <div className="relative min-w-0">
+              <div className="text-2xl font-semibold tracking-[-0.01em] text-ink">Amber</div>
+              <div className="text-[15px] leading-[22px] text-ink">{t('dialogs.about.slogan')}</div>
+              <div className="mt-1 text-sm text-ink-muted">{t('dialogs.about.version', { version: info?.version ?? '…' })}</div>
+            </div>
           </div>
+
+          <p className="text-sm text-ink">
+            {t('dialogs.about.privacy')}
+          </p>
+
+          <section>
+            <div className="mb-1.5 flex items-center gap-3">
+              <h3 className="text-sm font-semibold">{t('dialogs.about.versions')}</h3>
+              <button
+                type="button"
+                className="text-xs text-amber-ink hover:underline"
+                onClick={() =>
+                  void navigator.clipboard.writeText(versionInfo(info, engine.info)).then(
+                    () => toast(t('dialogs.about.copiedInfo')),
+                    () => toast(t('dialogs.about.copyFailed'), 'error')
+                  )
+                }
+              >
+                {t('dialogs.about.copyInfo')}
+              </button>
+            </div>
+            <dl className="grid grid-cols-[110px_1fr] gap-x-4 gap-y-1 text-sm">
+              <dt className="text-ink-muted">Amber</dt>
+              <dd>{info?.version ?? '…'}</dd>
+              <dt className="text-ink-muted">{t('dialogs.about.engine')}</dt>
+              <dd>{engineText}</dd>
+              <dt className="text-ink-muted">Electron</dt>
+              <dd>
+                {info ? `${info.electron} (Chromium ${info.chrome}, Node.js ${info.node})` : '…'}
+              </dd>
+              <dt className="text-ink-muted">{t('dialogs.about.system')}</dt>
+              <dd>{info ? `${platformName(info.platform)} ${info.arch}` : '…'}</dd>
+            </dl>
+          </section>
+
+          <section className="flex flex-wrap items-center gap-3">
+            <Button size="sm" onClick={() => void checkUpdates()} disabled={update.checking}>
+              {update.checking ? <Spinner size={12} /> : null} {t('dialogs.about.checkUpdates')}
+            </Button>
+            {update.message ? <span className="text-sm">{update.message}</span> : null}
+            {update.url ? (
+              <Button size="sm" variant="primary" onClick={() => external(update.url)}>
+                {t('dialogs.about.downloadPage')}
+              </Button>
+            ) : null}
+          </section>
+
+          <section>
+            <h3 className="mb-1.5 text-sm font-semibold">{t('dialogs.about.links')}</h3>
+            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm">
+              <LinkButton onClick={() => external(links?.project)}>{t('dialogs.about.project')}</LinkButton>
+              <LinkButton onClick={() => external(links?.website)}>{t('dialogs.about.website')}</LinkButton>
+              <LinkButton onClick={() => external(links?.releases)}>{t('dialogs.about.releases')}</LinkButton>
+              <LinkButton onClick={() => external(links?.issue)}>{t('dialogs.about.issue')}</LinkButton>
+            </div>
+          </section>
+
+          <dl className="grid grid-cols-[110px_1fr] gap-x-4 gap-y-1 text-sm">
+            <dt className="text-ink-muted">{t('dialogs.about.author')}</dt>
+            <dd>
+              {links?.author.name ?? 'Fred Feng'}
+              {links ? (
+                <>
+                  {' · '}
+                  <LinkButton onClick={() => external(links.author.url)}>{links.author.url.replace('https://', '')}</LinkButton>
+                </>
+              ) : null}
+            </dd>
+            <dt className="text-ink-muted">{t('dialogs.about.license')}</dt>
+            <dd>
+              Apache License 2.0 ·{' '}
+              <LinkButton onClick={() => void openNotices()}>{t('dialogs.about.notices')}</LinkButton>
+            </dd>
+          </dl>
         </div>
-        <dl className="mt-5 grid grid-cols-[120px_1fr] gap-x-4 gap-y-1 text-sm">
-          <dt className="text-ink-muted">Engine</dt>
-          <dd>{engine.info ? `${engine.info.version} on Java ${engine.info.java}` : engine.state === 'failed' ? 'Not running' : 'Starting…'}</dd>
-          <dt className="text-ink-muted">Electron</dt>
-          <dd>
-            {info?.electron} (Chromium {info?.chrome}, Node {info?.node})
-          </dd>
-          <dt className="text-ink-muted">Platform</dt>
-          <dd>
-            {info?.platform} {info?.arch}
-          </dd>
-          <dt className="text-ink-muted">License</dt>
-          <dd>Apache License 2.0</dd>
-        </dl>
-        <h3 className="mt-5 mb-1.5 text-sm font-semibold">Bundled components</h3>
-        <ul className="divide-y divide-line rounded-[6px] border border-line text-sm">
-          {COMPONENTS.map(([name, license]) => (
-            <li key={name} className="flex justify-between gap-3 px-3 py-1">
-              <span>{name}</span>
-              <span className="text-ink-muted">{license}</span>
-            </li>
-          ))}
-        </ul>
-        <div className="mt-4 flex justify-between">
-          <Button variant="ghost" onClick={() => void api().app.openExternal('https://github.com/paganini2008/amber')}>
-            github.com/paganini2008/amber
-          </Button>
-          <Button onClick={() => closeDialog('about')}>Close</Button>
+      </Dialog>
+      <Dialog open={notices.open} onOpenChange={(o) => setNotices({ ...notices, open: o })} title={t('dialogs.about.notices')} description={t('dialogs.about.noticesLead')} width={760}>
+        <div className="h-[62vh] px-5 py-4">
+          {notices.error ? (
+            <p className="text-sm text-risk-high">{t('dialogs.about.noticesFailed', { reason: notices.error })}</p>
+          ) : notices.text === null ? (
+            <p className="flex items-center gap-2 text-sm text-ink-muted">
+              <Spinner size={12} /> {t('common.loading')}
+            </p>
+          ) : (
+            <pre className="code selectable h-full overflow-auto rounded-[6px] border border-line bg-canvas p-3 text-[12.5px] leading-[19px] whitespace-pre-wrap text-ink">{notices.text}</pre>
+          )}
         </div>
-      </div>
-    </Dialog>
+      </Dialog>
+    </>
+  )
+}
+
+function LinkButton({ children, onClick }: { children: React.ReactNode; onClick: () => void }): React.JSX.Element {
+  return (
+    <button type="button" className="text-amber-ink underline-offset-2 hover:underline" onClick={onClick}>
+      {children}
+    </button>
   )
 }
 
@@ -90,27 +180,27 @@ export function PasteDialog(): React.JSX.Element {
     <Dialog
       open={open}
       onOpenChange={(o) => !o && closeDialog('paste')}
-      title="Paste SQL"
-      description="Paste a script to analyze it. Nothing is executed."
+      title={t('dialogs.paste.title')}
+      description={t('dialogs.paste.lead')}
       width={720}
       footer={
         <>
           <Button variant="ghost" onClick={() => closeDialog('paste')}>
-            Cancel
+            {t('common.cancel')}
           </Button>
           <Button variant="primary" onClick={analyze} disabled={!text.trim()}>
-            Analyze
+            {t('app.analysis.analyze')}
           </Button>
         </>
       }
     >
       <div className="space-y-3 px-5 py-4">
         <label className="flex items-center gap-3 text-sm">
-          <span className="w-12 text-ink-muted">Name</span>
+          <span className="w-12 shrink-0 text-ink-muted">{t('dialogs.paste.name')}</span>
           <input className={inputClass} value={name} onChange={(e) => setName(e.target.value)} />
         </label>
         <textarea
-          aria-label="SQL text"
+          aria-label={t('dialogs.paste.text')}
           className="code selectable h-[46vh] w-full resize-none rounded-[5px] border border-line bg-canvas p-3 text-[13px] text-ink outline-none focus:border-amber"
           spellCheck={false}
           value={text}
@@ -152,17 +242,17 @@ export function HandoverDialog(): React.JSX.Element {
     <Dialog
       open={open}
       onOpenChange={(o) => !o && close('handover')}
-      title="Handover document"
-      description="What the script does, its objects, data flow, risks and the parts Amber could not read: notes for whoever maintains it next."
+      title={t('dialogs.handover.title')}
+      description={t('dialogs.handover.lead')}
       width={980}
       footer={
         <>
           <Button variant="ghost" onClick={() => close('handover')}>
-            Close
+            {t('common.close')}
           </Button>
-          <Button onClick={() => void exportHandover('markdown')}>Save as Markdown…</Button>
+          <Button onClick={() => void exportHandover('markdown')}>{t('app.export.markdown')}</Button>
           <Button variant="primary" onClick={() => void exportHandover('html')}>
-            Save as HTML…
+            {t('app.export.html')}
           </Button>
         </>
       }
@@ -170,13 +260,13 @@ export function HandoverDialog(): React.JSX.Element {
       <div className="h-[68vh] bg-canvas p-3">
         {state.status === 'loading' ? (
           <div className="flex h-full items-center justify-center gap-2 text-sm text-ink-muted">
-            <Spinner /> Writing the handover document
+            <Spinner /> {t('dialogs.handover.writing')}
           </div>
         ) : state.status === 'error' ? (
           <p className="p-4 text-sm text-risk-high">{state.message}</p>
         ) : (
           <iframe
-            title="Handover document preview"
+            title={t('dialogs.handover.preview')}
             sandbox=""
             srcDoc={state.html}
             className="h-full w-full rounded-[6px] border border-line bg-white"

@@ -1,5 +1,6 @@
 package com.github.amber.dialect;
 
+import com.github.amber.core.diagnostic.Diagnostic;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.dialect.split.StatementUnit;
 import org.antlr.v4.runtime.BailErrorStrategy;
@@ -79,6 +80,55 @@ public abstract class AntlrFrontend<L extends Lexer, P extends Parser> implement
         return unitText.substring(0, unitText.length() - t.length()) + ";" + " ".repeat(t.length() - 1);
     }
 
+    /**
+     * Hook to refuse a unit before parsing when its tokens are known to drive this grammar's prediction
+     * into exponential time and memory; returns the reason, or null to parse.
+     */
+    protected String tooComplex(CommonTokenStream tokens) {
+        return null;
+    }
+
+    /**
+     * Most DFA states one grammar (parser and lexer) may keep. ANTLR caches prediction DFAs in static arrays
+     * for the life of the engine; after the whole corpus they hold about 91,000 states (~620 MB over all
+     * dialects, T-SQL alone 23,000), and they keep growing with new input. Past the limit the cache is
+     * dropped and rebuilt lazily, so a long-running engine stays within its heap.
+     */
+    static volatile int maxDfaStates = 30_000;
+    /** The cache size is checked every this many units parsed by one frontend. */
+    static volatile int dfaCheckEvery = 256;
+
+    private final java.util.concurrent.atomic.AtomicInteger unitsParsed = new java.util.concurrent.atomic.AtomicInteger();
+
+    private void limitDfaCache(L lexer, P parser) {
+        if (unitsParsed.incrementAndGet() % Math.max(1, dfaCheckEvery) != 0) {
+            return;
+        }
+        if (dfaStates(parser.getInterpreter().decisionToDFA) + dfaStates(lexer.getInterpreter().decisionToDFA)
+                > maxDfaStates) {
+            parser.getInterpreter().clearDFA();
+            lexer.getInterpreter().clearDFA();
+        }
+    }
+
+    /** DFA states cached for a parser or lexer grammar (shared by all its instances). */
+    static long dfaStates(org.antlr.v4.runtime.dfa.DFA[] dfas) {
+        long n = 0;
+        for (org.antlr.v4.runtime.dfa.DFA dfa : dfas) {
+            n += dfa.states.size();
+        }
+        return n;
+    }
+
+    /** A unit that could not be parsed at all: one syntax error over the whole unit, no tree. */
+    private static UnitParse failed(StatementUnit unit, String reason, PredictionMode mode, long started) {
+        // kept as a syntax error: with fallback the rest of the script is still analyzed
+        Diagnostic d = new Diagnostic(com.github.amber.core.diagnostic.Severity.ERROR, "syntax", reason, unit.range(),
+                null, java.util.List.of());
+        return new UnitParse(unit, UnitStatus.FAILED, null, mode, java.util.List.of(d),
+                Duration.ofNanos(System.nanoTime() - started));
+    }
+
     @Override
     public UnitParse parseUnit(SourceText source, StatementUnit unit) {
         long started = System.nanoTime();
@@ -96,8 +146,14 @@ public abstract class AntlrFrontend<L extends Lexer, P extends Parser> implement
         CommonTokenStream tokens = new CommonTokenStream(lexer);
         tokens.fill();
 
+        String tooComplex = tooComplex(tokens);
+        if (tooComplex != null) {
+            return failed(unit, tooComplex, PredictionMode.SLL, started);
+        }
+
         P parser = createParser(tokens);
         configure(lexer, parser);
+        GuardedPrediction.install(parser);
         parser.removeErrorListeners();
         parser.setErrorHandler(new BailErrorStrategy());
         parser.getInterpreter().setPredictionMode(PredictionMode.SLL);
@@ -105,15 +161,20 @@ public abstract class AntlrFrontend<L extends Lexer, P extends Parser> implement
         ParserRuleContext tree;
         PredictionMode mode = PredictionMode.SLL;
         try {
-            tree = entry(parser);
-        } catch (ParseCancellationException sllFailed) {
-            parser.reset();
-            parser.addErrorListener(errors);
-            parser.setErrorHandler(new DefaultErrorStrategy());
-            parser.getInterpreter().setPredictionMode(PredictionMode.LL);
-            mode = PredictionMode.LL;
-            tree = entry(parser);
+            try {
+                tree = entry(parser);
+            } catch (ParseCancellationException sllFailed) {
+                parser.reset();
+                parser.addErrorListener(errors);
+                parser.setErrorHandler(new DefaultErrorStrategy());
+                parser.getInterpreter().setPredictionMode(PredictionMode.LL);
+                mode = PredictionMode.LL;
+                tree = entry(parser);
+            }
+        } catch (GuardedPrediction.TooComplex e) {
+            return failed(unit, e.getMessage(), mode, started);
         }
+        limitDfaCache(lexer, parser);
         UnitStatus status = errors.diagnostics().isEmpty() ? UnitStatus.PARSED : UnitStatus.FAILED;
         return new UnitParse(unit, status, tree, mode, errors.diagnostics(),
                 Duration.ofNanos(System.nanoTime() - started));

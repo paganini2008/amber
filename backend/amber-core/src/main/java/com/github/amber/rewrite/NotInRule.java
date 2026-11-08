@@ -1,5 +1,6 @@
 package com.github.amber.rewrite;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.ir.StatementKind;
 
 import java.util.ArrayList;
@@ -61,7 +62,7 @@ final class NotInRule implements RewriteRule {
         if (items.size() != 1) {
             return null;
         }
-        int[] expr = inner.itemExpression(items.getFirst());
+        int[] expr = inner.itemExpression(items.get(0));
         if (sql.nameEnd(expr[0]) != expr[1] - 1 || expr[1] - expr[0] > 3) {
             return null;                            // not a plain [alias.]column
         }
@@ -104,7 +105,7 @@ final class NotInRule implements RewriteRule {
         String innerAlias = null;
         boolean shadowed = innerSources.stream().anyMatch(s -> qualifier.equals(s.exposed(sql)));
         if (shadowed) {
-            Source only = innerSources.size() == 1 ? innerSources.getFirst() : null;
+            Source only = innerSources.size() == 1 ? innerSources.get(0) : null;
             if (only == null || only.kind() != Source.Kind.TABLE || only.alias() != null
                     || usesQualifier(sql, open, close, qualifier)) {
                 return null;
@@ -118,8 +119,8 @@ final class NotInRule implements RewriteRule {
                 : sql.slice(colStart, colEnd);
         var ref = sql.tok(not);
         edits.add(ctx.replace(lhsStart, not + 1, RewriteContext.kw("NOT", ref) + " " + RewriteContext.kw("EXISTS", ref)));
-        int itemFrom = inner.distinct >= 0 ? inner.distinct : items.getFirst()[0];
-        edits.add(ctx.replace(itemFrom, items.getFirst()[1] - 1, "1"));
+        int itemFrom = inner.distinct >= 0 ? inner.distinct : items.get(0)[0];
+        edits.add(ctx.replace(itemFrom, items.get(0)[1] - 1, "1"));
         String pred = colText + " = " + lhsText;
         int lastEnd = sql.tok(close - 1).end();
         if (inner.where >= 0) {
@@ -140,23 +141,16 @@ final class NotInRule implements RewriteRule {
             colNullable = Boolean.FALSE;
         }
         String original = sql.slice(lhsStart, close);
-        String explanation = "NOT IN with a subquery returns no rows at all as soon as the subquery yields one NULL. "
-                + "NOT EXISTS with the same condition written as a correlation (" + pred + ") states the intent: keep "
-                + "the rows that have no match." + (innerAlias == null ? "" : " The subquery reads the same table, so it "
-                + "gets the alias " + innerAlias + " to keep the outer " + lhsText + " visible.");
+        String explanation = innerAlias == null ? Messages.t("rewrite.notIn.explanation", pred)
+                : Messages.t("rewrite.notIn.explanation.aliased", pred, innerAlias, lhsText);
         if (Boolean.FALSE.equals(lhsNullable) && Boolean.FALSE.equals(colNullable)) {
-            return new Candidate(id(), "NOT IN (subquery) → NOT EXISTS", explanation, edits,
-                    Safety.EQUIVALENT_WITH_METADATA, "Both " + lhsText + " and " + colText + " are NOT NULL in the "
-                    + "known metadata, so NOT IN and NOT EXISTS return the same rows. The structural check compares "
-                    + "outputs and lineage, not the extra correlated filter.");
+            return new Candidate(id(), Messages.t("rewrite.notIn.title"), explanation, edits,
+                    Safety.EQUIVALENT_WITH_METADATA, Messages.t("rewrite.notIn.safety.metadata", lhsText, colText));
         }
-        String unknown = lhsNullable == null || colNullable == null ? " Their nullability is not known (add metadata "
-                + "to prove both NOT NULL)." : "";
-        return new Candidate(id(), "NOT IN (subquery) → NOT EXISTS", explanation, edits,
-                Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES, "Differs when NULLs occur: " + original.replaceAll("\\s+", " ")
-                + " returns no rows if the subquery yields a NULL " + colText + ", and never keeps a row whose "
-                + lhsText + " is NULL; NOT EXISTS ignores the NULL and keeps such rows. That is usually the intended "
-                + "behavior." + unknown);
+        boolean unknown = lhsNullable == null || colNullable == null;
+        return new Candidate(id(), Messages.t("rewrite.notIn.title"), explanation, edits,
+                Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES, Messages.t(unknown ? "rewrite.notIn.safety.nulls.unknown"
+                        : "rewrite.notIn.safety.nulls", original.replaceAll("\\s+", " "), colText, lhsText));
     }
 
     /** FROM items of the query block that holds the NOT IN, or the target of UPDATE / DELETE. */
@@ -180,7 +174,7 @@ final class NotInRule implements RewriteRule {
     /** The single outer item an unqualified column can belong to, using metadata when there are several. */
     private static Source ownerOf(RewriteContext ctx, Sql sql, List<Source> sources, String column) {
         if (sources.size() == 1) {
-            Source s = sources.getFirst();
+            Source s = sources.get(0);
             Optional<List<String>> cols = ctx.columns(s);
             if (cols.isPresent()) {
                 return cols.get().stream().anyMatch(c -> Sql.key(c).equals(Sql.key(column))) ? s : null;

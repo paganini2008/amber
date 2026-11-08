@@ -42,7 +42,12 @@ import java.util.Set;
  * <p>Variables follow the routine: its parameters ({@code $1} too) and the {@code DECLARE}d names form
  * one {@link VariableScopes.Scope}, which every embedded statement resolves names against. {@code SELECT
  * … INTO [STRICT] v}, {@code v := expr} (parsed as {@code SELECT expr}), declaration defaults and
- * {@code FETCH c INTO v} become lineage edges into the variables.
+ * {@code FETCH c INTO v} become lineage edges into the variables. A nested block with a {@code DECLARE}
+ * section opens a scope of its own (its names shadow the outer ones); {@code RETURN expr},
+ * {@code RETURN NEXT expr} and {@code RETURN QUERY …} write the function's {@code return} variable;
+ * {@code … RETURNING … INTO v} maps the statement's RETURNING result into the variables; {@code FOR r IN
+ * <query|cursor> LOOP} makes {@code r.col} read the query's columns; {@code EXECUTE … INTO v} writes
+ * {@code v} without any edge (the dynamic text is not analyzed).
  *
  * <p>A body statement that does not parse is reported as a warning and kept as a {@link
  * Confidence#PARTIAL} statement; it never fails the script.
@@ -70,6 +75,8 @@ final class PlPgSqlParser {
     private final List<Diagnostic> diagnostics = new ArrayList<>();
     private SourceText shadowSource;
     private SqlScanner sc;
+    /** End of the last token {@link #next()} returned; containers end there (see {@link #close}). */
+    private int lastEnd;
     /** The routine's variables and parameters, shared by every statement of the body. */
     private VariableScopes.Scope scope;
     private VariableScopes scopes;
@@ -177,6 +184,7 @@ final class PlPgSqlParser {
                         Confidence.INFERRED);
                 block.addChild(handler);
                 statements(handler, Set.of("WHEN", "END"));
+                close(handler);
             }
         }
         if (peekWord("END")) {
@@ -260,7 +268,24 @@ final class PlPgSqlParser {
             case "DECLARE", "BEGIN" -> {
                 Statement block = new Statement(StatementKind.BLOCK, range(first.start(), first.end()), Confidence.INFERRED);
                 container.addChild(block);
-                parseBlock(block);
+                if (!first.isWord("DECLARE")) {
+                    parseBlock(block);
+                    close(block);
+                    break;
+                }
+                VariableScopes.Scope outer = scope;
+                VariableScopes outerScopes = scopes;
+                String display = "block@L" + block.range().start().line();
+                scope = new VariableScopes.Scope(outer, display.toUpperCase(Locale.ROOT) + "@"
+                        + block.range().start().offset(), display, false);
+                scopes = VariableScopes.fixed(scope);
+                try {
+                    parseBlock(block);                // DECLARE … BEGIN … END: a scope of its own
+                } finally {
+                    scope = outer;
+                    scopes = outerScopes;
+                }
+                close(block);
             }
             case "IF" -> ifStatement(container, next());
             case "CASE" -> caseStatement(container, next());
@@ -272,7 +297,7 @@ final class PlPgSqlParser {
                 refreshShadow();
                 sqlStatement(container, perform, false);
             }
-            case "EXECUTE" -> simple(container, next(), StatementKind.DYNAMIC_SQL);
+            case "EXECUTE" -> dynamic(container, next());
             case "OPEN" -> openCursor(container, next());
             case "FETCH" -> fetch(container, next());
             case "MOVE", "CLOSE" -> simple(container, next(), StatementKind.CURSOR);
@@ -303,6 +328,7 @@ final class PlPgSqlParser {
             statements(st, Set.of("END"));
         }
         endConstruct();
+        close(st);
     }
 
     private void caseStatement(Statement container, ScanToken caseToken) {
@@ -317,6 +343,7 @@ final class PlPgSqlParser {
             statements(st, Set.of("WHEN", "END"));
         }
         endConstruct();
+        close(st);
     }
 
     private void loop(Statement container, ScanToken head) {
@@ -332,11 +359,16 @@ final class PlPgSqlParser {
         }
         statements(st, Set.of("END"));
         endConstruct();
+        close(st);
     }
 
-    /** {@code FOR r IN <query> LOOP}: the query's objects are read by the loop. */
+    /**
+     * {@code FOR r IN <query> LOOP}: the query's objects are read by the loop, the query's lineage becomes
+     * the loop's, and {@code r.col} reads its columns; {@code FOR r IN cursor LOOP} reads the cursor's.
+     */
     private void forHeader(Statement loop, int loopAt) {
         ScanToken t;
+        ScanToken prev = null;
         while ((t = next()) != null && t.start() < loopAt) {
             if (t.isWord("IN")) {
                 ScanToken q = peek();
@@ -345,11 +377,23 @@ final class PlPgSqlParser {
                         Statement dyn = new Statement(StatementKind.DYNAMIC_SQL, range(q.start(), loopAt), Confidence.UNRESOLVED);
                         loop.addChild(dyn);
                     } else if (q.isWordIn(Set.of("SELECT", "WITH", "VALUES", "TABLE"))) {
-                        embedRefsInto(loop, q.start(), loopAt);
+                        for (Statement parsed : embedRefsInto(loop, q.start(), loopAt)) {
+                            if (parsed.lineage() != null) {
+                                loop.setLineage(parsed.lineage());
+                                if (prev != null) {
+                                    scope.addRecord(prev.text(), new VariableScopes.LoopRecord(
+                                            "result@" + parsed.range().start().offset(), null));
+                                }
+                                break;
+                            }
+                        }
+                    } else if (prev != null && q.type() == ScanToken.Type.WORD && !q.isWord("REVERSE")) {
+                        scope.addRecord(prev.text(), new VariableScopes.LoopRecord(null, q.text()));
                     }
                 }
                 return;
             }
+            prev = t;
         }
     }
 
@@ -363,13 +407,61 @@ final class PlPgSqlParser {
                 int stmtEnd = statementEnd();
                 Statement st = new Statement(StatementKind.SELECT, range(ret.start(), stmtEnd), Confidence.INFERRED);
                 container.addChild(st);
-                embedRefsInto(st, q.start(), trimSemicolon(stmtEnd));
+                ColumnNode result = VariableScopes.returnNode(scope);
+                for (Statement parsed : embedRefsInto(st, q.start(), trimSemicolon(stmtEnd))) {
+                    if (parsed.lineage() != null && result != null) {
+                        st.setLineage(VariableScopes.assign(parsed.lineage(), "result@" + parsed.range().start().offset(),
+                                List.of(result), original));
+                        break;
+                    }
+                }
                 st.setSummary("Return query" + (Summary.reads(st).isEmpty() ? "" : " from " + Summary.reads(st)));
                 sc.reset(stmtEnd);
             }
             return;
         }
-        simple(container, ret, StatementKind.RETURN);
+        int stmtEnd = statementEnd();
+        Statement st = new Statement(StatementKind.RETURN, range(ret.start(), stmtEnd), Confidence.INFERRED);
+        container.addChild(st);
+        if (peekWord("NEXT")) {
+            next();
+        }
+        ScanToken value = peek();
+        ColumnNode result = VariableScopes.returnNode(scope);
+        int valueEnd = trimSemicolon(stmtEnd);
+        if (value != null && result != null && value.start() < valueEnd && !value.isSymbol(';')) {
+            st.setLineage(expressionLineage(List.of(result), value.start(), valueEnd));     // RETURN expr
+        }
+        sc.reset(stmtEnd);
+    }
+
+    /** {@code EXECUTE '…' [INTO [STRICT] v, …] [USING …]}: the targets are written; the dynamic text is not analyzed. */
+    private void dynamic(Statement container, ScanToken head) {
+        int stmtEnd = statementEnd();
+        Statement st = new Statement(StatementKind.DYNAMIC_SQL, range(head.start(), stmtEnd), Confidence.UNRESOLVED);
+        container.addChild(st);
+        ScanToken t;
+        int depth = 0;
+        int to = trimSemicolon(stmtEnd);
+        while ((t = next()) != null && t.start() < to) {
+            if (t.isSymbol('(')) {
+                depth++;
+            } else if (t.isSymbol(')')) {
+                depth--;
+            } else if (depth == 0 && t.isWord("INTO")) {
+                List<ColumnNode> vars = new ArrayList<>();
+                for (ColumnNode v : targets(VariableScopes.intoNames(text(t.start(), to)))) {
+                    if (v != null && !vars.contains(v)) {
+                        vars.add(v);
+                    }
+                }
+                if (!vars.isEmpty()) {
+                    st.setLineage(new StatementLineage(vars, List.of()));
+                }
+                break;
+            }
+        }
+        sc.reset(stmtEnd);
     }
 
     private void openCursor(Statement container, ScanToken open) {
@@ -412,7 +504,7 @@ final class PlPgSqlParser {
             List<ColumnNode> outputs = new ArrayList<>();
             List<ColumnEdge> edges = new ArrayList<>();
             for (int i = 0; i < cursor.columns().size(); i++) {
-                ColumnNode to = vars.size() == 1 ? vars.getFirst() : i < vars.size() ? vars.get(i) : null;
+                ColumnNode to = vars.size() == 1 ? vars.get(0) : i < vars.size() ? vars.get(i) : null;
                 if (to == null) {
                     continue;
                 }
@@ -501,16 +593,45 @@ final class PlPgSqlParser {
         for (Statement st : parsed) {
             container.addChild(st);
         }
-        if (into != null && !parsed.isEmpty() && parsed.getFirst().kind() == StatementKind.SELECT
-                && parsed.getFirst().lineage() != null) {
+        if (into != null && !parsed.isEmpty() && parsed.get(0).kind() == StatementKind.SELECT
+                && parsed.get(0).lineage() != null) {
             List<ColumnNode> vars = targets(VariableScopes.intoNames(into));
-            Statement select = parsed.getFirst();
+            Statement select = parsed.get(0);
             if (!vars.isEmpty()) {
                 select.setLineage(VariableScopes.assign(select.lineage(), "result@" + select.range().start().offset(),
                         vars, original));
             }
+        } else if (into != null && !parsed.isEmpty() && parsed.get(0).lineage() != null
+                && Set.of(StatementKind.INSERT, StatementKind.UPDATE, StatementKind.DELETE, StatementKind.MERGE)
+                .contains(parsed.get(0).kind())) {
+            returningInto(parsed.get(0), into);
         }
         sc.reset(stmtEnd);
+    }
+
+    /** {@code … RETURNING exprs INTO v}: the statement's RETURNING result columns go to the variables. */
+    private void returningInto(Statement dml, String into) {
+        List<ColumnNode> vars = targets(VariableScopes.intoNames(into));
+        if (vars.isEmpty()) {
+            return;
+        }
+        String key = "result@" + dml.range().start().offset();
+        StatementLineage l = dml.lineage();
+        List<ColumnNode> kept = new ArrayList<>();
+        List<ColumnNode> results = new ArrayList<>();
+        for (ColumnNode o : l.outputs()) {
+            (o.ownerKey().equals(key) ? results : kept).add(o);
+        }
+        if (results.isEmpty()) {
+            return;
+        }
+        StatementLineage assigned = VariableScopes.assign(new StatementLineage(results, l.edges()), key, vars, original);
+        for (ColumnNode v : assigned.outputs()) {
+            if (!kept.contains(v)) {
+                kept.add(v);
+            }
+        }
+        dml.setLineage(new StatementLineage(kept, assigned.edges()));
     }
 
     // ----- embedding SQL --------------------------------------------------------------------------
@@ -551,7 +672,7 @@ final class PlPgSqlParser {
         if (!report) {
             return List.of();
         }
-        Diagnostic first = parsed.diagnostics().isEmpty() ? null : parsed.diagnostics().getFirst();
+        Diagnostic first = parsed.diagnostics().isEmpty() ? null : parsed.diagnostics().get(0);
         diagnostics.add(new Diagnostic(Severity.WARNING, "plpgsql",
                 "Statement in function body could not be parsed" + (first == null ? "" : ": " + first.message()),
                 first == null ? unit.range() : first.range(), first == null ? null : first.offending(),
@@ -572,10 +693,7 @@ final class PlPgSqlParser {
         s.reset(from);
         ScanToken first = s.next();
         if (first == null || first.isWord("INSERT") || first.isWord("MERGE")) {
-            if (first != null && (first.isWord("INSERT") || first.isWord("MERGE"))) {
-                maskReturningInto(s, to);
-            }
-            return null;
+            return first == null ? null : maskReturningInto(s, to);
         }
         int depth = 0;
         ScanToken t;
@@ -593,7 +711,7 @@ final class PlPgSqlParser {
         return null;
     }
 
-    private void maskReturningInto(SqlScanner s, int to) {
+    private String maskReturningInto(SqlScanner s, int to) {
         ScanToken t;
         boolean returning = false;
         int depth = 0;
@@ -605,11 +723,12 @@ final class PlPgSqlParser {
             } else if (depth == 0 && t.isWord("RETURNING")) {
                 returning = true;
             } else if (depth == 0 && returning && t.isWord("INTO")) {
-                blankTargets(s, t, to);
+                String into = blankTargets(s, t, to);
                 refreshShadow();
-                return;
+                return into;
             }
         }
+        return null;
     }
 
     /** Blanks {@code INTO targets} and returns the text it blanked. */
@@ -650,7 +769,23 @@ final class PlPgSqlParser {
 
     private ScanToken next() {
         ScanToken t = sc.next();
-        return t == null || t.start() >= end ? null : t;
+        if (t == null || t.start() >= end) {
+            return null;
+        }
+        lastEnd = Math.max(lastEnd, Math.min(t.end(), end));     // a token may run into the closing $$
+        return t;
+    }
+
+    /**
+     * Gives a container read keyword by keyword its whole extent: from its first keyword to the last token
+     * consumed (its {@code END …;}), and at least over its children.
+     */
+    private void close(Statement container) {
+        int to = Math.max(lastEnd, container.range().end().offset());
+        for (Statement child : container.children()) {
+            to = Math.max(to, child.range().end().offset());
+        }
+        container.extendTo(range(container.range().start().offset(), to));
     }
 
     private boolean peekWord(String word) {
@@ -723,7 +858,9 @@ final class PlPgSqlParser {
     }
 
     private void skipToSemicolon() {
-        sc.reset(statementEnd());
+        int to = statementEnd();
+        sc.reset(to);
+        lastEnd = Math.max(lastEnd, Math.min(to, end));
     }
 
     /** {@code END IF;}, {@code END LOOP [label];}, {@code END CASE;}. */

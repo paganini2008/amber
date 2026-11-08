@@ -48,7 +48,7 @@ final class LineWriter {
     void write(String text, boolean spaceBefore) {
         if (!lineHasContent && any) {
             sb.append(prefix);
-            sb.repeat(' ', lineIndent);
+            sb.append(" ".repeat(lineIndent));
             column = lineIndent;
         } else if (spaceBefore && lineHasContent) {
             sb.append(' ');

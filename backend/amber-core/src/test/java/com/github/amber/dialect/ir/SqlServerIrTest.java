@@ -113,13 +113,13 @@ class SqlServerIrTest {
         Statement cursor = first(tryBlock.children(), StatementKind.CURSOR);
         assertEquals(List.of("DW.CARRIER_KPI"), reads(cursor));
 
-        Statement logCall = tryBlock.children().stream().filter(s -> s.kind() == StatementKind.CALL).toList().getLast();
+        Statement logCall = tryBlock.children().stream().filter(s -> s.kind() == StatementKind.CALL).toList().get(tryBlock.children().stream().filter(s -> s.kind() == StatementKind.CALL).toList().size() - 1);
         assertEquals(List.of("EXECUTE ROUTINE DW.USP_LOG_ERROR"), writes(logCall));
     }
 
     @Test
     void dropListsEveryTable() {
-        Statement drop = script.statements().getLast();
+        Statement drop = script.statements().get(script.statements().size() - 1);
         assertEquals(List.of("DROP TEMP_TABLE #SHIPMENTS", "DROP TEMP_TABLE #CARRIER_KPI"), writes(drop));
     }
 

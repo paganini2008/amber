@@ -1,12 +1,15 @@
 import type { LogicalStep, QueryBlock } from '@shared/protocol'
 import { flattenStructure, type StructureNode } from './structure'
+import { t } from '../i18n'
 
 /**
  * The logical processing order of a statement (`Statement.executionOrder`): the order the SQL
  * standard defines for reading a query. It is not the database's execution plan; nothing runs.
  */
 
-export const LOGICAL_ORDER_NOTE = 'The order the SQL standard defines for reading the query. Nothing is run, and the database’s actual plan may differ.'
+export function logicalOrderNote(): string {
+  return t('structure.order.note')
+}
 
 /** The WRITE step of DML belongs to no block. */
 export const WRITE_BLOCK = -1
@@ -76,8 +79,8 @@ export function blockProgress(steps: LogicalStep[], cursor: number | null): Map<
 
 /** Text of a step for lists: the detail when it says more than the phase. */
 export function stepLabel(step: LogicalStep): string {
-  if (step.phase === 'WRITE') return step.detail ?? 'Write'
-  if (step.phase === 'CTE') return step.detail ? `CTE ${step.detail}` : 'CTE ready'
+  if (step.phase === 'WRITE') return step.detail ?? t('structure.order.write')
+  if (step.phase === 'CTE') return step.detail ? `CTE ${step.detail}` : t('structure.order.cteReady')
   return step.detail ? `${step.phase} ${step.detail}` : step.phase
 }
 

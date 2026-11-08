@@ -1,12 +1,14 @@
 import clsx from 'clsx'
+import { Boxes, CirclePlay, GitCompareArrows, History, ListTree, Network, Spline, SquareCode, Workflow, type LucideIcon } from 'lucide-react'
 import { ClipboardPaste, FileText, FolderOpen, GitFork, NotebookPen, ScanSearch, ShieldCheck, X } from 'lucide-react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { compareWithDropped, compareWithFile, compareWithSaved, exportJson, exportMermaid, exportPng, exportSvg, openFileDialog, openPath, openSample } from './actions'
 import logo from './assets/logo.png'
 import { AboutDialog, HandoverDialog, PasteDialog } from './components/Dialogs'
 import { ContextMenu } from './components/ContextMenu'
 import { DetailsPanel } from './components/DetailsPanel'
 import { RewriteDialog } from './components/Fixes'
+import { OptimizedDialog } from './components/Optimized'
 import { OutlinePanel } from './components/OutlinePanel'
 import { SettingsDialog } from './components/SettingsDialog'
 import { Splitter, usePaneSize } from './components/Splitter'
@@ -14,10 +16,11 @@ import { ErrorScreen, PartialBanner, ProblemsBar, SeverityIcon } from './compone
 import { TitleBar } from './components/TitleBar'
 import { Button, Spinner, TooltipProvider } from './components/ui'
 import { SqlEditor } from './editor/SqlEditor'
-import { useSystemDark, useWindowWidth } from './hooks'
+import { useScrollFade, useSystemDark, useWindowWidth } from './hooks'
 import { api, describeError } from './lib/api'
 import { fitPanes } from './lib/panes'
-import { SAMPLES } from './samples'
+import { t, useLanguage, type MessageKey } from './i18n'
+import { SAMPLES, sampleLabel, sampleNote } from './samples'
 import { useStore, type ViewId } from './store'
 import { applyTheme } from './theme'
 import { DataFlowView } from './views/DataFlowView'
@@ -27,20 +30,26 @@ import { OutlineView } from './views/OutlineView'
 import { PlaybackBar, PlaybackClock, PlaybackView } from './views/Playback'
 import { StatementView } from './views/StatementView'
 import { DiffView } from './views/DiffView'
+import { ErView } from './views/ErView'
 import { StructureView } from './views/StructureView'
+import { DbIcon } from './components/DbIcon'
 
-const VIEWS: { id: ViewId; label: string }[] = [
-  { id: 'outline', label: 'Outline' },
-  { id: 'lifecycle', label: 'Lifecycle' },
-  { id: 'dataflow', label: 'Data flow' },
-  { id: 'lineage', label: 'Lineage' },
-  { id: 'statement', label: 'Statement' },
-  { id: 'structure', label: 'Structure' },
-  { id: 'playback', label: 'Execution playback' }
+/** The view tabs; each has its own glyph (16 px, stroke 1.75) beside the label, never instead of it. */
+const VIEWS: { id: ViewId; label: MessageKey; icon: LucideIcon }[] = [
+  { id: 'outline', label: 'app.views.outline', icon: ListTree },
+  { id: 'lifecycle', label: 'app.views.lifecycle', icon: History },
+  { id: 'dataflow', label: 'app.views.dataflow', icon: Workflow },
+  { id: 'lineage', label: 'app.views.lineage', icon: Spline },
+  { id: 'er', label: 'app.views.er', icon: Network },
+  { id: 'statement', label: 'app.views.statement', icon: SquareCode },
+  { id: 'structure', label: 'app.views.structure', icon: Boxes },
+  { id: 'playback', label: 'app.views.playback', icon: CirclePlay }
 ]
 
 export function App(): React.JSX.Element {
   const settings = useStore((s) => s.settings)
+  // Re-render the whole tree when the language changes (Settings → General → Language).
+  useLanguage()
   const systemDark = useSystemDark()
 
   // Settings, engine status and menu commands from the main process.
@@ -85,7 +94,7 @@ export function App(): React.JSX.Element {
           break
         case 'compare-file':
           if (s.doc) void compareWithFile('older')
-          else s.toast('Open a script first, then compare it with another version.', 'error')
+          else s.toast(t('app.toast.openBeforeCompare'), 'error')
           break
         case 'format-script':
           if (s.doc) void s.formatScript('script')
@@ -95,7 +104,7 @@ export function App(): React.JSX.Element {
           break
         case 'export-handover':
           if (s.analysis && s.analysis.status !== 'FAILED') s.openDialog('handover')
-          else s.toast('Open and analyze a script first.', 'error')
+          else s.toast(t('app.toast.analyzeFirst'), 'error')
           break
       }
     })
@@ -118,7 +127,7 @@ export function App(): React.JSX.Element {
     void api()
       .app.checkForUpdates()
       .then((r) => {
-        if (!cancelled && r.ok && r.value?.newer) useStore.getState().toast(`Amber ${r.value.latest} is available. See Settings → Updates.`)
+        if (!cancelled && r.ok && r.value?.newer) useStore.getState().toast(t('app.toast.updateAvailable', { version: r.value.latest }))
       })
     return () => {
       cancelled = true
@@ -139,6 +148,7 @@ export function App(): React.JSX.Element {
       <PasteDialog />
       <HandoverDialog />
       <RewriteDialog />
+      <OptimizedDialog />
       <PlaybackClock />
       <Toasts />
       <ContextMenu />
@@ -166,13 +176,13 @@ function Workspace(): React.JSX.Element {
       <div style={{ width: fit.left }} className="min-w-0 shrink-0">
         <OutlinePanel />
       </div>
-      <Splitter direction="x" size={fit.left} onChange={setLeft} min={180} max={520} label="Resize outline" />
+      <Splitter direction="x" size={fit.left} onChange={setLeft} min={180} max={520} label={t('app.resize.outline')} />
       <main className="flex min-w-0 flex-1 flex-col">
         <PartialBanner />
         <PlaybackBar />
         <CenterView />
         {/* The comparison has its own side-by-side editors, so the script editor steps aside. */}
-        {view === 'diff' ? null : <Splitter direction="y" size={editor} onChange={setEditor} min={80} max={900} invert label="Resize editor" />}
+        {view === 'diff' ? null : <Splitter direction="y" size={editor} onChange={setEditor} min={80} max={900} invert label={t('app.resize.editor')} />}
         {/* The center view keeps at least 160px on small windows, whatever the saved editor height. */}
         <div style={{ height: editor, maxHeight: 'calc(100% - 160px)' }} className={clsx('min-h-0 shrink-0', view === 'diff' && 'hidden')}>
           <SqlEditor />
@@ -180,7 +190,7 @@ function Workspace(): React.JSX.Element {
       </main>
       {rightPanel ? (
         <>
-          <Splitter direction="x" size={fit.right} onChange={setRight} min={260} max={620} invert label="Resize details" />
+          <Splitter direction="x" size={fit.right} onChange={setRight} min={260} max={620} invert label={t('app.resize.details')} />
           <div style={{ width: fit.right }} className="min-w-0 shrink-0">
             <DetailsPanel />
           </div>
@@ -202,6 +212,9 @@ function CenterView(): React.JSX.Element {
   const failed = analysis?.status === 'FAILED'
   const diffStatus = useStore((s) => s.diff.status)
   const diffRisk = useStore((s) => s.diff.result?.summary.risk)
+  // On a narrow window the tab row scrolls; a fade marks the side where more tabs are.
+  const tabsRef = useRef<HTMLDivElement>(null)
+  const tabsFade = useScrollFade(tabsRef)
 
   let body: React.JSX.Element
   if (view === 'diff') {
@@ -211,10 +224,10 @@ function CenterView(): React.JSX.Element {
     body = (
       <div className="flex h-full items-center justify-center p-8">
         <div className="max-w-[480px]">
-          <h2 className="text-lg font-semibold">The analysis did not finish</h2>
+          <h2 className="text-lg font-semibold">{t('app.analysis.didNotFinish')}</h2>
           <p className="mt-1 text-sm text-ink-muted">{describeError(analyzeError)}</p>
           <Button className="mt-4" onClick={() => void analyze()}>
-            Try again
+            {t('common.retry')}
           </Button>
         </div>
       </div>
@@ -224,13 +237,13 @@ function CenterView(): React.JSX.Element {
       <div className="flex h-full items-center justify-center gap-3 text-sm text-ink-muted">
         {analyzing ? (
           <>
-            <Spinner /> Analyzing {doc.name}
+            <Spinner /> {t('app.analysis.analyzingFile', { name: doc.name })}
             <Button size="sm" variant="ghost" onClick={cancelAnalysis}>
-              Cancel
+              {t('common.cancel')}
             </Button>
           </>
         ) : (
-          <Button onClick={() => void analyze()}>Analyze</Button>
+          <Button onClick={() => void analyze()}>{t('app.analysis.analyze')}</Button>
         )}
       </div>
     )
@@ -246,6 +259,8 @@ function CenterView(): React.JSX.Element {
         <DataFlowView />
       ) : view === 'lineage' ? (
         <LineageView />
+      ) : view === 'er' ? (
+        <ErView />
       ) : view === 'statement' ? (
         <StatementView />
       ) : view === 'structure' ? (
@@ -259,7 +274,7 @@ function CenterView(): React.JSX.Element {
     <div className="flex min-h-0 flex-1 flex-col bg-canvas">
       <div className="chrome flex h-9 shrink-0 items-end gap-1 border-b border-line px-3">
         {/* Tabs keep one line; on a narrow center they scroll sideways instead of wrapping. */}
-        <div className="no-scrollbar -mb-px flex min-w-0 items-end gap-1 overflow-x-auto" role="tablist" aria-label="Views">
+        <div ref={tabsRef} className={clsx('no-scrollbar -mb-px flex min-w-0 items-end gap-1 overflow-x-auto', tabsFade.left && 'tabs-fade-left', tabsFade.right && 'tabs-fade-right')} role="tablist" aria-label={t('app.views.label')}>
         {VIEWS.map((v, i) => (
           <button
             key={v.id}
@@ -268,13 +283,14 @@ function CenterView(): React.JSX.Element {
             aria-selected={view === v.id}
             disabled={!analysis || failed}
             onClick={() => setView(v.id)}
-            title={`${v.label} (${navigator.userAgent.includes('Mac') ? '⌘' : 'Ctrl+'}${i + 1})`}
+            title={`${t(v.label)} (${navigator.userAgent.includes('Mac') ? '⌘' : 'Ctrl+'}${i + 1})`}
             className={clsx(
-              'h-8 shrink-0 border-b-2 px-2.5 text-sm whitespace-nowrap transition-colors disabled:opacity-40',
+              'flex h-8 shrink-0 items-center gap-1.5 border-b-2 px-2.5 text-sm whitespace-nowrap transition-colors disabled:opacity-40',
               view === v.id && analysis && !failed ? 'border-amber font-medium text-ink' : 'border-transparent text-ink-muted hover:text-ink'
             )}
           >
-            {v.label}
+            <v.icon size={16} strokeWidth={1.75} aria-hidden className={view === v.id && analysis && !failed ? 'text-amber-ink' : undefined} />
+            {t(v.label)}
           </button>
         ))}
         {diffStatus !== 'idle' ? (
@@ -288,22 +304,23 @@ function CenterView(): React.JSX.Element {
               view === 'diff' ? 'border-amber font-medium text-ink' : 'border-transparent text-ink-muted hover:text-ink'
             )}
           >
+            <GitCompareArrows size={16} strokeWidth={1.75} aria-hidden className={view === 'diff' ? 'text-amber-ink' : undefined} />
             {diffStatus === 'loading' ? <Spinner size={11} /> : diffRisk ? <SeverityIcon severity={diffRisk} size={12} /> : null}
-            Change impact
+            {t('app.views.diff')}
           </button>
         ) : null}
         </div>
         <div className="flex-1" />
         {doc.edited ? (
           <div className="mb-1 flex shrink-0 items-center gap-2 text-xs whitespace-nowrap text-ink-muted">
-            Edited since the last analysis
+            {t('app.analysis.edited')}
             <Button size="sm" onClick={() => void analyze()}>
-              Analyze again
+              {t('app.analysis.again')}
             </Button>
           </div>
         ) : analyzing && analysis ? (
           <div className="mb-2 flex shrink-0 items-center gap-1.5 text-xs whitespace-nowrap text-ink-muted">
-            <Spinner size={12} /> Analyzing
+            <Spinner size={12} /> {t('app.analysis.analyzing')}
           </div>
         ) : null}
       </div>
@@ -315,24 +332,12 @@ function CenterView(): React.JSX.Element {
 }
 
 /** What people open Amber for; each maps to a feature (outline and data flow, lineage, findings, handover document). */
-const MAINTENANCE_QUESTIONS = [
-  { icon: ScanSearch, text: 'What does this script really do?' },
-  { icon: GitFork, text: 'What breaks if I change this column?' },
-  { icon: ShieldCheck, text: 'Is this change safe to make?' },
-  { icon: NotebookPen, text: 'Handing it over? Export a handover document.' }
+const MAINTENANCE_QUESTIONS: { icon: typeof ScanSearch; text: MessageKey }[] = [
+  { icon: ScanSearch, text: 'app.start.questionWhat' },
+  { icon: GitFork, text: 'app.start.questionBreaks' },
+  { icon: ShieldCheck, text: 'app.start.questionSafe' },
+  { icon: NotebookPen, text: 'app.start.questionHandover' }
 ]
-
-/** Short marks for the sample cards, one per database. */
-const MONOGRAM: Record<string, string> = {
-  oracle: 'Or',
-  sqlserver: 'Ss',
-  postgresql: 'Pg',
-  mysql: 'My',
-  mariadb: 'Ma',
-  db2: 'D2',
-  h2: 'H2',
-  sqlite: 'Sl'
-}
 
 function EmptyState(): React.JSX.Element {
   const settings = useStore((s) => s.settings)
@@ -345,50 +350,47 @@ function EmptyState(): React.JSX.Element {
         <div className="hero-glow" aria-hidden />
         <div className="relative my-auto">
           <img src={logo} alt="" className="hero-logo h-28 w-28" draggable={false} />
-          <h1 className="mt-8 max-w-[440px] text-[34px] leading-[40px] font-semibold tracking-[-0.02em] text-ink">Maintain the legacy SQL nobody wants to touch</h1>
+          <h1 className="mt-8 max-w-[440px] text-[34px] leading-[40px] font-semibold tracking-[-0.02em] text-ink">{t('app.start.title')}</h1>
           <p className="mt-3 max-w-[420px] text-[15px] leading-[23px] text-ink-muted">
-            Open a script of thousands of lines, with tables, procedures and temp tables written by many hands, and see what it really does. Nothing is
-            executed.
+            {t('app.start.lead')}
           </p>
           <ul className="mt-5 space-y-1.5 text-[14px] leading-[21px] text-ink">
             {MAINTENANCE_QUESTIONS.map((q) => (
               <li key={q.text} className="flex items-center gap-2.5">
                 <q.icon size={15} className="shrink-0 text-amber-ink" aria-hidden />
-                {q.text}
+                {t(q.text)}
               </li>
             ))}
           </ul>
           <div className="mt-8 flex flex-wrap gap-2">
             <Button variant="primary" className="h-9 px-4 text-base" onClick={() => void openFileDialog()}>
-              <FolderOpen size={16} /> Open script…
+              <FolderOpen size={16} /> {t('app.start.open')}
             </Button>
             <Button className="h-9 px-4 text-base" onClick={() => openDialog('paste')}>
-              <ClipboardPaste size={16} /> Paste SQL…
+              <ClipboardPaste size={16} /> {t('app.start.paste')}
             </Button>
           </div>
-          <p className="mt-4 text-sm text-ink-muted">Or drop a .sql file anywhere in this window.</p>
+          <p className="mt-4 text-sm text-ink-muted">{t('app.start.drop')}</p>
         </div>
       </section>
       <div className="flex min-w-0 flex-1 flex-col overflow-y-auto px-12 py-10 max-[1100px]:px-8">
         <div className="my-auto w-full max-w-[720px] space-y-8">
           <section>
-            <h2 className="text-lg font-semibold text-ink">Try a sample</h2>
-            <p className="mt-0.5 text-sm text-ink-muted">A small legacy-style script for each database: temp tables, procedures, MERGE and nested queries.</p>
+            <h2 className="text-lg font-semibold text-ink">{t('app.start.samples')}</h2>
+            <p className="mt-0.5 text-sm text-ink-muted">{t('app.start.samplesLead')}</p>
             <ul className="mt-3 grid grid-cols-2 gap-2">
               {SAMPLES.map((s) => (
                 <li key={s.dialect}>
                   <button
                     type="button"
                     onClick={() => openSample(s.dialect)}
-                    title={s.note}
+                    title={sampleNote(s)}
                     className="sample-card group flex h-full w-full items-center gap-3 rounded-[7px] border border-line bg-surface px-3 py-2.5 text-left"
                   >
-                    <span className="monogram" aria-hidden>
-                      {MONOGRAM[s.dialect] ?? s.database.slice(0, 2)}
-                    </span>
+                    <DbIcon dialect={s.dialect} size={20} className="sample-db-icon" />
                     <span className="min-w-0">
                       <span className="block text-[15px] leading-5 font-semibold text-ink">{s.database}</span>
-                      <span className="block truncate text-xs text-ink-muted">{s.label}</span>
+                      <span className="block truncate text-xs text-ink-muted">{sampleLabel(s)}</span>
                     </span>
                   </button>
                 </li>
@@ -397,7 +399,7 @@ function EmptyState(): React.JSX.Element {
           </section>
           {recent.length ? (
             <section>
-              <h2 className="mb-2 text-lg font-semibold text-ink">Recent</h2>
+              <h2 className="mb-2 text-lg font-semibold text-ink">{t('app.start.recent')}</h2>
               <ul className="space-y-0.5">
                 {recent.slice(0, 6).map((p) => (
                   <li key={p}>
@@ -477,13 +479,13 @@ function DropTarget(): React.JSX.Element | null {
   return (
     <div className="pointer-events-none fixed inset-3 z-50 flex gap-3">
       <div className={box(!hasDoc || zone === 'open')}>
-        <span className="text-lg font-medium text-ink">Open the script</span>
-        {hasDoc ? <span className="text-sm text-ink-muted">Replaces the script that is open now</span> : null}
+        <span className="text-lg font-medium text-ink">{t('app.drop.open')}</span>
+        {hasDoc ? <span className="text-sm text-ink-muted">{t('app.drop.openHint')}</span> : null}
       </div>
       {hasDoc ? (
         <div className={box(zone === 'compare')}>
-          <span className="text-lg font-medium text-ink">Compare with the open script</span>
-          <span className="text-sm text-ink-muted">The dropped file is the new version. Is this change safe?</span>
+          <span className="text-lg font-medium text-ink">{t('app.drop.compare')}</span>
+          <span className="text-sm text-ink-muted">{t('app.drop.compareHint')}</span>
         </div>
       ) : null}
     </div>
@@ -495,7 +497,7 @@ function KeyboardShortcuts(): null {
     const onKey = (e: KeyboardEvent): void => {
       const st = useStore.getState()
       const mod = e.metaKey || e.ctrlKey
-      if (mod && /^[1-7]$/.test(e.key) && st.analysis && st.analysis.status !== 'FAILED') {
+      if (mod && /^[1-8]$/.test(e.key) && st.analysis && st.analysis.status !== 'FAILED') {
         e.preventDefault()
         st.setView(VIEWS[Number(e.key) - 1]!.id)
         return
@@ -519,29 +521,29 @@ function Toasts(): React.JSX.Element {
   const dismiss = useStore((s) => s.dismissToast)
   return (
     <div className="pointer-events-none fixed right-4 bottom-10 z-50 flex flex-col items-end gap-2" role="status" aria-live="polite">
-      {toasts.map((t) => (
+      {toasts.map((toast) => (
         <div
-          key={t.id}
+          key={toast.id}
           className={clsx(
             'pointer-events-auto flex max-w-[420px] items-start gap-2 rounded-[6px] border bg-surface px-3 py-2 text-sm shadow-[0_8px_28px_rgba(0,0,0,0.18)]',
-            t.tone === 'error' ? 'border-risk-high' : 'border-line'
+            toast.tone === 'error' ? 'border-risk-high' : 'border-line'
           )}
         >
-          <span className="min-w-0 flex-1">{t.message}</span>
-          {t.actions?.map((a) => (
+          <span className="min-w-0 flex-1">{toast.message}</span>
+          {toast.actions?.map((a) => (
             <button
               key={a.label}
               type="button"
               className="shrink-0 font-medium text-amber-ink hover:underline"
               onClick={() => {
-                dismiss(t.id)
+                dismiss(toast.id)
                 a.run()
               }}
             >
               {a.label}
             </button>
           ))}
-          <button type="button" aria-label="Dismiss" onClick={() => dismiss(t.id)} className="text-ink-muted hover:text-ink">
+          <button type="button" aria-label={t('app.toast.dismiss')} onClick={() => dismiss(toast.id)} className="text-ink-muted hover:text-ink">
             <X size={13} />
           </button>
         </div>

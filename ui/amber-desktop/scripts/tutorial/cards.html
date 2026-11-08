@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<style>
+  @font-face { font-family: Plex; font-weight: 400; src: url('../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-400-normal.woff2') format('woff2'); }
+  @font-face { font-family: Plex; font-weight: 600; src: url('../../node_modules/@fontsource/ibm-plex-sans/files/ibm-plex-sans-latin-600-normal.woff2') format('woff2'); }
+  html, body { margin: 0; width: 1920px; height: 1080px; overflow: hidden; }
+  body {
+    font-family: Plex, 'Helvetica Neue', sans-serif; color: #EAF2F2;
+    background: radial-gradient(1200px 700px at 30% 35%, rgba(232,146,12,0.22), transparent 60%),
+                linear-gradient(160deg, #123844 0%, #0B222A 60%, #08181E 100%);
+    display: flex; align-items: center; justify-content: center;
+  }
+  .card { display: none; width: 1500px; }
+  body[data-card="intro"] .intro, body[data-card="outro"] .outro { display: block; }
+  .brand { display: flex; align-items: center; gap: 28px; }
+  .brand img { width: 120px; height: 120px; }
+  .brand span { font-size: 64px; font-weight: 600; letter-spacing: -0.5px; }
+  h1 { font-size: 92px; line-height: 1.05; font-weight: 600; margin: 56px 0 28px; letter-spacing: -1.5px; }
+  h1 em { font-style: normal; color: #FFA928; }
+  p { font-size: 38px; line-height: 1.45; color: #B9CDD0; margin: 0; max-width: 1350px; }
+  .rule { width: 120px; height: 6px; border-radius: 3px; background: #E8920C; margin: 48px 0 40px; }
+  .points { display: grid; grid-template-columns: repeat(3, auto); gap: 18px 56px; font-size: 34px; color: #EAF2F2; margin-top: 8px; justify-content: start; }
+  .points b { color: #FFA928; font-weight: 600; margin-right: 12px; }
+  .url { font-size: 46px; font-weight: 600; color: #FFA928; margin-top: 44px; }
+  .small { font-size: 26px; color: #8FA7AB; margin-top: 64px; }
+</style>
+</head>
+<body>
+  <section class="card intro">
+    <div class="brand"><img src="../../../../docs/assets/logo-256.png" alt=""><span>Amber</span></div>
+    <h1>Maintain the legacy SQL<br><em>nobody wants to touch.</em></h1>
+    <p>Thousands of lines of procedures, temp tables and batch steps, written by many hands. This tutorial shows how Amber helps you read them and change them safely.</p>
+  </section>
+  <section class="card outro">
+    <div class="brand"><img src="../../../../docs/assets/logo-256.png" alt=""><span>Amber</span></div>
+    <div class="rule"></div>
+    <div class="points">
+      <span><b>✓</b>Works offline</span><span><b>✓</b>Never runs your SQL</span><span><b>✓</b>Your SQL stays on your computer</span>
+      <span><b>✓</b>8 databases</span><span><b>✓</b>Free and open source</span><span><b>✓</b>macOS · Windows · Linux</span>
+    </div>
+    <div class="url">github.com/paganini2008/amber</div>
+    <div class="small">Music: “Dark Epic” by Nastelbom</div>
+  </section>
+<script>document.body.dataset.card = location.hash.slice(1) || 'intro'</script>
+</body>
+</html>

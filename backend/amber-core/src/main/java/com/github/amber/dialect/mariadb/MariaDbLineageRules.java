@@ -21,7 +21,7 @@ final class MariaDbLineageRules {
     /** Stored-program locals and parameters; {@code @name} user variables live for the session. */
     private static final VariableRules VARIABLES = new VariableRules(Set.of("procedureParameter", "functionParameter"),
             Set.of("declareVariable"), Set.of("setStatement"), Set.of("selectIntoExpression"), Set.of("cursorStatement"),
-            true, false, VariableRules.AtNames.SESSION);
+            true, false, VariableRules.AtNames.SESSION, Set.of("returnStatement"), Set.of());
     static final LineageRules INSTANCE = new LineageRules(
             Set.of("querySpecification", "querySpecificationNointo"),
             Set.of("selectStatement", "withStatement"),

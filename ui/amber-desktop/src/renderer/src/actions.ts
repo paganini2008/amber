@@ -1,10 +1,11 @@
 import type { Statement } from '@shared/protocol'
 import type { DocGenerateResult } from '@shared/protocol'
+import { t } from './i18n'
 import { api, describeError, isNotAvailable, newRequestId } from './lib/api'
 import { SAMPLES } from './samples'
 import { diffMarkdown } from './lib/diff'
 import { buildFlowView, traceObject, traceStatement, type Trace } from './lib/dataflow'
-import { flowToSvg, lineageToSvg, matrixToSvg, structureToSvg, svgToPngBase64 } from './lib/exportSvg'
+import { erToSvg, flowToSvg, lineageToSvg, matrixToSvg, structureToSvg, svgToPngBase64 } from './lib/exportSvg'
 import { layoutFlow } from './lib/layout'
 import { buildMatrix } from './lib/lifecycle'
 import { lineageToMermaid } from './lib/lineage'
@@ -15,6 +16,7 @@ import { analyzeParams, currentMetadata, useStore, type CompareSide } from './st
 import { activeTokens } from './theme'
 import { flowSnapshot } from './views/DataFlowView'
 import { lifecycleOptions } from './views/LifecycleView'
+import { erSnapshot } from './views/ErView'
 import { lineageSnapshot } from './views/LineageView'
 import { structureSnapshot } from './views/StructureView'
 
@@ -23,14 +25,14 @@ export async function openFileDialog(): Promise<void> {
     const file = await api().files.openDialog()
     if (file) useStore.getState().loadDocument(file)
   } catch (error) {
-    useStore.getState().toast(`Could not open the file: ${(error as Error).message}`, 'error')
+    useStore.getState().toast(t('app.toast.openFailed', { reason: (error as Error).message }), 'error')
   }
 }
 
 export async function openPath(path: string): Promise<void> {
   const result = await api().files.open(path)
   if (result.ok) useStore.getState().loadDocument(result.value)
-  else useStore.getState().toast(`Could not open ${path}: ${result.error.message}`, 'error')
+  else useStore.getState().toast(t('app.toast.openPathFailed', { path, reason: result.error.message }), 'error')
 }
 
 /** Opens the bundled sample for a database and switches to its dialect. */
@@ -57,7 +59,7 @@ function currentTrace(): Trace | null {
 
 async function save(defaultName: string, filters: { name: string; extensions: string[] }[], data: string, encoding: 'utf8' | 'base64' = 'utf8'): Promise<void> {
   const path = await api().files.save({ defaultName, filters, data, encoding })
-  if (path) useStore.getState().toast(`Saved ${path.split(/[\\/]/).pop()}`)
+  if (path) useStore.getState().toast(t('app.toast.saved', { file: path.split(/[\\/]/).pop() ?? path }))
 }
 
 /** SVG of the current graph or matrix, generated from the view model. */
@@ -80,10 +82,18 @@ async function currentSvg(): Promise<{ svg: string; suffix: string } | null> {
     const snap = lineageSnapshot.current
     const lineage = useStore.getState().lineage
     if (!snap || !lineage) {
-      useStore.getState().toast('Pick a column in the Lineage view first.', 'error')
+      useStore.getState().toast(t('app.toast.pickColumn'), 'error')
       return null
     }
     return { svg: lineageToSvg(snap.model, snap.layout, lineage, tokens, `${analysis.name} · lineage of ${snap.title}`), suffix: 'lineage' }
+  }
+  if (view === 'er') {
+    const snap = erSnapshot.current
+    if (!snap || snap.cards.length === 0) {
+      useStore.getState().toast(t('er.empty.filtered'), 'error')
+      return null
+    }
+    return { svg: erToSvg(snap.cards, snap.relationships, snap.layout, tokens, `${analysis.name} · ${t('er.title')}`), suffix: 'er' }
   }
   if (view === 'lifecycle') {
     const matrix = buildMatrix(index, lifecycleOptions.current)
@@ -103,7 +113,7 @@ function structureStatement(): Statement | null {
   const snap = structureSnapshot.current
   const statement = snap ? index?.byId.get(snap.statementId) : undefined
   if (!statement) {
-    useStore.getState().toast('Select a statement with a query structure first.', 'error')
+    useStore.getState().toast(t('app.toast.pickStructure'), 'error')
     return null
   }
   return statement
@@ -111,7 +121,7 @@ function structureStatement(): Statement | null {
 
 function requireAnalysis(): boolean {
   if (useStore.getState().analysis?.status === 'FAILED' || !useStore.getState().analysis) {
-    useStore.getState().toast('Analyze a script first.', 'error')
+    useStore.getState().toast(t('app.toast.analyzeFirst'), 'error')
     return false
   }
   return true
@@ -120,7 +130,7 @@ function requireAnalysis(): boolean {
 export async function exportSvg(): Promise<void> {
   if (!requireAnalysis()) return
   const out = await currentSvg()
-  if (out) await save(`${baseName()}-${out.suffix}.svg`, [{ name: 'SVG image', extensions: ['svg'] }], out.svg)
+  if (out) await save(`${baseName()}-${out.suffix}.svg`, [{ name: t('app.files.svg'), extensions: ['svg'] }], out.svg)
 }
 
 export async function exportPng(scale: 1 | 2 = 2): Promise<void> {
@@ -129,9 +139,9 @@ export async function exportPng(scale: 1 | 2 = 2): Promise<void> {
   if (!out) return
   try {
     const png = await svgToPngBase64(out.svg, scale)
-    await save(`${baseName()}-${out.suffix}${scale === 2 ? '@2x' : ''}.png`, [{ name: 'PNG image', extensions: ['png'] }], png, 'base64')
+    await save(`${baseName()}-${out.suffix}${scale === 2 ? '@2x' : ''}.png`, [{ name: t('app.files.png'), extensions: ['png'] }], png, 'base64')
   } catch (error) {
-    useStore.getState().toast(`Could not create the PNG: ${(error as Error).message}`, 'error')
+    useStore.getState().toast(t('app.toast.pngFailed', { reason: (error as Error).message }), 'error')
   }
 }
 
@@ -146,6 +156,11 @@ export async function exportMermaid(): Promise<void> {
     await save(`${baseName()}-structure-${statement.id + 1}.mmd`, [{ name: 'Mermaid', extensions: ['mmd', 'md'] }], mmd)
     return
   }
+  if (view === 'er') {
+    const model = useStore.getState().er.result
+    if (model) await save(`${baseName()}-er.mmd`, [{ name: 'Mermaid', extensions: ['mmd', 'md'] }], model.mermaid)
+    return
+  }
   // Column-level Mermaid is unreadable beyond a handful of columns, so lineage exports objects only.
   if (view === 'lineage' && lineage && lineageSnapshot.current) {
     await save(`${baseName()}-lineage.mmd`, [{ name: 'Mermaid', extensions: ['mmd', 'md'] }], lineageToMermaid(lineage, lineageSnapshot.current.trace))
@@ -157,27 +172,27 @@ export async function exportMermaid(): Promise<void> {
 /** The handover document of the current script, generated by the engine (`doc.generate`). */
 export async function generateHandover(format: 'markdown' | 'html'): Promise<{ ok: true; text: string } | { ok: false; message: string }> {
   const { doc, dialect, settings, usedFallback } = useStore.getState()
-  if (!doc || !requireAnalysis()) return { ok: false, message: 'Analyze a script first.' }
+  if (!doc || !requireAnalysis()) return { ok: false, message: t('app.toast.analyzeFirst') }
   const params = { ...analyzeParams(doc, dialect, settings, usedFallback, currentMetadata(useStore.getState())), format }
   const r = await api().engine.call<DocGenerateResult>('doc.generate', params, newRequestId('doc'))
-  if (!r.ok) return { ok: false, message: isNotAvailable(r.error) ? 'This engine version cannot write handover documents.' : describeError(r.error) }
+  if (!r.ok) return { ok: false, message: isNotAvailable(r.error) ? t('app.toast.noHandover') : describeError(r.error) }
   return { ok: true, text: r.value.text }
 }
 
 export async function exportHandover(format: 'markdown' | 'html'): Promise<void> {
   const r = await generateHandover(format)
   if (!r.ok) {
-    useStore.getState().toast(`Could not create the handover document: ${r.message}`, 'error')
+    useStore.getState().toast(t('app.toast.handoverFailed', { reason: r.message }), 'error')
     return
   }
   const md = format === 'markdown'
-  await save(`${baseName()}-handover.${md ? 'md' : 'html'}`, [md ? { name: 'Markdown', extensions: ['md'] } : { name: 'HTML page', extensions: ['html'] }], r.text)
+  await save(`${baseName()}-handover.${md ? 'md' : 'html'}`, [md ? { name: 'Markdown', extensions: ['md'] } : { name: t('app.files.html'), extensions: ['html'] }], r.text)
 }
 
 export async function exportJson(): Promise<void> {
   const analysis = useStore.getState().analysis
   if (!analysis) {
-    useStore.getState().toast('Analyze a script first.', 'error')
+    useStore.getState().toast(t('app.toast.analyzeFirst'), 'error')
     return
   }
   await save(`${baseName()}-analysis.json`, [{ name: 'JSON', extensions: ['json'] }], JSON.stringify(analysis, null, 2))
@@ -195,19 +210,19 @@ export async function compareWithSaved(): Promise<void> {
   const current = currentSide()
   if (!current || !st.doc) return
   if (!st.doc.path) {
-    st.toast('This script has no file on disk. Use Compare with… to pick the other version.', 'error')
+    st.toast(t('app.toast.noFileOnDisk'), 'error')
     return
   }
   const saved = await api().files.open(st.doc.path)
   if (!saved.ok) {
-    st.toast(`Could not read the saved file: ${saved.error.message}`, 'error')
+    st.toast(t('app.toast.savedReadFailed', { reason: saved.error.message }), 'error')
     return
   }
   if (saved.value.text === current.text) {
-    st.toast('No changes since the file was opened or saved.')
+    st.toast(t('app.toast.noChanges'))
     return
   }
-  await st.compare({ name: `${saved.value.name} (saved)`, text: saved.value.text, path: st.doc.path }, { name: `${current.name} (edited)`, text: current.text, path: null })
+  await st.compare({ name: t('app.compare.saved', { name: saved.value.name }), text: saved.value.text, path: st.doc.path }, { name: t('app.compare.edited', { name: current.name }), text: current.text, path: null })
 }
 
 /** Picks another file; `older` makes it the old version and the open script the new one. */
@@ -228,7 +243,7 @@ export async function compareWithDropped(file: { path: string | null; name: stri
   if (text === undefined && file.path) {
     const r = await api().files.open(file.path)
     if (!r.ok) {
-      useStore.getState().toast(`Could not read ${file.name}: ${r.error.message}`, 'error')
+      useStore.getState().toast(t('app.toast.readFailed', { name: file.name, reason: r.error.message }), 'error')
       return
     }
     text = r.value.text
@@ -242,8 +257,8 @@ export async function copyChangeSummary(): Promise<void> {
   if (!result) return
   try {
     await navigator.clipboard.writeText(diffMarkdown(result))
-    useStore.getState().toast('Change summary copied as Markdown.')
+    useStore.getState().toast(t('app.toast.summaryCopied'))
   } catch {
-    useStore.getState().toast('Could not copy to the clipboard.', 'error')
+    useStore.getState().toast(t('dialogs.about.copyFailed'), 'error')
   }
 }

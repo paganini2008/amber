@@ -20,7 +20,7 @@ dependency-reduced-pom.xml
 .DS_Store
 
 # Real business SQL used for local testing only; never committed
-amber-test/src/test/resources/corpus-private/
+amber-core/src/test/resources/corpus-private/
 
 # Local configuration (may hold secrets such as OPENAI_API_KEY); never committed. See .env.example.
 .env
@@ -28,7 +28,7 @@ amber-test/src/test/resources/corpus-private/
 !.env.example
 
 # Test connections of OnlineMetadataIT (passwords); never committed. See online-it.properties.example.
-amber-test/src/test/resources/online-it.properties
+amber-core/src/test/resources/online-it.properties
 
 # Other
 change_logs

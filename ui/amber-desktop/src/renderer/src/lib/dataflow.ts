@@ -1,5 +1,7 @@
 import type { Lifecycle, Statement } from '@shared/protocol'
 import { dataRefs, writesData, type AnalysisIndex } from './model'
+import { t, tOr } from '../i18n'
+import { kindText, objectKindText } from './kinds'
 
 /**
  * Data-flow graph: source objects → statements → intermediate objects → targets.
@@ -15,6 +17,11 @@ export interface FlowGraph {
   writersOf: Map<string, number[]>
   /** Weakest confidence seen on each edge. */
   edgeConfidence: Map<string, string>
+  /**
+   * Edges that exist only because a call reaches the object through a routine defined in the script:
+   * edge id → routine. A direct mention of the same object by the same statement removes the entry.
+   */
+  edgeVia: Map<string, string>
 }
 
 export const objectNodeId = (key: string): string => `o:${key}`
@@ -35,6 +42,14 @@ export function buildFlowGraph(index: AnalysisIndex): FlowGraph {
   const readersOf = new Map<string, number[]>()
   const writersOf = new Map<string, number[]>()
   const edgeConfidence = new Map<string, string>()
+  const edgeVia = new Map<string, string>()
+  const direct = new Set<string>()
+  const noteVia = (id: string, via: string | null | undefined): void => {
+    if (!via) {
+      direct.add(id)
+      edgeVia.delete(id)
+    } else if (!direct.has(id) && !edgeVia.has(id)) edgeVia.set(id, via)
+  }
   const statements: number[] = []
   const objects = new Set<string>()
 
@@ -47,10 +62,12 @@ export function buildFlowGraph(index: AnalysisIndex): FlowGraph {
         reads.add(r.key)
         const id = edgeId(objectNodeId(r.key), statementNodeId(s.id))
         edgeConfidence.set(id, weaker(edgeConfidence.get(id), r.confidence))
+        noteVia(id, r.via)
       } else if (writesData(s, r)) {
         writes.add(r.key)
         const id = edgeId(statementNodeId(s.id), objectNodeId(r.key))
         edgeConfidence.set(id, weaker(edgeConfidence.get(id), r.confidence))
+        noteVia(id, r.via)
       }
     }
     // A statement that reads and writes the same object (UPDATE t ... FROM t) keeps only the write.
@@ -73,7 +90,7 @@ export function buildFlowGraph(index: AnalysisIndex): FlowGraph {
       push(writersOf, k, s.id)
     }
   }
-  return { statements, objects: [...objects], readsOf, writesOf, readersOf, writersOf, edgeConfidence }
+  return { statements, objects: [...objects], readsOf, writesOf, readersOf, writersOf, edgeConfidence, edgeVia }
 }
 
 function push<K, V>(map: Map<K, V[]>, key: K, value: V): void {
@@ -187,6 +204,8 @@ export interface FlowEdge {
   statementIds: number[]
   /** Underlying statement-level edge ids, for tracing through groups. */
   members: string[]
+  /** Set when every member exists only through a call to this routine (shown as "via …"). */
+  via?: string
 }
 
 export interface FlowView {
@@ -283,7 +302,7 @@ export function buildFlowView(index: AnalysisIndex, graph: FlowGraph, expanded: 
     if (groupOf.has(id)) continue
     const s = index.byId.get(id)!
     const label = statementTitle(s)
-    const sub = `Step ${id + 1} · line ${s.range.start.line}`
+    const sub = t('common.stepLine', { step: id + 1, line: s.range.start.line })
     nodes.push({
       id: statementNodeId(id),
       type: 'statement',
@@ -300,9 +319,15 @@ export function buildFlowView(index: AnalysisIndex, graph: FlowGraph, expanded: 
     const first = index.byId.get(members[0]!)!
     const last = index.byId.get(members[members.length - 1]!)!
     const container = gid.startsWith('c') ? index.byId.get(Number(gid.slice(1))) : undefined
-    const label = container ? statementTitle(container) : `Steps ${first.id + 1}–${last.id + 1}`
+    const label = container ? statementTitle(container) : t('dataflow.group.steps', { from: first.id + 1, to: last.id + 1 })
     const inner = foldedCount.get(gid) ?? 0
-    const sub = `${members.length} statements${inner ? ` · ${inner} internal tables` : ''} · lines ${first.range.start.line}–${last.range.end.line}`
+    const sub = [
+      t('common.statements', { count: members.length }),
+      inner ? t('dataflow.group.internal', { count: inner }) : '',
+      t('common.lines', { from: first.range.start.line, to: last.range.end.line })
+    ]
+      .filter(Boolean)
+      .join(' · ')
     nodes.push({
       id: groupNodeId(gid),
       type: 'group',
@@ -343,6 +368,10 @@ export function buildFlowView(index: AnalysisIndex, graph: FlowGraph, expanded: 
       addEdge(v, objectNodeId(k), id, edgeId(statementNodeId(id), objectNodeId(k)))
     }
   }
+  for (const e of edges.values()) {
+    const vias = new Set(e.members.map((m) => graph.edgeVia.get(m) ?? ''))
+    if (vias.size === 1 && !vias.has('')) e.via = [...vias][0]
+  }
   return { nodes, edges: [...edges.values()], grouped, groupOf, folded }
 }
 
@@ -357,26 +386,14 @@ function rootOf(index: AnalysisIndex, id: number): number {
 }
 
 export function statementTitle(s: Statement): string {
-  const kind = s.kind.replace(/_/g, ' ').toLowerCase()
-  const base = kind.charAt(0).toUpperCase() + kind.slice(1)
+  const base = kindText(s.kind)
   return s.name ? `${base} ${s.name}` : base
 }
 
 export function kindLabel(l: Pick<Lifecycle, 'kind'>): string {
-  return l.kind.replace(/_/g, ' ').toLowerCase().replace(/^\w/, (c) => c.toUpperCase())
+  return objectKindText(l.kind)
 }
 
 export function roleLabel(role: string): string {
-  switch (role) {
-    case 'SOURCE':
-      return 'source'
-    case 'INTERMEDIATE':
-      return 'intermediate'
-    case 'TARGET':
-      return 'target'
-    case 'STRUCTURE':
-      return 'structure only'
-    default:
-      return role.toLowerCase()
-  }
+  return tOr(`dataflow.role.${role}`, role.toLowerCase())
 }

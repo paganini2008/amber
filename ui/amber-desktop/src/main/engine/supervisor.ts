@@ -5,6 +5,7 @@ import { join, resolve } from 'node:path'
 import { RPC_ERROR, type EngineInfo } from '../../shared/protocol'
 import type { EngineStatus } from '../../shared/api'
 import { JsonRpcClient, LineSplitter, RpcError, errorMessage, type RequestOptions } from './rpc-client'
+import { tm } from '../i18n'
 
 export interface EngineCommand {
   command: string
@@ -22,6 +23,12 @@ export interface ResolveOptions {
   exists?: (path: string) => boolean
 }
 
+/**
+ * JVM options for every engine start: the heap may use at most half of the machine's memory, an
+ * outer guard so a pathological script cannot grow it without bound and starve the rest of the system.
+ */
+export const ENGINE_JVM_OPTIONS = ['-XX:MaxRAMPercentage=50']
+
 /** Works out how to start the engine, in the packaged app or in development. */
 export function resolveEngineCommand(options: ResolveOptions): EngineCommand {
   const exists = options.exists ?? existsSync
@@ -30,7 +37,7 @@ export function resolveEngineCommand(options: ResolveOptions): EngineCommand {
     const engineDir = join(options.resourcesPath, 'engine')
     const jar = join(engineDir, 'engine.jar')
     const jsa = join(engineDir, 'amber.jsa')
-    const args: string[] = []
+    const args: string[] = [...ENGINE_JVM_OPTIONS]
     if (exists(jsa)) args.push(`-XX:SharedArchiveFile=${jsa}`)
     args.push('-jar', jar, 'serve')
     return { command: join(options.resourcesPath, 'runtime', 'bin', javaExe), args, jar }
@@ -43,7 +50,7 @@ export function resolveEngineCommand(options: ResolveOptions): EngineCommand {
   const javaHome = options.env.JAVA_HOME
   const fromHome = javaHome ? join(javaHome, 'bin', javaExe) : null
   const command = options.env.AMBER_JAVA ? options.env.AMBER_JAVA : fromHome && exists(fromHome) ? fromHome : javaExe
-  return { command, args: ['-jar', jar, 'serve'], jar }
+  return { command, args: [...ENGINE_JVM_OPTIONS, '-jar', jar, 'serve'], jar }
 }
 
 export interface SupervisorOptions {
@@ -97,7 +104,7 @@ export class EngineSupervisor extends EventEmitter {
     if (this.status.state === 'failed') this.ready = null
     await this.start()
     const client = this.client
-    if (!client) throw new RpcError(RPC_ERROR.ENGINE_UNAVAILABLE, 'Engine is not running')
+    if (!client) throw new RpcError(RPC_ERROR.ENGINE_UNAVAILABLE, tm('main.engine.notRunning'))
     return client.request<T>(method, params, options)
   }
 
@@ -138,14 +145,14 @@ export class EngineSupervisor extends EventEmitter {
       try {
         child = spawn(command, args, { stdio: 'pipe', windowsHide: true })
       } catch (error) {
-        const message = `Could not start the engine: ${errorMessage(error)}`
+        const message = tm('main.engine.couldNotStart', { reason: errorMessage(error) })
         this.setStatus({ state: 'failed', message })
         rejectReady(new RpcError(RPC_ERROR.ENGINE_UNAVAILABLE, message))
         return
       }
       this.child = child
       const client = new JsonRpcClient((line) => {
-        if (!child.stdin.writable) throw new Error('Engine is not running')
+        if (!child.stdin.writable) throw new Error(tm('main.engine.notRunning'))
         child.stdin.write(line + '\n')
       })
       this.client = client
@@ -166,8 +173,8 @@ export class EngineSupervisor extends EventEmitter {
       child.on('error', (error) => {
         const missing = (error as NodeJS.ErrnoException).code === 'ENOENT'
         const message = missing
-          ? `Java was not found (${command}). Install JDK 25 or set JAVA_HOME.`
-          : `Could not start the engine: ${error.message}`
+          ? tm('main.engine.javaMissing', { command })
+          : tm('main.engine.couldNotStart', { reason: error.message })
         this.child = null
         this.client = null
         client.failAll(new RpcError(RPC_ERROR.ENGINE_UNAVAILABLE, message))
@@ -184,12 +191,12 @@ export class EngineSupervisor extends EventEmitter {
           this.client = null
         }
         const reason = signal ? `signal ${signal}` : `exit code ${code}`
-        client.failAll(new RpcError(RPC_ERROR.ENGINE_UNAVAILABLE, `The engine stopped (${reason}). Please retry.`))
+        client.failAll(new RpcError(RPC_ERROR.ENGINE_UNAVAILABLE, tm('main.engine.stopped', { reason })))
         if (!settled) {
           settled = true
           const tail = stderrTail.join('').trim().split('\n').slice(-3).join(' ')
-          const hint = existsSync(jar) ? tail : `Engine jar not found at ${jar}. Run the backend build, or set AMBER_ENGINE_JAR in ui/amber-desktop/.env (see .env.example).`
-          const message = `The engine exited during start-up (${reason}). ${hint}`.trim()
+          const hint = existsSync(jar) ? tail : tm('main.engine.jarMissing', { path: jar })
+          const message = tm('main.engine.exitedAtStart', { reason, hint }).trim()
           this.setStatus({ state: 'failed', message })
           rejectReady(new RpcError(RPC_ERROR.ENGINE_UNAVAILABLE, message))
           return
@@ -211,7 +218,7 @@ export class EngineSupervisor extends EventEmitter {
         .catch((error: unknown) => {
           if (settled) return
           settled = true
-          const message = `The engine did not answer: ${errorMessage(error)}`
+          const message = tm('main.engine.noAnswer', { reason: errorMessage(error) })
           this.setStatus({ state: 'failed', message })
           child.kill()
           rejectReady(new RpcError(RPC_ERROR.ENGINE_UNAVAILABLE, message))
@@ -224,7 +231,7 @@ export class EngineSupervisor extends EventEmitter {
     this.restarts = this.restarts.filter((t) => now - t < this.restartWindowMs)
     if (this.restarts.length >= this.maxRestarts) {
       this.ready = null
-      this.setStatus({ state: 'failed', message: `The engine keeps stopping (${reason}). Restart it from the status menu.` })
+      this.setStatus({ state: 'failed', message: tm('main.engine.keepsStopping', { reason }) })
       return
     }
     this.restarts.push(now)

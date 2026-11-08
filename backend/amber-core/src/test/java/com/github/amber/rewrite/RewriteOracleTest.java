@@ -83,7 +83,7 @@ class RewriteOracleTest {
         assertEquals("SELECT o.status, count(*) cnt FROM orders o GROUP BY status", r.rewrittenStatement());
         assertEquals(Safety.EQUIVALENT, r.safety());
         assertEquals("STRUCTURE_CHANGED", r.check());
-        assertTrue(r.checkDifferences().getFirst().startsWith("Ordering and row limits"));
+        assertTrue(r.checkDifferences().get(0).startsWith("Ordering and row limits"));
         // position references
         only(suggest(D, "select distinct status, created, max(id) from orders group by 1, 2;"), "AMB-S011");
     }

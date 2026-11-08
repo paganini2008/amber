@@ -30,7 +30,7 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 /**
- * Round trip over the whole public corpus ({@code amber-test/src/test/resources/corpus}, all dialects):
+ * Round trip over the whole public corpus ({@code src/test/resources/corpus}, all dialects):
  * for every file, formatting must not throw, must keep every unit's tokens and comments, must keep the
  * parse status and unit count of the script, and must be idempotent (with the default options and with
  * an alternative set: indent 2, lower case, 60 columns, leading commas). Statements the safety check kept
@@ -42,7 +42,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class FormatCorpusTest {
 
-    private static final Path CORPUS = Path.of("../amber-test/src/test/resources/corpus");
+    private static final Path CORPUS = Path.of("src/test/resources/corpus");
     private static final long PARSE_TIMEOUT_SECONDS = 30;
     private static final Map<Dialect, String> REPORT = new ConcurrentSkipListMap<>();
     private static final FormatOptions ALTERNATIVE = new FormatOptions(2, FormatOptions.KeywordCase.LOWER, 60,
@@ -72,7 +72,8 @@ class FormatCorpusTest {
         long lines = 0;
         Map<String, Integer> reasons = new TreeMap<>();
         List<String> failures = new ArrayList<>();
-        try (ExecutorService pool = Executors.newSingleThreadExecutor()) {
+        ExecutorService pool = Executors.newSingleThreadExecutor();
+        try {
             for (Path file : files) {
                 String name = CORPUS.relativize(file).toString();
                 String text = SourceDecoder.decode(Files.readAllBytes(file)).text();
@@ -128,6 +129,8 @@ class FormatCorpusTest {
                     }
                 }
             }
+        } finally {
+            pool.shutdownNow();
         }
         String summary = String.format("%-11s files=%d changed=%d units=%d skipped=%d parseCompared=%d lines=%d format=%dms %s",
                 dialect.displayName(), files.size(), changedFiles, units, skippedUnits, parseCompared, lines,
@@ -136,10 +139,13 @@ class FormatCorpusTest {
         System.out.println(summary);
         failures.forEach(f -> System.out.println("  FAIL " + f));
         assertTrue(failures.isEmpty(), dialect + ": " + failures.size() + " failures, first: "
-                + (failures.isEmpty() ? "" : failures.getFirst()));
+                + (failures.isEmpty() ? "" : failures.get(0)));
     }
 
-    /** Same units (kind and tokens, keyword case aside) and same text between units apart from whitespace. */
+    /**
+     * Same units (kind and tokens, keyword case aside) and same text between units apart from whitespace
+     * ({@link Character#isWhitespace}, as the formatter's lexer defines it: U+2028 and U+0085 count too).
+     */
     static String sameUnits(Dialect dialect, String in, String out) {
         DialectFrontend frontend = DialectFrontends.get(dialect);
         List<StatementUnit> a = frontend.splitter().split(SourceText.of(in));
@@ -157,8 +163,8 @@ class FormatCorpusTest {
             }
             String ta = slice(in, ua);
             String tb = slice(out, ub);
-            String gapA = in.substring(prevA, ua.range().start().offset()).replaceAll("\\s+", "");
-            String gapB = out.substring(prevB, ub.range().start().offset()).replaceAll("\\s+", "");
+            String gapA = withoutWhitespace(in.substring(prevA, ua.range().start().offset()));
+            String gapB = withoutWhitespace(out.substring(prevB, ub.range().start().offset()));
             if (!gapA.equals(gapB)) {
                 return "text before unit " + k + " changed";
             }
@@ -185,9 +191,15 @@ class FormatCorpusTest {
                 }
             }
         }
-        String tailA = in.substring(prevA).replaceAll("\\s+", "");
-        String tailB = out.substring(prevB).replaceAll("\\s+", "");
+        String tailA = withoutWhitespace(in.substring(prevA));
+        String tailB = withoutWhitespace(out.substring(prevB));
         return tailA.equals(tailB) ? null : "text after the last unit changed";
+    }
+
+    private static String withoutWhitespace(String s) {
+        StringBuilder out = new StringBuilder(s.length());
+        s.codePoints().filter(c -> !Character.isWhitespace(c)).forEach(out::appendCodePoint);
+        return out.toString();
     }
 
     /** null when both parse alike, "" when the comparison timed out, otherwise the difference. */

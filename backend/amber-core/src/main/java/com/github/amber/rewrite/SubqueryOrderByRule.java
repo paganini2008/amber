@@ -1,5 +1,6 @@
 package com.github.amber.rewrite;
 
+import com.github.amber.core.i18n.Messages;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -56,14 +57,10 @@ final class SubqueryOrderByRule implements RewriteRule {
             int startOffset = sql.spaceBefore(sql.tok(b.orderBy).start()) == sql.tok(prev).end()
                     ? sql.tok(prev).end() : sql.tok(b.orderBy).start();
             Edit edit = ctx.edit(startOffset, sql.tok(last).end(), "");
-            out.add(new Candidate(id(), "Remove ORDER BY from the subquery",
-                    "The rows of a subquery, derived table or CTE have no order for the query that uses them, and "
-                    + "nothing in this statement limits or numbers those rows, so " + sql.slice(b.orderBy, last)
-                    + " only adds a sort. Order the outermost query if the final order matters.",
+            out.add(new Candidate(id(), Messages.t("rewrite.subqueryOrderBy.title"),
+                    Messages.t("rewrite.subqueryOrderBy.explanation", sql.slice(b.orderBy, last)),
                     List.of(edit), Safety.EQUIVALENT,
-                    "No row limit, ROWNUM, window function or order-sensitive aggregate uses the subquery's order, so "
-                    + "the result is the same set of rows. The structural check lists ORDER BY under ordering and row "
-                    + "limits because the clause is gone.",
+                    Messages.t("rewrite.subqueryOrderBy.safety"),
                     List.of("Ordering and row limits:")));
         }
         return out;

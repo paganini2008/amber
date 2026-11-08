@@ -65,7 +65,7 @@ final class RewriteTestSupport {
     static Rewrite only(List<Rewrite> list, String rule) {
         List<Rewrite> found = of(list, rule);
         assertEquals(1, found.size(), () -> "expected one " + rule + " in " + list);
-        return found.getFirst();
+        return found.get(0);
     }
 
     static void none(List<Rewrite> list, String rule) {

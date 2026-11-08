@@ -27,7 +27,7 @@ class ExecutionOrderTest {
 
     private static Statement statement(Dialect dialect, String sql) {
         DialectFrontend f = DialectFrontends.get(dialect);
-        return ScriptIrBuilder.build(f, f.parse(SourceText.of(sql))).statements().getFirst();
+        return ScriptIrBuilder.build(f, f.parse(SourceText.of(sql))).statements().get(0);
     }
 
     private static List<String> steps(Statement st, String sql) {
@@ -72,8 +72,8 @@ class ExecutionOrderTest {
                 "  FROM: from dual",
                 "  SELECT: select 0, 0"), s.subList(0, 16), () -> String.join("\n", s));
         assertEquals("UNION ALL", statement(Dialect.ORACLE, sql).executionOrder().get(16).phase());
-        assertTrue(s.getLast().startsWith("WRITE: insert into r"), s::toString);
-        assertEquals("Insert into r", statement(Dialect.ORACLE, sql).executionOrder().getLast().detail());
+        assertTrue(s.get(s.size() - 1).startsWith("WRITE: insert into r"), s::toString);
+        assertEquals("Insert into r", statement(Dialect.ORACLE, sql).executionOrder().get(statement(Dialect.ORACLE, sql).executionOrder().size() - 1).detail());
     }
 
     @Test

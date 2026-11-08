@@ -39,7 +39,8 @@ public final class ScriptIrBuilder {
 
     /**
      * @param catalog known table metadata (imported DDL, metadata packs, online reads); the script's own
-     *                DDL is added to it as statements are read, so pass a copy if it is shared
+     *                DDL is added to it as statements are read, and the script's column evidence
+     *                ({@link com.github.amber.core.lineage.ColumnEvidence}) is set on it, so pass a copy if it is shared
      */
     public static Script build(DialectFrontend frontend, ScriptParse parse, com.github.amber.core.lineage.Catalog catalog) {
         if (parse.status() == ScriptStatus.FAILED) {
@@ -49,6 +50,8 @@ public final class ScriptIrBuilder {
         IrRules rules = frontend.irRules();
         List<Statement> statements = new ArrayList<>();
         List<com.github.amber.core.diagnostic.Diagnostic> diagnostics = new ArrayList<>(parse.diagnostics());
+        com.github.amber.dialect.lineage.CallLineage.collectRoutineNames(parse.dialect(), source, catalog);
+        catalog.setEvidence(com.github.amber.dialect.lineage.ColumnEvidenceScanner.scan(parse.dialect(), source));
         for (UnitParse unit : parse.units()) {
             switch (unit.status()) {
                 case SKIPPED -> statements.add(new Statement(

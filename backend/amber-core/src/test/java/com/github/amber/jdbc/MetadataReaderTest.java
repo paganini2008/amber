@@ -61,7 +61,7 @@ class MetadataReaderTest {
             List<TableMeta> tables = r.read(List.of(ObjectName.parse(Dialect.H2, "shop.purchase"),
                     ObjectName.parse(Dialect.H2, "shop.missing_table")));
             assertEquals(1, tables.size());
-            TableMeta purchase = tables.getFirst();
+            TableMeta purchase = tables.get(0);
             assertEquals(List.of("ID", "CUSTOMER_ID", "TOTAL"), purchase.columnNames());
             assertEquals(List.of("ID"), purchase.primaryKey());
             assertTrue(purchase.isIndexedLeading("customer_id"));
@@ -72,7 +72,7 @@ class MetadataReaderTest {
     @Test
     void findsUnqualifiedAndLowerCaseNames() throws Exception {
         try (MetadataReader r = MetadataReader.open(h2())) {
-            TableMeta customer = r.read(List.of(ObjectName.parse(Dialect.H2, "SHOP.Customer"))).getFirst();
+            TableMeta customer = r.read(List.of(ObjectName.parse(Dialect.H2, "SHOP.Customer"))).get(0);
             assertTrue(customer.isUnique(List.of("email")));
         }
     }

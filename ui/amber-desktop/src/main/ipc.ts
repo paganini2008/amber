@@ -1,5 +1,5 @@
 import { readFile, stat, writeFile } from 'node:fs/promises'
-import { basename } from 'node:path'
+import { basename, join } from 'node:path'
 import { app, dialog, ipcMain, nativeTheme, shell, type BrowserWindow } from 'electron'
 import type {
   AiMessage,
@@ -12,7 +12,8 @@ import type {
   Result,
   SaveRequest,
   Settings,
-  SettingsPatch
+  SettingsPatch,
+  WireResult
 } from '../shared/api'
 import { RPC_ERROR, type AnalyzeParams, type EngineMethod } from '../shared/protocol'
 import { resolveDataSources, toDataSource } from './db/datasource'
@@ -20,18 +21,22 @@ import { listOllamaModels, listOpenAiModels, streamChat, testProvider, type Prov
 import type { EngineSupervisor } from './engine/supervisor'
 import { RpcError, errorMessage, toRpcError } from './engine/rpc-client'
 import { decodeScript } from './files/decode'
-import type { SettingsStore } from './settings/store'
+import { normalizeRules, type SettingsStore } from './settings/store'
 import type { AppConfig } from './config'
-import { checkLatestRelease } from './updates/check'
+import { checkLatestRelease, projectLinks } from './updates/check'
+import { tm } from './i18n'
 
 const KNOWN_METHODS: EngineMethod[] = [
   'engine.info',
+  'engine.rules',
+  'er.model',
   'analyze',
   'lineage',
   'impact',
   'findings',
   'diff',
   'rewrite.suggest',
+  'rewrite.optimize',
   'format',
   'export',
   'metadata.import',
@@ -50,6 +55,11 @@ function ok<T>(value: T): Result<T> {
   return { ok: true, value }
 }
 
+/** Engine answers go to the page as JSON text (see WireResult). */
+function toWire<T>(result: Result<T>): WireResult {
+  return result.ok ? { ok: true, json: JSON.stringify(result.value ?? null) } : result
+}
+
 function fail(error: unknown): Result<never> {
   return { ok: false, error: toRpcError(error).toObject() }
 }
@@ -60,6 +70,8 @@ export interface IpcContext {
   settings: SettingsStore
   getWindow: () => BrowserWindow | null
   applyTheme: (settings: Settings) => void
+  /** Switches main-process messages and rebuilds the native menu when the language changes. */
+  applyLanguage: (settings: Settings) => void
 }
 
 export function registerIpc(ctx: IpcContext): void {
@@ -69,13 +81,14 @@ export function registerIpc(ctx: IpcContext): void {
 
   const broadcastSettings = (value: Settings): Settings => {
     ctx.applyTheme(value)
+    ctx.applyLanguage(value)
     ctx.getWindow()?.webContents.send('settings:changed', value)
     return value
   }
 
   const runEngine = async <T>(method: string, params: unknown, requestId?: string, timeoutMs?: number): Promise<Result<T>> => {
     if (!KNOWN_METHODS.includes(method as EngineMethod)) {
-      return fail(new RpcError(RPC_ERROR.INVALID_REQUEST, `Unknown method ${method}`))
+      return fail(new RpcError(RPC_ERROR.INVALID_REQUEST, tm('main.engine.unknownMethod', { method })))
     }
     const controller = new AbortController()
     if (requestId) engineRequests.set(requestId, controller)
@@ -83,7 +96,7 @@ export function registerIpc(ctx: IpcContext): void {
       return ok(await engine.request<T>(method, params, { signal: controller.signal, timeoutMs }))
     } catch (error) {
       if (timeoutMs && error instanceof RpcError && error.code === RPC_ERROR.TIMEOUT) {
-        return fail(new RpcError(RPC_ERROR.TIMEOUT, `No answer from the database within ${Math.round(timeoutMs / 1000)} seconds. Check the host, port and network, then try again.`))
+        return fail(new RpcError(RPC_ERROR.TIMEOUT, tm('main.db.timeout', { seconds: Math.round(timeoutMs / 1000) })))
       }
       return fail(error)
     } finally {
@@ -93,11 +106,11 @@ export function registerIpc(ctx: IpcContext): void {
 
   // Engine
   ipcMain.handle('engine:status', () => engine.getStatus())
-  ipcMain.handle('engine:analyze', (_e, params: AnalyzeParams, requestId: string) =>
-    runEngine('analyze', sanitizeAnalyze(params), requestId)
+  ipcMain.handle('engine:analyze', async (_e, params: AnalyzeParams, requestId: string) =>
+    toWire(await runEngine('analyze', sanitizeAnalyze(params), requestId))
   )
-  ipcMain.handle('engine:call', (_e, method: string, params: unknown, requestId?: string) =>
-    runEngine(method, params, requestId)
+  ipcMain.handle('engine:call', async (_e, method: string, params: unknown, requestId?: string) =>
+    toWire(await runEngine(method, params, requestId))
   )
   ipcMain.handle('engine:cancel', (_e, requestId: string) => {
     engineRequests.get(requestId)?.abort()
@@ -107,8 +120,8 @@ export function registerIpc(ctx: IpcContext): void {
   // Files
   const openPath = async (path: string): Promise<OpenedFile> => {
     const info = await stat(path)
-    if (!info.isFile()) throw new Error('Not a file.')
-    if (info.size > ctx.config.maxFileMb * 1024 * 1024) throw new Error(`The file is larger than ${ctx.config.maxFileMb} MB.`)
+    if (!info.isFile()) throw new Error(tm('main.files.notAFile'))
+    if (info.size > ctx.config.maxFileMb * 1024 * 1024) throw new Error(tm('main.files.tooLarge', { mb: ctx.config.maxFileMb }))
     const bytes = await readFile(path)
     const decoded = decodeScript(bytes, settings.get().encoding)
     broadcastSettings(settings.addRecentFile(path))
@@ -118,11 +131,11 @@ export function registerIpc(ctx: IpcContext): void {
   ipcMain.handle('files:openDialog', async () => {
     const win = ctx.getWindow()
     const options: Electron.OpenDialogOptions = {
-      title: 'Open SQL script',
+      title: tm('main.files.openTitle'),
       properties: ['openFile'],
       filters: [
-        { name: 'SQL scripts', extensions: ['sql', 'pls', 'pkb', 'pks', 'prc', 'fnc', 'trg', 'ddl', 'dml', 'txt'] },
-        { name: 'All files', extensions: ['*'] }
+        { name: tm('main.files.sqlScripts'), extensions: ['sql', 'pls', 'pkb', 'pks', 'prc', 'fnc', 'trg', 'ddl', 'dml', 'txt'] },
+        { name: tm('main.files.allFiles'), extensions: ['*'] }
       ]
     }
     const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options)
@@ -150,7 +163,7 @@ export function registerIpc(ctx: IpcContext): void {
   ipcMain.handle('files:pickFiles', async (_e, request: PickFilesRequest) => {
     const win = ctx.getWindow()
     const options: Electron.OpenDialogOptions = {
-      title: String(request?.title ?? 'Choose files'),
+      title: String(request?.title ?? tm('main.files.chooseFiles')),
       properties: request?.multiple === false ? ['openFile'] : ['openFile', 'multiSelections'],
       filters: Array.isArray(request?.filters) ? request.filters : undefined
     }
@@ -217,7 +230,7 @@ export function registerIpc(ctx: IpcContext): void {
       send({ requestId, type: 'done' })
       return ok(full)
     } catch (error) {
-      const message = controller.signal.aborted ? 'Cancelled' : errorMessage(error)
+      const message = controller.signal.aborted ? tm('main.ai.cancelled') : errorMessage(error)
       send({ requestId, type: 'error', message })
       return fail(new Error(message))
     } finally {
@@ -231,13 +244,13 @@ export function registerIpc(ctx: IpcContext): void {
   // Online mode: passwords are added here and never reach the renderer or any log.
   ipcMain.handle('db:test', async (_e, connectionId: string) => {
     const profile = settings.get().connections.find((c) => c.id === connectionId)
-    if (!profile) return fail(new RpcError(RPC_ERROR.INVALID_PARAMS, 'Unknown connection'))
+    if (!profile) return fail(new RpcError(RPC_ERROR.INVALID_PARAMS, tm('main.db.unknownConnection')))
     return runEngine('db.test', { dataSource: toDataSource(profile, await settings.getDbPassword(connectionId)) }, undefined, ctx.config.dbTimeoutSec * 1000)
   })
   ipcMain.handle('db:loadMetadata', async (_e, request: LoadMetadataRequest, requestId: string) => {
     const ids = Array.isArray(request?.connectionIds) ? request.connectionIds.map(String) : []
     const { dataSources } = await resolveDataSources(settings.get().connections, ids, (id) => settings.getDbPassword(id))
-    if (dataSources.length === 0) return fail(new RpcError(RPC_ERROR.INVALID_PARAMS, 'No connection selected for online mode'))
+    if (dataSources.length === 0) return fail(new RpcError(RPC_ERROR.INVALID_PARAMS, tm('main.db.noConnection')))
     const params: Record<string, unknown> = { dialect: String(request.dialect), dataSources }
     if (typeof request.path === 'string') params.path = request.path
     else params.text = typeof request.text === 'string' ? request.text : ''
@@ -263,6 +276,16 @@ export function registerIpc(ctx: IpcContext): void {
     if (!force && !settings.get().checkForUpdates) return ok(null)
     try {
       return ok(await checkLatestRelease(fetch, app.getVersion(), ctx.config.updateRepo, ctx.config.updateTimeoutSec))
+    } catch (error) {
+      return fail(error)
+    }
+  })
+  ipcMain.handle('app:links', () => projectLinks(ctx.config.updateRepo))
+  ipcMain.handle('app:thirdPartyNotices', async () => {
+    // Packaged: bundled next to the app by electron-builder (extraResources). Development: the repository copy.
+    const path = app.isPackaged ? join(process.resourcesPath, 'THIRD-PARTY-NOTICES.md') : join(app.getAppPath(), '..', '..', 'THIRD-PARTY-NOTICES.md')
+    try {
+      return ok(await readFile(path, 'utf8'))
     } catch (error) {
       return fail(error)
     }
@@ -297,5 +320,11 @@ export function sanitizeAnalyze(params: AnalyzeParams): AnalyzeParams {
   if (packs) out.metadataPacks = packs
   if (ddl) out.ddlFiles = ddl
   if (Array.isArray(params.metadata) && params.metadata.length) out.metadata = params.metadata
+  if (params.locale === 'en' || params.locale === 'zh-CN' || params.locale === 'es') out.locale = params.locale
+  // Settings → Rules; normalized like the saved settings (the engine rejects unknown severities).
+  if (params.rules && typeof params.rules === 'object') {
+    const rules = normalizeRules(params.rules)
+    if (rules.disabled.length || Object.keys(rules.severity).length) out.rules = rules
+  }
   return out
 }

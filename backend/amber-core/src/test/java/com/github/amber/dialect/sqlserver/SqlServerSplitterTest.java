@@ -69,4 +69,18 @@ class SqlServerSplitterTest {
                 "SQL: select 1",
                 "CLIENT_COMMAND: exit");
     }
+
+    /** Found by the mutation fuzzer: a shell command inside a batch made the batch overlap it. */
+    @Test
+    void shellCommandInsideABatchSplitsIt() {
+        assertSplit(splitter, """
+                select 1
+                !!dir
+                select 2
+                go
+                """,
+                "SQL: select 1",
+                "CLIENT_COMMAND: !!dir",
+                "SQL: select 2");
+    }
 }

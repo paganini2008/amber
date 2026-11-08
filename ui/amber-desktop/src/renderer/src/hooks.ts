@@ -71,3 +71,27 @@ export function useWindowWidth(): number {
   }, [])
   return width
 }
+
+/** Whether a horizontally scrolling row has hidden content on either side (for edge fades). */
+export function useScrollFade(ref: React.RefObject<HTMLElement | null>): { left: boolean; right: boolean } {
+  const [fade, setFade] = useState({ left: false, right: false })
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const update = (): void => {
+      const left = el.scrollLeft > 1
+      const right = el.scrollLeft + el.clientWidth < el.scrollWidth - 1
+      setFade((f) => (f.left === left && f.right === right ? f : { left, right }))
+    }
+    update()
+    const ro = new ResizeObserver(update)
+    ro.observe(el)
+    for (const child of el.children) ro.observe(child)
+    el.addEventListener('scroll', update, { passive: true })
+    return () => {
+      ro.disconnect()
+      el.removeEventListener('scroll', update)
+    }
+  }, [ref])
+  return fade
+}

@@ -1,0 +1,82 @@
+import type { En } from '../en'
+
+export const ai: En['ai'] = {
+  title: 'Sugerencias de IA',
+  openaiCompatible: 'Compatible con OpenAI',
+  noModel: 'sin modelo elegido',
+  off: 'Desactivada',
+  offText: 'La IA está desactivada. El análisis de Amber funciona sin ella. Para obtener ideas de optimización, configure un modelo local de Ollama o una API compatible con OpenAI.',
+  setUp: 'Configurar la IA',
+  analyzeFirst: 'Primero analice un script.',
+  scope: 'Alcance',
+  scopeStatement: 'Sentencia elegida',
+  scopeScript: 'Todo el script',
+  newConversation: 'Nueva conversación',
+  previewContext: 'Ver el contexto',
+  stale: 'El script se editó después del último análisis. Vuelva a analizarlo primero.',
+  selectStatement: 'Seleccione una sentencia o elija todo el script.',
+  notesLabel: 'Sus notas para el modelo (opcional)',
+  notesPlaceholder: 'Por ejemplo: orders crece unos 10 millones de filas al día. Debe seguir siendo una sola sentencia. Priorice la legibilidad sobre la velocidad.',
+  notesHint: 'Volúmenes de datos, restricciones u objetivos. Se enmascaran igual que el resto del contexto.',
+  unavailableFeature: 'La creación de contexto para IA',
+  unavailableText: 'Amber solo envía a un modelo lo que extrajo su análisis, preparado por el motor; por eso las sugerencias siguen desactivadas hasta que el motor lo admita.',
+  aiGenerated: 'Generado por IA',
+  conversationStats: '{rounds, plural, one {# ronda} other {# rondas}} · unos {tokens, number} tokens en esta conversación',
+  neverRuns: 'Amber nunca ejecuta SQL generado por IA ni lo escribe en su archivo.',
+  roundYou: 'Usted: {question}',
+  roundContext: 'Sugerencias para el contexto',
+  round: 'Ronda {number}',
+  receiving: 'Recibiendo',
+  checking: 'Comprobando',
+  suggestionsCount: '{count, plural, one {# sugerencia} other {# sugerencias}}',
+  noChanges: 'El modelo no sugirió cambios.',
+  badJson: 'El modelo no respondió con el JSON esperado, así que no se pudo comprobar nada.',
+  modelResponse: 'Respuesta del modelo',
+  followUp: 'Seguir preguntando',
+  followUpPlaceholder: 'Agregue un comentario o vuelva a preguntar, p. ej.: la sugerencia 2 es incorrecta, esta columna admite NULL',
+  sentAs: 'Se envía como:',
+  send: 'Enviar',
+  maskFailed: 'No se pudo enmascarar el mensaje, así que no se envió: {reason}',
+  preview: {
+    tokens: 'Se enviarán unos {tokens, number} tokens a {endpoint}.',
+    masked: '{count, plural, one {# nombre o literal está enmascarado} other {# nombres y literales están enmascarados}}; la correspondencia se queda en este equipo.',
+    notMasked: 'Los nombres no están enmascarados.',
+    trimmed: 'Omitido para ajustarse al presupuesto: {items}',
+    system: 'Mensaje del sistema',
+    confirm: 'Entiendo que este contenido sale de mi equipo.',
+    notesChanged: 'Sus notas cambiaron. Vuelva a ver el contexto para incluirlas.'
+  },
+  suggestion: {
+    fallbackTitle: 'Sugerencia',
+    statementLine: 'Sentencia {number}, línea {line}',
+    rationale: 'Motivo',
+    expectedEffect: 'Efecto esperado',
+    risk: 'Riesgo',
+    preservedNote: 'El analizador encontró las mismas columnas de salida, objetos escritos, orígenes, agrupación y linaje de columnas. Esto no demuestra que los resultados sean iguales; revíselo y pruébelo.',
+    whatChanged: 'Qué cambió',
+    diagPosition: 'Línea {line}, columna {column}: ',
+    unexpected: '«{token}» inesperado',
+    copySql: 'Copiar SQL',
+    copyFailed: 'No se pudo copiar al portapapeles.'
+  },
+  notChecked: {
+    noStatement: 'Sin comprobar: la sugerencia no indica ninguna sentencia de este script.',
+    unavailable: 'Sin comprobar: ai.check no está disponible en esta versión del motor.',
+    error: 'Sin comprobar: {reason}'
+  },
+  readiness: {
+    loading: 'Cargando la configuración',
+    noModel: 'Sin modelo elegido',
+    noKey: 'Sin clave de API guardada'
+  },
+  provider: 'Proveedor',
+  providerAria: 'Proveedor de IA',
+  settings: 'Configuración',
+  setItUp: 'Configurarlo',
+  check: {
+    STRUCTURE_PRESERVED: 'Estructura conservada',
+    STRUCTURE_CHANGED: 'Estructura cambiada',
+    INVALID_SQL: 'SQL no válido',
+    none: 'Sin comprobar'
+  }
+}

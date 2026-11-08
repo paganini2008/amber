@@ -48,7 +48,7 @@ class MetadataTest {
         Catalog c = importDdl(Dialect.ORACLE, DDL);
         TableMeta customer = c.meta("SHOP.CUSTOMER", "CUSTOMER").orElseThrow();
         assertEquals(List.of("id", "email", "tier"), customer.columnNames());
-        assertEquals("number(18)", customer.columns().getFirst().type());
+        assertEquals("number(18)", customer.columns().get(0).type());
         assertEquals(List.of("id"), customer.primaryKey());
         TableMeta purchase = c.meta("SHOP.PURCHASE", "PURCHASE").orElseThrow();
         assertEquals(List.of("id"), purchase.primaryKey());
@@ -81,7 +81,7 @@ class MetadataTest {
                 """;
         DialectFrontend f = DialectFrontends.get(Dialect.ORACLE);
         Script script = ScriptIrBuilder.build(f, f.parse(SourceText.of(sql)), base.copy());
-        List<String> edges = script.statements().getFirst().lineage().edges().stream().filter(ColumnEdge::isDirect)
+        List<String> edges = script.statements().get(0).lineage().edges().stream().filter(ColumnEdge::isDirect)
                 .map(e -> e.from() + " -> " + e.to()).toList();
         assertTrue(edges.contains("shop.customer.email -> report.customer_sales.email"), edges::toString);
         assertTrue(edges.contains("shop.purchase.total -> report.customer_sales.total"), edges::toString);
@@ -92,7 +92,7 @@ class MetadataTest {
         assertTrue(s008.message().contains("indexed column"), s008::message);
         List<Finding> fanOut = findings.stream().filter(x -> x.rule().equals("AMB-M001")).toList();
         assertEquals(1, fanOut.size(), findings::toString);
-        assertTrue(fanOut.getFirst().message().contains("shop.customer (tier)"), fanOut.getFirst()::message);
-        assertEquals(5, fanOut.getFirst().range().start().line(), "only the many-to-many join; the master-detail join is fine");
+        assertTrue(fanOut.get(0).message().contains("shop.customer (tier)"), fanOut.get(0)::message);
+        assertEquals(5, fanOut.get(0).range().start().line(), "only the many-to-many join; the master-detail join is fine");
     }
 }

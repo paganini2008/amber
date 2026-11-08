@@ -1,5 +1,6 @@
 import type { Range, Statement } from '@shared/protocol'
 import type { TextChange } from './rewrites'
+import { t } from '../i18n'
 
 /**
  * Formatting ("make a legacy script readable again"): the engine re-lays out the text and keeps
@@ -104,13 +105,13 @@ const overlaps = (r: Range, from: number, to: number): boolean => r.start.offset
  * ones the selection overlaps), minus those the formatter left alone.
  */
 export function formatSummary(statements: Statement[], skipped: Range[], selection: { from: number; to: number } | null, changed: boolean): string {
-  if (!changed) return selection ? 'The selected statements are already formatted.' : 'Already formatted: nothing to change.'
+  if (!changed) return selection ? t('app.format.selectionDone') : t('app.format.alreadyDone')
   const kept = skipped.length
   // A script that does not parse has no statement list to count; the formatter still lays out what it can.
-  if (statements.length === 0) return kept ? `Formatted the script · ${kept} kept as written` : 'Formatted the script'
+  if (statements.length === 0) return kept ? `${t('app.format.script')} · ${t('app.format.kept', { count: kept })}` : t('app.format.script')
   const scope = selection ? statements.filter((s) => overlaps(s.range, selection.from, selection.to)) : statements
   const formatted = Math.max(0, scope.length - scope.filter((s) => skipped.some((k) => overlaps(s.range, k.start.offset, k.end.offset))).length)
-  const parts = [`Formatted ${formatted} ${formatted === 1 ? 'statement' : 'statements'}`]
-  if (kept) parts.push(`${kept} kept as written`)
+  const parts = [t('app.format.statements', { count: formatted })]
+  if (kept) parts.push(t('app.format.kept', { count: kept }))
   return parts.join(' · ')
 }

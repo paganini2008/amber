@@ -6,6 +6,7 @@ import { useReducedMotion } from '@/hooks'
 import { KindIcon, kindText } from '@/lib/kinds'
 import { markFor } from '@/lib/lifecycle'
 import { BASE_INTERVAL_MS, SPEEDS, branchOptions } from '@/lib/playback'
+import { t } from '@/i18n'
 import { useStore } from '@/store'
 import { Button, IconButton, Select, Switch } from '@/components/ui'
 import { ColumnMapping } from './ColumnMapping'
@@ -40,23 +41,23 @@ export function PlaybackBar(): React.JSX.Element | null {
   const pending = pb.pending !== null ? index.byId.get(pb.pending) : undefined
 
   return (
-    <div className="shrink-0 border-b border-line bg-surface" role="region" aria-label="Execution playback">
+    <div className="shrink-0 border-b border-line bg-surface" role="region" aria-label={t('playback.title')}>
       <div className="flex h-10 items-center gap-1 px-3">
-        <IconButton label="Step back" onClick={() => stepPlayback(-1)} disabled={pb.cursor === 0}>
+        <IconButton label={t('playback.stepBack')} onClick={() => stepPlayback(-1)} disabled={pb.cursor === 0}>
           <SkipBack size={15} />
         </IconButton>
         <button
           type="button"
           onClick={() => setPlaying(!pb.playing)}
-          aria-label={pb.playing ? 'Pause' : 'Play'}
+          aria-label={pb.playing ? t('playback.pause') : t('playback.play')}
           className="no-drag flex h-7 w-7 items-center justify-center rounded-full bg-amber text-on-amber hover:brightness-105"
         >
           {pb.playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="translate-x-px" />}
         </button>
-        <IconButton label="Step forward" onClick={() => stepPlayback(1)} disabled={pb.cursor >= pb.plan.length - 1}>
+        <IconButton label={t('playback.stepForward')} onClick={() => stepPlayback(1)} disabled={pb.cursor >= pb.plan.length - 1}>
           <SkipForward size={15} />
         </IconButton>
-        <IconButton label="Stop playback" onClick={stopPlayback}>
+        <IconButton label={t('playback.stop')} onClick={stopPlayback}>
           <Square size={13} />
         </IconButton>
         <input
@@ -65,22 +66,22 @@ export function PlaybackBar(): React.JSX.Element | null {
           max={Math.max(0, pb.plan.length - 1)}
           value={pb.cursor}
           onChange={(e) => seekPlayback(Number(e.target.value))}
-          aria-label="Playback position"
+          aria-label={t('playback.position')}
           className="mx-3 h-1 min-w-24 flex-1 cursor-pointer accent-[var(--amber)]"
         />
         <span className="w-28 shrink-0 text-right text-xs text-ink-muted tabular-nums">
-          Step {pb.cursor + 1} of {pb.plan.length}
+          {t('playback.stepOf', { step: pb.cursor + 1, total: pb.plan.length })}
         </span>
         <Select
-          label="Playback speed"
+          label={t('playback.speed')}
           value={String(pb.speed)}
           onChange={(v) => setSpeed(Number(v))}
           options={SPEEDS.map((x) => ({ value: String(x), label: `${x}×` }))}
           className="ml-2 w-[72px]"
         />
         {s?.executionOrder?.length ? (
-          <Button size="sm" className="ml-2" onClick={() => stepInside(s.id)} title="Walk through this statement's logical order in the Structure view">
-            <ListOrdered size={13} /> Step inside
+          <Button size="sm" className="ml-2" onClick={() => stepInside(s.id)} title={t('playback.stepInsideHint')}>
+            <ListOrdered size={13} /> {t('playback.stepInside')}
           </Button>
         ) : null}
       </div>
@@ -88,13 +89,13 @@ export function PlaybackBar(): React.JSX.Element | null {
         <div className="flex flex-wrap items-center gap-2 border-t border-line bg-amber-wash px-4 py-2 text-sm">
           <GitBranch size={14} className="text-amber-ink" />
           <span>
-            {kindText(pending.kind)} at line {pending.range.start.line}. Amber has no runtime values, so choose what plays.
+            {t('playback.pending', { kind: kindText(pending.kind), line: pending.range.start.line })}
           </span>
           <DecisionButtons statementId={pending.id} onDecide={(d) => decide(pending.id, d)} />
         </div>
       ) : s && step?.inLoop ? (
         <div className="flex items-center gap-2 border-t border-line px-4 py-1.5 text-xs text-ink-muted">
-          <Repeat size={12} /> Inside a loop: shown as one representative iteration.
+          <Repeat size={12} /> {t('playback.insideLoop')}
         </div>
       ) : null}
     </div>
@@ -113,9 +114,9 @@ function DecisionButtons({ statementId, onDecide }: { statementId: number; onDec
   )
   return (
     <span className="flex flex-wrap gap-1.5">
-      {option('all', 'Play children in order')}
-      {branches.map((b) => option(b, `Play ${b.toLowerCase()} only`))}
-      {option('skip', 'Skip')}
+      {option('all', t('playback.decision.all'))}
+      {branches.map((b) => option(b, t('playback.decision.only', { branch: b.toLowerCase() })))}
+      {option('skip', t('playback.decision.skip'))}
     </span>
   )
 }
@@ -149,14 +150,13 @@ export function PlaybackView(): React.JSX.Element {
     return (
       <div className="flex h-full items-center justify-center p-8">
         <div className="max-w-[460px]">
-          <h2 className="text-xl font-semibold">Execution playback</h2>
+          <h2 className="text-xl font-semibold">{t('playback.title')}</h2>
           <p className="mt-2 text-base text-ink-muted">
-            Replays the script in logical order, one statement at a time, so you can watch tables fill up and empty. Nothing is
-            executed. The outline, editor, lifecycle matrix and data-flow graph follow along.
+            {t('playback.intro')}
           </p>
           <label className="mt-4 flex items-center gap-2 text-sm">
-            <Switch checked={pb.askAtBranches} onChange={setAskAtBranches} label="Ask at each IF and CASE" />
-            Pause and ask at each IF and CASE
+            <Switch checked={pb.askAtBranches} onChange={setAskAtBranches} label={t('playback.askLabel')} />
+            {t('playback.askLong')}
           </label>
           <div className="mt-5 flex gap-2">
             <Button
@@ -166,9 +166,9 @@ export function PlaybackView(): React.JSX.Element {
                 setPlaying(true)
               }}
             >
-              <Play size={14} fill="currentColor" /> Play from the start
+              <Play size={14} fill="currentColor" /> {t('playback.playFromStart')}
             </Button>
-            <Button onClick={startPlayback}>Step through manually</Button>
+            <Button onClick={startPlayback}>{t('playback.manual')}</Button>
           </div>
         </div>
       </div>
@@ -188,10 +188,10 @@ export function PlaybackView(): React.JSX.Element {
           <>
             <div className="flex items-center gap-2 text-sm text-ink-muted">
               <KindIcon kind={s.kind} size={16} className="text-amber-ink" />
-              {kindText(s.kind)} · line {s.range.start.line}
+              {kindText(s.kind)} · {t('common.line', { line: s.range.start.line })}
               {step?.inLoop ? (
                 <span className="ml-2 flex items-center gap-1">
-                  <Repeat size={12} /> one representative iteration
+                  <Repeat size={12} /> {t('playback.oneIteration')}
                 </span>
               ) : null}
             </div>
@@ -199,14 +199,14 @@ export function PlaybackView(): React.JSX.Element {
             {step?.branch ? (
               <div className="mt-4 rounded-[6px] border border-line p-3 text-sm">
                 <div className="mb-2 text-ink-muted">
-                  The engine does not know which branch runs. Choose what playback does with the {s.children.length} statements inside.
+                  {t('playback.branch', { count: s.children.length })}
                 </div>
                 <DecisionButtons statementId={s.id} onDecide={(d) => decide(s.id, d)} />
               </div>
             ) : null}
             <div className="mt-8 grid grid-cols-[1fr_auto_1fr] items-start gap-4">
               <div>
-                <h3 className="mb-2 text-sm text-ink-muted">Reads</h3>
+                <h3 className="mb-2 text-sm text-ink-muted">{t('playback.reads')}</h3>
                 {reads.length ? (
                   <ul className="space-y-1">
                     {reads.map((r) => (
@@ -218,12 +218,12 @@ export function PlaybackView(): React.JSX.Element {
                     ))}
                   </ul>
                 ) : (
-                  <p className="text-sm text-ink-faint">Nothing</p>
+                  <p className="text-sm text-ink-faint">{t('playback.nothing')}</p>
                 )}
               </div>
               <ArrowRight size={18} className="mt-7 text-amber" />
               <div>
-                <h3 className="mb-2 text-sm text-ink-muted">Changes</h3>
+                <h3 className="mb-2 text-sm text-ink-muted">{t('playback.changes')}</h3>
                 {writes.length ? (
                   <ul className="space-y-1">
                     {writes.flatMap(([access, refs]) =>
@@ -238,7 +238,7 @@ export function PlaybackView(): React.JSX.Element {
                     )}
                   </ul>
                 ) : (
-                  <p className="text-sm text-ink-faint">Nothing</p>
+                  <p className="text-sm text-ink-faint">{t('playback.nothing')}</p>
                 )}
               </div>
             </div>
@@ -250,10 +250,10 @@ export function PlaybackView(): React.JSX.Element {
       </div>
       <div className="flex min-w-[280px] flex-[2] flex-col">
         <div className="flex h-9 shrink-0 items-center justify-between border-b border-line px-3 text-sm">
-          <span className="font-medium">Run order</span>
+          <span className="font-medium">{t('playback.runOrder')}</span>
           <label className="flex items-center gap-2 text-xs text-ink-muted">
-            <Switch checked={pb.askAtBranches} onChange={setAskAtBranches} label="Ask at each IF and CASE" />
-            Ask at IF and CASE
+            <Switch checked={pb.askAtBranches} onChange={setAskAtBranches} label={t('playback.askLabel')} />
+            {t('playback.askShort')}
           </label>
         </div>
         <div ref={parent} className="min-h-0 flex-1 overflow-auto" role="list">
@@ -279,9 +279,9 @@ export function PlaybackView(): React.JSX.Element {
                 >
                   <KindIcon kind={st.kind} className={current ? 'text-amber-ink' : 'text-ink-muted'} />
                   <span className="min-w-0 flex-1 truncate">{st.summary || kindText(st.kind)}</span>
-                  {p.loop ? <Repeat size={12} aria-label="Loop" /> : null}
+                  {p.loop ? <Repeat size={12} aria-label={t('playback.loop')} /> : null}
                   {p.branch ? (
-                    <span className="text-xs text-ink-muted">{decision === 'skip' ? 'skipped' : decision && decision !== 'all' ? decision.toLowerCase() : decision === 'all' ? 'all' : 'ask'}</span>
+                    <span className="text-xs text-ink-muted">{decision === 'skip' ? t('playback.decided.skipped') : decision && decision !== 'all' ? decision.toLowerCase() : decision === 'all' ? t('playback.decided.all') : t('playback.decided.ask')}</span>
                   ) : null}
                   <span className="code w-8 text-right text-xs text-ink-faint">{st.range.start.line}</span>
                 </button>

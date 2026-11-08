@@ -49,14 +49,14 @@ class MariaDbIrTest {
 
     @Test
     void targetsAndSources() {
-        assertEquals(List.of("CREATE SEQUENCE RETAIL.BATCH_SEQ"), writes(script.statements().getFirst()));
+        assertEquals(List.of("CREATE SEQUENCE RETAIL.BATCH_SEQ"), writes(script.statements().get(0)));
         Statement ctas = first(script.statements(), StatementKind.CREATE_TABLE_AS);
         assertEquals(List.of("CREATE TEMP_TABLE TMP_SALES"), writes(ctas));
         assertEquals(List.of("RETAIL.SALE"), reads(ctas));
         assertEquals(List.of("UPDATE TABLE RETAIL.STORE"), writes(first(script.statements(), StatementKind.UPDATE)));
         assertEquals(List.of("DELETE TABLE RETAIL.SALE_STAGE"), writes(first(script.statements(), StatementKind.DELETE)));
 
-        Statement cte = script.statements().getLast();
+        Statement cte = script.statements().get(script.statements().size() - 1);
         assertEquals(List.of("ranked"), cte.ctes());
         assertEquals(List.of("RETAIL.STORE"), reads(cte));
     }

@@ -91,6 +91,7 @@ final class Db2IrRules extends IrRules {
                 .target(TargetSpec.of("create_alias_statement", "qualified_name", Access.CREATE, ObjectKind.SYNONYM))
                 .target(TargetSpec.of("create_trigger_statement", "qualified_name", Access.CREATE, ObjectKind.TRIGGER))
                 .target(TargetSpec.of("procedure_definition", "qualified_name", Access.CREATE, ObjectKind.PROCEDURE))
+                .target(TargetSpec.of("function_definition", "qualified_name", Access.CREATE, ObjectKind.FUNCTION))
                 .target(TargetSpec.of("drop_statement", "qualified_name", Access.DROP))
                 .target(TargetSpec.of("truncate_statement", "qualified_name", Access.TRUNCATE))
                 .target(TargetSpec.of("alter_table_statement", "qualified_name", Access.ALTER))
@@ -99,7 +100,8 @@ final class Db2IrRules extends IrRules {
 
     @Override
     public boolean acceptName(ParserRuleContext node) {
-        if (!(node.getParent() instanceof ParserRuleContext parent) || !TABLE_POSITIONS.contains(ruleName(parent))) {
+        ParserRuleContext parent = node.getParent();
+        if (parent == null || !TABLE_POSITIONS.contains(ruleName(parent))) {
             return false;
         }
         String rule = ruleName(parent);

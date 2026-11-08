@@ -8,7 +8,7 @@ import {
   boxProgress,
   compactOrder,
   hasBlockIds,
-  LOGICAL_ORDER_NOTE,
+  logicalOrderNote,
   moveCursor,
   nodesByBlockId,
   phaseBadges,
@@ -16,7 +16,7 @@ import {
   type BlockProgress,
   type PhaseBadge
 } from '@/lib/logicalOrder'
-import { KindIcon, kindText } from '@/lib/kinds'
+import { KindIcon, kindText, objectKindText } from '@/lib/kinds'
 import { lineLabel, type AnalysisIndex } from '@/lib/model'
 import {
   blockTitle,
@@ -31,6 +31,7 @@ import {
   statementTitle,
   type StructureNode
 } from '@/lib/structure'
+import { t } from '@/i18n'
 import { useStore } from '@/store'
 import { Button, IconButton } from '@/components/ui'
 import { onReferenceContextMenu } from '@/components/References'
@@ -62,7 +63,7 @@ export function StructureView(): React.JSX.Element {
     }
   }, [statement])
 
-  if (!statement) return <Hint>Select a statement to take its nested queries apart, box by box, in the order they are read.</Hint>
+  if (!statement) return <Hint>{t('structure.empty.select')}</Hint>
   if (statement.container) {
     return (
       <Hint>
@@ -71,7 +72,7 @@ export function StructureView(): React.JSX.Element {
       </Hint>
     )
   }
-  if (!statement.structure) return <Hint>This engine version does not report query structure.</Hint>
+  if (!statement.structure) return <Hint>{t('structure.empty.engine')}</Hint>
   return <StructureBody key={statement.id} statement={statement} index={index} />
 }
 
@@ -170,11 +171,11 @@ function StructureBody({ statement, index }: { statement: Statement; index: Anal
 
   useEffect(() => {
     if (!playing || cursor === null) return
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       if (cursor >= steps.length - 1) setPlaying(false)
       else goTo(cursor + 1)
     }, STEP_MS)
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
     // goTo is recreated each render; the step it moves to only depends on cursor.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [playing, cursor, steps])
@@ -280,25 +281,25 @@ function StructureBody({ statement, index }: { statement: Statement; index: Anal
             variant="ghost"
             disabled={steps.length === 0}
             aria-pressed={orderOpen}
-            title={steps.length ? 'Show the order in which the query is read' : 'No logical order for this statement'}
+            title={steps.length ? t('structure.order.show') : t('structure.order.none')}
             className={clsx(orderOpen && 'bg-amber-wash text-amber-ink')}
             onClick={() => {
               setOrderOpen(!orderOpen)
               if (orderOpen) reset()
             }}
           >
-            <ListOrdered size={13} /> Logical order
+            <ListOrdered size={13} /> {t('structure.order.title')}
           </Button>
           <Button size="sm" variant="ghost" disabled={!canCollapse} onClick={() => setCollapsed(new Set())}>
-            <ChevronsUpDown size={13} /> Expand all
+            <ChevronsUpDown size={13} /> {t('structure.expandAll')}
           </Button>
           <Button size="sm" variant="ghost" disabled={!canCollapse} onClick={() => setCollapsed(new Set(collapsibleIds(tree)))}>
-            <ChevronsDownUp size={13} /> Collapse all
+            <ChevronsDownUp size={13} /> {t('structure.collapseAll')}
           </Button>
         </div>
       </div>
       <div className="flex min-h-0 flex-1" tabIndex={-1} onKeyDown={onKeyDown}>
-      <div ref={scrollRef} className="min-h-0 min-w-0 flex-1 overflow-auto p-4" tabIndex={0} aria-label="Query structure">
+      <div ref={scrollRef} className="min-h-0 min-w-0 flex-1 overflow-auto p-4" tabIndex={0} aria-label={t('structure.title')}>
         <div
           id={`qb-${statement.id}-root`}
           className={clsx('qb-box min-w-[320px] cursor-default', current?.block === WRITE_BLOCK && 'qb-active')}
@@ -320,7 +321,7 @@ function StructureBody({ statement, index }: { statement: Statement; index: Anal
               ))}
             </div>
           ) : (
-            <p className="px-2.5 pb-2 text-sm text-ink-muted">This statement has no query structure.</p>
+            <p className="px-2.5 pb-2 text-sm text-ink-muted">{t('structure.empty.none')}</p>
           )}
         </div>
       </div>
@@ -347,11 +348,11 @@ function StructureBody({ statement, index }: { statement: Statement; index: Anal
 function StepChips({ badges, current }: { badges: PhaseBadge[] | undefined; current: number | null }): React.JSX.Element | null {
   if (!badges?.length) return null
   return (
-    <span className="flex flex-wrap items-center gap-1" aria-label="Steps of this box in the logical order">
+    <span className="flex flex-wrap items-center gap-1" aria-label={t('structure.order.boxSteps')}>
       {badges.map((b) => (
-        <span key={b.step} className={clsx('step-chip', b.step === current && 'step-chip-current')} title={`Step ${b.step}: ${b.phase}`}>
+        <span key={b.step} className={clsx('step-chip', b.step === current && 'step-chip-current')} title={t('structure.order.stepPhase', { step: b.step, phase: b.phase })}>
           <span className="step-num">{b.step}</span>
-          {b.phase === 'CTE' ? 'ready' : b.phase}
+          {b.phase === 'CTE' ? t('structure.steps.ready') : b.phase}
         </span>
       ))}
     </span>
@@ -383,30 +384,30 @@ function LogicalOrderPanel({
     listRef.current?.querySelector(`[data-step="${cursor}"]`)?.scrollIntoView({ block: 'nearest' })
   }, [cursor])
   return (
-    <aside className="flex w-[340px] shrink-0 flex-col border-l border-line bg-surface" aria-label="Logical order">
+    <aside className="flex w-[340px] shrink-0 flex-col border-l border-line bg-surface" aria-label={t('structure.order.title')}>
       <div className="border-b border-line px-3 pt-2.5 pb-2">
-        <h3 className="text-sm font-semibold text-ink">Logical order</h3>
-        <p className="mt-0.5 text-xs leading-[17px] text-ink-muted">{LOGICAL_ORDER_NOTE}</p>
+        <h3 className="text-sm font-semibold text-ink">{t('structure.order.title')}</h3>
+        <p className="mt-0.5 text-xs leading-[17px] text-ink-muted">{logicalOrderNote()}</p>
         <div className="mt-2 flex items-center gap-1">
-          <IconButton label="Previous step (Left arrow)" onClick={() => onStep(-1)} disabled={cursor === 0}>
+          <IconButton label={t('structure.order.previous')} onClick={() => onStep(-1)} disabled={cursor === 0}>
             <SkipBack size={15} />
           </IconButton>
           <button
             type="button"
             onClick={onPlay}
-            aria-label={playing ? 'Pause' : 'Play the logical order'}
+            aria-label={playing ? t('structure.order.pause') : t('structure.order.play')}
             className="no-drag flex h-7 w-7 items-center justify-center rounded-full bg-amber text-on-amber hover:brightness-105"
           >
             {playing ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="translate-x-px" />}
           </button>
-          <IconButton label="Next step (Right arrow)" onClick={() => onStep(1)} disabled={cursor !== null && cursor >= steps.length - 1}>
+          <IconButton label={t('structure.order.next')} onClick={() => onStep(1)} disabled={cursor !== null && cursor >= steps.length - 1}>
             <SkipForward size={15} />
           </IconButton>
-          <IconButton label="Back to the whole query" onClick={onReset} disabled={cursor === null}>
+          <IconButton label={t('structure.order.reset')} onClick={onReset} disabled={cursor === null}>
             <RotateCcw size={13} />
           </IconButton>
           <span className="ml-auto text-xs text-ink-muted tabular-nums">
-            {cursor === null ? `${steps.length} steps` : `Step ${cursor + 1} of ${steps.length}`}
+            {cursor === null ? t('structure.order.count', { count: steps.length }) : t('structure.order.stepOf', { step: cursor + 1, total: steps.length })}
           </span>
         </div>
       </div>
@@ -430,10 +431,10 @@ function LogicalOrderPanel({
                 </span>
                 <span className="min-w-0 flex-1">
                   <span className={clsx('block text-sm leading-5', state === 'todo' ? 'text-ink-muted' : 'text-ink')}>
-                    <span className="font-medium">{s.phase === 'WRITE' ? 'Write' : s.phase}</span>
+                    <span className="font-medium">{s.phase === 'WRITE' ? t('structure.order.write') : s.phase}</span>
                     {s.detail ? <span className="text-ink-muted"> {s.detail}</span> : null}
                   </span>
-                  <span className="block truncate text-xs text-ink-faint">{node ? `in ${blockTitle(node.block)}` : 'the statement'}</span>
+                  <span className="block truncate text-xs text-ink-faint">{node ? t('structure.order.inBlock', { block: blockTitle(node.block) }) : t('structure.order.theStatement')}</span>
                 </span>
               </button>
             </li>
@@ -470,7 +471,7 @@ function Box({ node, ctx }: { node: StructureNode; ctx: BoxContext }): React.JSX
         {node.children.length ? (
           <button
             type="button"
-            aria-label={isCollapsed ? 'Expand' : 'Collapse'}
+            aria-label={isCollapsed ? t('structure.expand') : t('structure.collapse')}
             aria-expanded={!isCollapsed}
             className="-mr-0.5 flex h-4 w-4 items-center justify-center text-ink-muted hover:text-ink"
             onClick={(e) => {
@@ -493,11 +494,11 @@ function Box({ node, ctx }: { node: StructureNode; ctx: BoxContext }): React.JSX
             {c}
           </span>
         ))}
-        {hidden ? <span className="text-xs text-ink-faint">+{hidden} nested</span> : null}
+        {hidden ? <span className="text-xs text-ink-faint">{t('structure.box.hiddenNested', { count: hidden })}</span> : null}
         {ctx.orderOpen && typeof b.id === 'number' ? <StepChips badges={ctx.badges.get(b.id)} current={ctx.currentStep} /> : null}
         {progress === 'done' ? (
-          <span className="ml-auto flex items-center gap-1 text-xs text-ink-muted" title="All steps of this box are done">
-            <Check size={12} /> done
+          <span className="ml-auto flex items-center gap-1 text-xs text-ink-muted" title={t('structure.order.allDone')}>
+            <Check size={12} /> {t('structure.order.done')}
           </span>
         ) : null}
       </div>
@@ -521,7 +522,7 @@ function Box({ node, ctx }: { node: StructureNode; ctx: BoxContext }): React.JSX
                 ctx.toggleOutputs(node.id)
               }}
             >
-              {showAll ? 'fewer' : `${b.outputs.length} columns`}
+              {showAll ? t('structure.box.fewer') : t('common.columns', { count: b.outputs.length })}
             </button>
           ) : null}
         </div>
@@ -541,11 +542,11 @@ function SourceChip({ node, source, ctx }: { node: StructureNode; source: QueryB
   const ref = source.kind === 'CTE' || source.kind === 'SUBQUERY' ? undefined : refFor(ctx.statement, node, source)
   const lit = ref !== undefined && ref.key === ctx.selectedKey
   const transient = source.kind === 'CTE' || source.kind === 'SUBQUERY'
-  const what = source.kind === 'CTE' ? 'Go to the CTE' : source.kind === 'SUBQUERY' ? 'Go to the derived table' : 'Select this object'
+  const what = source.kind === 'CTE' ? t('structure.source.goCte') : source.kind === 'SUBQUERY' ? t('structure.source.goDerived') : t('structure.source.select')
   return (
     <button
       type="button"
-      title={`${source.kind.toLowerCase().replace(/_/g, ' ')} ${source.name}${source.alias ? ` as ${source.alias}` : ''}. ${what}.`}
+      title={t(source.alias ? 'structure.source.titleAlias' : 'structure.source.title', { kind: objectKindText(source.kind, true), name: source.name, alias: source.alias ?? '', action: what })}
       onClick={(e) => {
         e.stopPropagation()
         ctx.onSource(node, source)
@@ -579,9 +580,9 @@ export function StructureSummary({ statement, compact }: { statement: Statement;
   return (
     <section>
       <div className="mb-1.5 flex items-baseline gap-3">
-        <h3 className={clsx('font-semibold', compact ? 'text-sm' : 'text-base')}>Query structure</h3>
+        <h3 className={clsx('font-semibold', compact ? 'text-sm' : 'text-base')}>{t('structure.title')}</h3>
         <button type="button" className="text-xs text-amber-ink hover:underline" onClick={() => setView('structure')}>
-          Open in Structure view
+          {t('structure.summary.open')}
         </button>
       </div>
       <p className="text-sm text-ink-muted">{describeCounts(counts)}</p>
@@ -602,16 +603,16 @@ export function StructureSummary({ statement, compact }: { statement: Statement;
           ))}
         </ul>
       ) : null}
-      {more > 0 ? <p className="mt-1 text-xs text-ink-muted">… {more} more in the Structure view</p> : null}
+      {more > 0 ? <p className="mt-1 text-xs text-ink-muted">{t('structure.summary.more', { count: more })}</p> : null}
       {order.length ? (
         <div className="mt-3">
           <div className="mb-1 flex items-baseline gap-3">
-            <h4 className="text-sm font-semibold">Logical order</h4>
+            <h4 className="text-sm font-semibold">{t('structure.order.title')}</h4>
             <button type="button" className="text-xs text-amber-ink hover:underline" onClick={() => stepInside(statement.id)}>
-              Step through in Structure view
+              {t('structure.summary.stepThrough')}
             </button>
           </div>
-          <ol className="flex flex-wrap items-center gap-x-1 gap-y-1.5 text-sm" aria-label="Logical order, outline">
+          <ol className="flex flex-wrap items-center gap-x-1 gap-y-1.5 text-sm" aria-label={t('structure.summary.outline')}>
             {order.map((o, i) => (
               <li key={o.step} className="flex items-center gap-1">
                 {i > 0 ? (
@@ -620,8 +621,8 @@ export function StructureSummary({ statement, compact }: { statement: Statement;
                   </span>
                 ) : null}
                 {o.nested ? (
-                  <span className="text-xs text-ink-muted" title={`${o.nested} steps of nested queries run here`}>
-                    ({o.nested} nested)
+                  <span className="text-xs text-ink-muted" title={t('structure.summary.nestedHint', { count: o.nested })}>
+                    {t('structure.summary.nested', { count: o.nested })}
                   </span>
                 ) : null}
                 <span className="step-chip">
@@ -631,7 +632,7 @@ export function StructureSummary({ statement, compact }: { statement: Statement;
               </li>
             ))}
           </ol>
-          {compact ? null : <p className="mt-1.5 text-xs text-ink-muted">{LOGICAL_ORDER_NOTE}</p>}
+          {compact ? null : <p className="mt-1.5 text-xs text-ink-muted">{logicalOrderNote()}</p>}
         </div>
       ) : null}
     </section>

@@ -8,7 +8,10 @@ import type { LineageIndex } from './lineage'
 import { CARD, rowAnchor, type LineageViewModel } from './lineageView'
 import { cellKey, markFor, type MatrixModel } from './lifecycle'
 import type { AnalysisIndex } from './model'
-import { BOX, kindColorKey, structurePalette, type StructureBox } from './structure'
+import { t as tr } from '../i18n'
+import { CARD as ER_CARD, dashFor, ends, type ErCardModel } from './er'
+import type { ErRelationship } from '@shared/protocol'
+import { BOX, isDarkTokens, kindColorKey, structurePalette, type StructureBox } from './structure'
 
 /**
  * Vector exports generated from the view models (not screenshots), styled with the current
@@ -79,6 +82,16 @@ export function flowToSvg(view: FlowView, layout: LayoutResult, t: ThemeTokens, 
     parts.push(
       `<path d="M${x1},${y1} C${x1 + dx},${y1} ${x2 - dx},${y2} ${x2},${y2}" fill="none" stroke="${lit ? t.amber : edgeRest}" stroke-width="${lit ? 2.25 : 1.25}"${dash}${dim ? ' opacity="0.25"' : ''} marker-end="url(#${lit ? 'arrow-lit' : 'arrow'})"/>`
     )
+    if (e.via) {
+      const label = tr('dataflow.edge.via', { routine: e.via.split('.').pop() || e.via })
+      const mx = (x1 + x2) / 2
+      const my = (y1 + y2) / 2
+      const w = label.length * 6.4 + 8
+      parts.push(
+        `<rect x="${mx - w / 2}" y="${my - 8}" width="${w}" height="16" rx="3" fill="${t.surface}" opacity="0.92"/>`,
+        `<text x="${mx}" y="${my + 4}" font-size="10.5" font-family="${MONO}" text-anchor="middle" fill="${t.inkMuted}">${escapeXml(label)}</text>`
+      )
+    }
   }
   for (const n of view.nodes) {
     const p = layout.positions.get(n.id)
@@ -150,6 +163,10 @@ export function matrixToSvg(matrix: MatrixModel, _index: AnalysisIndex, t: Theme
       const dim = trace && !lit
       const box = `x="${cx - 8}" y="${y + 4}" width="16" height="16" rx="3"`
       const op = dim ? ' opacity="0.3"' : ''
+      // Reached only through a call to a routine of the script: a dashed ring, as in the app.
+      if ((matrix.events.get(cellKey(row.key, step)) ?? []).every((e) => e.via) && matrix.events.get(cellKey(row.key, step))?.length) {
+        parts.push(`<rect x="${cx - 10.5}" y="${y + 1.5}" width="21" height="21" rx="4" fill="none" stroke="${t.inkMuted}" stroke-width="1.2" stroke-dasharray="3 2"${op}/>`)
+      }
       if (m.cls === 'write') {
         parts.push(`<rect ${box} fill="${lit ? t.amber : t.ink}"${op}/>`)
         parts.push(`<text x="${cx}" y="${y + 16}" font-size="10.5" font-family="${MONO}" text-anchor="middle" fill="${lit ? '#1B1F24' : t.surface}"${op}>${m.letter}</text>`)
@@ -286,6 +303,10 @@ export function lineageToSvg(model: LineageViewModel, layout: LayoutResult, _ind
       `<text x="${x + 10}" y="${y + 32}" font-size="11" fill="${t.inkMuted}">${escapeXml(truncate(c.subtitle, 38))}</text>`,
       `<line x1="${x}" y1="${y + CARD.HEADER}" x2="${x + c.width}" y2="${y + CARD.HEADER}" stroke="${t.line}"/>`
     )
+    // Variables and parameters: the same blue accent bar as in the app.
+    if (c.kind === 'VARIABLE' || c.kind === 'PARAMETER') {
+      parts.push(`<rect x="${x}" y="${y}" width="3" height="${c.height}" rx="1.5" fill="${isDarkTokens(t) ? '#3987E5' : '#2A78D6'}"/>`)
+    }
     c.rows.forEach((r, i) => {
       const ry = y + CARD.HEADER + i * CARD.ROW
       parts.push(
@@ -293,7 +314,7 @@ export function lineageToSvg(model: LineageViewModel, layout: LayoutResult, _ind
       )
     })
     if (c.hidden > 0) {
-      parts.push(`<text x="${x + 10}" y="${y + CARD.HEADER + c.rows.length * CARD.ROW + 14}" font-size="11" fill="${faint}">+${c.hidden} more columns</text>`)
+      parts.push(`<text x="${x + 10}" y="${y + CARD.HEADER + c.rows.length * CARD.ROW + 14}" font-size="11" fill="${faint}">${escapeXml(tr('lineage.card.moreColumns', { count: c.hidden }))}</text>`)
     }
   }
   parts.push(...labels, '</svg>')
@@ -337,6 +358,84 @@ export function structureToSvg(layout: { boxes: StructureBox[]; width: number; h
         `<text x="${x + BOX.PAD}" y="${ly}" font-size="11" ${l.mono ? `font-family="${MONO}" ` : ''}fill="${l.mono ? t.ink : t.inkMuted}">${escapeXml(l.text)}</text>`
       )
     })
+  }
+  parts.push('</svg>')
+  return parts.join('\n')
+}
+
+/** ER diagram: entity cards with key markers and crow's-foot relationship lines (see `views/ErView`). */
+export function erToSvg(cards: ErCardModel[], relationships: ErRelationship[], layout: LayoutResult, t: ThemeTokens, title: string): string {
+  const pad = 32
+  const header = 40
+  const pos = new Map(cards.map((c) => [c.entity.key, layout.positions.get(c.entity.key) ?? { x: 0, y: 0 }]))
+  const size = new Map(cards.map((c) => [c.entity.key, c]))
+  let maxX = 0
+  let maxY = 0
+  for (const c of cards) {
+    const p = pos.get(c.entity.key)!
+    maxX = Math.max(maxX, p.x + c.width)
+    maxY = Math.max(maxY, p.y + c.height)
+  }
+  const width = Math.ceil(maxX + pad * 2)
+  const height = Math.ceil(maxY + pad * 2 + header)
+  const ox = pad
+  const oy = pad + header
+  const line = mix(t.inkMuted, t.canvas, 0.22)
+  const faint = mix(t.inkMuted, t.surface, 0.45)
+  const head = mix(t.surface, t.chrome, 0.08)
+  const parts: string[] = [
+    `<svg xmlns="http://www.w3.org/2000/svg" width="${width}" height="${height}" viewBox="0 0 ${width} ${height}" font-family="${SANS}">`,
+    `<rect width="100%" height="100%" fill="${t.canvas}"/>`,
+    `<text x="${pad}" y="${pad + 8}" font-size="16" font-weight="600" fill="${t.ink}">${escapeXml(title)}</text>`
+  ]
+  const mark = (kind: string, x: number, y: number, dir: 1 | -1): string => {
+    if (kind === 'many') return `M${x + dir * 11},${y} L${x},${y - 6} M${x + dir * 11},${y} L${x},${y} M${x + dir * 11},${y} L${x},${y + 6}`
+    if (kind === 'one') return `M${x + dir * 7},${y - 6} L${x + dir * 7},${y + 6}`
+    if (kind === 'arrow') return `M${x + dir * 9},${y - 5} L${x},${y} L${x + dir * 9},${y + 5}`
+    return ''
+  }
+  for (const r of relationships) {
+    const a = pos.get(r.from.entity)
+    const b = pos.get(r.to.entity)
+    const ca = size.get(r.from.entity)
+    const cb = size.get(r.to.entity)
+    if (!a || !b || !ca || !cb) continue
+    const sx = ox + a.x + ca.width
+    const sy = oy + a.y + ca.height / 2
+    const tx = ox + b.x
+    const ty = oy + b.y + cb.height / 2
+    const dx = Math.max(30, Math.abs(tx - sx) / 2)
+    const dash = dashFor(r.confidence)
+    const e = ends(r)
+    parts.push(
+      `<path d="M${sx},${sy} C${sx + dx},${sy} ${tx - dx},${ty} ${tx},${ty}" fill="none" stroke="${line}" stroke-width="1.4"${dash ? ` stroke-dasharray="${dash}"` : ''}${r.confidence === 'POSSIBLE' ? ' stroke-linecap="round"' : ''}/>`,
+      `<path d="${mark(e.from, sx, sy, 1)} ${mark(e.to, tx, ty, -1)}" fill="none" stroke="${line}" stroke-width="1.4" stroke-linecap="round"/>`
+    )
+  }
+  for (const c of cards) {
+    const p = pos.get(c.entity.key)!
+    const x = ox + p.x
+    const y = oy + p.y
+    parts.push(
+      `<rect x="${x}" y="${y}" width="${c.width}" height="${c.height}" rx="6" fill="${t.surface}" stroke="${mix(t.line, t.inkMuted, 0.4)}"/>`,
+      `<path d="M${x},${y + ER_CARD.HEADER} V${y + 6} a6,6 0 0 1 6,-6 H${x + c.width - 6} a6,6 0 0 1 6,6 V${y + ER_CARD.HEADER} Z" fill="${head}"/>`,
+      `<text x="${x + 10}" y="${y + 19}" font-size="12.5" font-family="${MONO}" fill="${t.ink}">${escapeXml(truncate(c.entity.name, 34))}</text>`,
+      `<text x="${x + 10}" y="${y + 34}" font-size="11" fill="${t.inkMuted}">${escapeXml(c.entity.kind.toLowerCase().replace(/_/g, ' '))}${c.entity.createdInScript ? ' · +' : ''}</text>`,
+      `<line x1="${x}" y1="${y + ER_CARD.HEADER}" x2="${x + c.width}" y2="${y + ER_CARD.HEADER}" stroke="${t.line}"/>`
+    )
+    c.rows.forEach((col, i) => {
+      const ry = y + ER_CARD.HEADER + i * ER_CARD.ROW
+      const tag = [col.pk ? 'PK' : '', col.fk ? 'FK' : '', !col.pk && !col.fk && col.joined ? '\u25e6' : ''].filter(Boolean).join(' ')
+      const key = col.pk || col.fk || col.joined
+      parts.push(
+        `<text x="${x + 10}" y="${ry + 15}" font-size="9.5" font-weight="600" fill="${col.pk ? t.amberInk : t.inkMuted}">${tag}</text>`,
+        `<text x="${x + 40}" y="${ry + 15}" font-size="12" font-family="${MONO}" fill="${key ? t.ink : faint}">${escapeXml(truncate(col.name, 26))}</text>`
+      )
+      if (col.type) parts.push(`<text x="${x + c.width - 10}" y="${ry + 15}" font-size="11" font-family="${MONO}" text-anchor="end" fill="${faint}">${escapeXml(truncate(col.type.toLowerCase(), 14))}</text>`)
+    })
+    if (c.hidden > 0) {
+      parts.push(`<text x="${x + 10}" y="${y + ER_CARD.HEADER + c.rows.length * ER_CARD.ROW + 15}" font-size="11" fill="${faint}">${escapeXml(tr('er.card.more', { count: c.hidden }))}</text>`)
+    }
   }
   parts.push('</svg>')
   return parts.join('\n')

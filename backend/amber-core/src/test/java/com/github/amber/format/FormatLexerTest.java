@@ -40,8 +40,8 @@ class FormatLexerTest {
                 "NUMBER:10", "SYMBOL:<<", "WORD:l", "SYMBOL:>>"), texts(Dialect.ORACLE, "q'[it's]' &&var. => x$y#z 1..10 <<l>>"));
         assertEquals(List.of("SYMBOL:&", "SYMBOL:&"), texts(Dialect.ORACLE, "& &"));
         assertEquals(List.of("STRING:q'\uD83D\uDE00a'b\uD83D\uDE00'", "WORD:x"), texts(Dialect.ORACLE, "q'\uD83D\uDE00a'b\uD83D\uDE00' x"));
-        assertEquals(Kind.UNTERMINATED, FormatLexer.lex("q'[never", Dialect.ORACLE, null).getFirst().kind);
-        assertEquals(Kind.UNTERMINATED, FormatLexer.lex("q'", Dialect.ORACLE, null).getFirst().kind);
+        assertEquals(Kind.UNTERMINATED, FormatLexer.lex("q'[never", Dialect.ORACLE, null).get(0).kind);
+        assertEquals(Kind.UNTERMINATED, FormatLexer.lex("q'", Dialect.ORACLE, null).get(0).kind);
     }
 
     @Test
@@ -55,7 +55,7 @@ class FormatLexerTest {
         assertEquals(List.of("STRING:$f$ x $ y $f$", "WORD:$1", "STRING:E'a\\'b'", "SYMBOL:::", "SYMBOL:@>", "SYMBOL:=",
                 "SYMBOL:-", "NUMBER:1", "SYMBOL:#>>", "SYMBOL:..", "WORD:json", "SYMBOL:#>"),
                 texts(Dialect.POSTGRESQL, "$f$ x $ y $f$ $1 E'a\\'b' :: @> =-1 #>> .. json#>"));
-        assertEquals(Kind.UNTERMINATED, FormatLexer.lex("$$ open", Dialect.POSTGRESQL, null).getFirst().kind);
+        assertEquals(Kind.UNTERMINATED, FormatLexer.lex("$$ open", Dialect.POSTGRESQL, null).get(0).kind);
         assertEquals(List.of("SYMBOL:*", "BLOCK_COMMENT:/* c */"), texts(Dialect.POSTGRESQL, "*/* c */"));
     }
 
@@ -78,8 +78,8 @@ class FormatLexerTest {
     @Test
     void terminatorIsOneToken() {
         List<FormatToken> t = FormatLexer.lex("END\n$$", Dialect.MYSQL, "$$");
-        assertEquals(Kind.TERMINATOR, t.getLast().kind);
-        assertEquals(1, t.getLast().newlinesBefore);
+        assertEquals(Kind.TERMINATOR, t.get(t.size() - 1).kind);
+        assertEquals(1, t.get(t.size() - 1).newlinesBefore);
         assertTrue(FormatLexer.hasUnterminated(FormatLexer.lex("'open", Dialect.MYSQL, null)));
         assertTrue(FormatLexer.hasUnterminated(FormatLexer.lex("/* open", Dialect.MYSQL, null)));
         assertTrue(FormatLexer.hasUnterminated(FormatLexer.lex("@'open", Dialect.MYSQL, null)));

@@ -1,14 +1,16 @@
 import { useVirtualizer } from '@tanstack/react-virtual'
 import clsx from 'clsx'
-import { ArrowRight, ChevronDown, ChevronRight, Repeat } from 'lucide-react'
+import { ArrowRight, ChevronDown, ChevronRight, CornerDownRight, Repeat } from 'lucide-react'
 import { useEffect, useMemo, useRef } from 'react'
 import type { Ref } from '@shared/protocol'
 import { usePlaybackView, useTrace } from '@/hooks'
-import { KindIcon, confidenceText, isMuted, kindText } from '@/lib/kinds'
+import { KindIcon, accessText, confidenceText, isMuted, kindText } from '@/lib/kinds'
 import { WRITE_ACCESS } from '@/lib/model'
 import { worstByStatement } from '@/lib/findings'
 import { flattenOutline, pathTo, visibleRowFor } from '@/lib/outline'
+import { viaBadgeText, viaSummary } from '@/lib/via'
 import { SeverityIcon } from '@/components/StatusParts'
+import { fmt, t } from '@/i18n'
 import { useStore } from '@/store'
 
 const ROW = 54
@@ -55,15 +57,15 @@ export function OutlineView(): React.JSX.Element {
       <div className="flex shrink-0 flex-wrap items-baseline gap-x-6 gap-y-1 border-b border-line px-5 py-3">
         <h2 className="text-xl font-semibold tracking-[-0.01em]">{analysis.name}</h2>
         <dl className="flex flex-wrap gap-x-5 gap-y-1 text-sm text-ink-muted">
-          <Stat label="lines" value={analysis.lineCount} />
-          <Stat label="statements" value={analysis.stepCount} />
-          <Stat label={counts.SOURCE === 1 ? 'source' : 'sources'} value={counts.SOURCE ?? 0} />
-          <Stat label="intermediate" value={counts.INTERMEDIATE ?? 0} />
-          <Stat label={counts.TARGET === 1 ? 'target' : 'targets'} value={counts.TARGET ?? 0} />
-          <Stat label="ms to analyze" value={analysis.elapsedMs} />
+          <Stat label={t('outline.stats.lines', { count: analysis.lineCount })} value={analysis.lineCount} />
+          <Stat label={t('outline.stats.statements', { count: analysis.stepCount })} value={analysis.stepCount} />
+          <Stat label={t('outline.stats.sources', { count: counts.SOURCE ?? 0 })} value={counts.SOURCE ?? 0} />
+          <Stat label={t('outline.stats.intermediate', { count: counts.INTERMEDIATE ?? 0 })} value={counts.INTERMEDIATE ?? 0} />
+          <Stat label={t('outline.stats.targets', { count: counts.TARGET ?? 0 })} value={counts.TARGET ?? 0} />
+          <Stat label={t('outline.stats.ms', { count: analysis.elapsedMs })} value={analysis.elapsedMs} />
         </dl>
       </div>
-      <div ref={parent} className="min-h-0 flex-1 overflow-auto" role="list" aria-label="Statements in source order">
+      <div ref={parent} className="min-h-0 flex-1 overflow-auto" role="list" aria-label={t('outline.listLabel')}>
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map((item) => {
             const row = rows[item.index]!
@@ -72,8 +74,11 @@ export function OutlineView(): React.JSX.Element {
             const current = playback.current === s.id
             const lit = trace ? trace.statements.has(s.id) || onPath.has(s.id) : true
             const future = playback.active && !playback.played.has(s.id)
-            const reads = uniqueRefs(s.refs.filter((r) => r.access === 'READ' && r.kind !== 'CTE'))
-            const writes = uniqueRefs(s.refs.filter((r) => WRITE_ACCESS.has(r.access) || r.access === 'EXECUTE'))
+            // Chips show what the statement itself names; what a call reaches is summarized in a badge.
+            const direct = s.refs.filter((r) => !r.via)
+            const reads = uniqueRefs(direct.filter((r) => r.access === 'READ' && r.kind !== 'CTE'))
+            const writes = uniqueRefs(direct.filter((r) => WRITE_ACCESS.has(r.access) || r.access === 'EXECUTE'))
+            const vias = viaSummary(s)
             return (
               <div
                 key={s.id}
@@ -92,7 +97,7 @@ export function OutlineView(): React.JSX.Element {
                     {row.hasChildren ? (
                       <button
                         type="button"
-                        aria-label={row.collapsed ? 'Expand' : 'Collapse'}
+                        aria-label={row.collapsed ? t('outline.expand') : t('outline.collapse')}
                         className="-ml-5 flex h-4 w-4 items-center justify-center text-ink-muted hover:text-ink"
                         onClick={(e) => {
                           e.stopPropagation()
@@ -110,12 +115,18 @@ export function OutlineView(): React.JSX.Element {
                     {marks.has(s.id) ? (
                       <span className="flex shrink-0 items-center gap-1 text-xs text-ink-muted">
                         <SeverityIcon severity={marks.get(s.id)!.severity} size={12} />
-                        {marks.get(s.id)!.count === 1 ? '1 finding' : `${marks.get(s.id)!.count} findings`}
+                        {t('outline.findings', { count: marks.get(s.id)!.count })}
                       </span>
                     ) : null}
+                    {vias.map((v) => (
+                      <span key={v.routine} className="via-badge" title={t('outline.via.hint', { routine: v.routine })}>
+                        <CornerDownRight size={11} aria-hidden />
+                        {viaBadgeText(v)}
+                      </span>
+                    ))}
                     {s.kind === 'LOOP' ? (
                       <span className="flex shrink-0 items-center gap-1 text-xs text-ink-muted">
-                        <Repeat size={12} /> loop
+                        <Repeat size={12} /> {t('outline.loop')}
                       </span>
                     ) : null}
                     {isMuted(s.confidence) ? (
@@ -149,7 +160,7 @@ function Stat({ label, value }: { label: string; value: number }): React.JSX.Ele
   return (
     <div className="flex items-baseline gap-1">
       <dt className="sr-only">{label}</dt>
-      <dd className="font-medium text-ink tabular-nums">{value.toLocaleString('en-US')}</dd>
+      <dd className="font-medium text-ink tabular-nums">{fmt.number(value)}</dd>
       <span aria-hidden>{label}</span>
     </div>
   )
@@ -168,7 +179,7 @@ function ObjectChip({ refItem, write, onSelect }: { refItem: Ref; write?: boolea
         e.stopPropagation()
         onSelect()
       }}
-      title={`${refItem.access.toLowerCase()} ${refItem.name}`}
+      title={`${accessText(refItem.access)} ${refItem.name}`}
       className={clsx(
         'code max-w-56 shrink-0 truncate rounded-[3px] px-1.5 py-px text-[12px]',
         write ? 'border border-line-strong text-ink' : 'text-ink-muted hover:text-ink',

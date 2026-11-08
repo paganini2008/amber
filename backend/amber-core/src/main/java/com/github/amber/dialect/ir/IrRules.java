@@ -75,7 +75,7 @@ public class IrRules {
         if (wrappers.contains(rule)) {
             return null;
         }
-        String parent = ctx.getParent() instanceof ParserRuleContext p ? ruleName(p) : null;
+        String parent = ctx.getParent() != null ? ruleName(ctx.getParent()) : null;
         Set<String> allowedParents = onlyUnder.get(rule);
         if (allowedParents != null && (parent == null || !allowedParents.contains(parent))) {
             return null;
@@ -102,7 +102,7 @@ public class IrRules {
 
     /** True when {@code ctx}'s parent has rule {@code rule}. */
     protected boolean parentIs(ParserRuleContext ctx, String rule) {
-        return ctx.getParent() instanceof ParserRuleContext p && ruleName(p).equals(rule);
+        return ctx.getParent() != null && ruleName(ctx.getParent()).equals(rule);
     }
 
     /** Rules that never contain object names, such as column references ({@code t.col}). */

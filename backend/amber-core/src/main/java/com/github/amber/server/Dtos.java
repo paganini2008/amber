@@ -125,8 +125,38 @@ public final class Dtos {
         return new LineageDto(nodes, edges);
     }
 
+    /**
+     * A finding. {@code suggestedSql} (optional) is the optimized SQL for it: {@code suggestedSqlKind}
+     * {@code REWRITE_OF_STATEMENT} or {@code ADDITIONAL_DDL}, {@code verified} {@code STRUCTURE_PRESERVED} /
+     * {@code STRUCTURE_CHANGED} / {@code NOT_CHECKED}, {@code rewriteId} the {@code rewrite.suggest} id it comes from.
+     */
     public record FindingDto(String rule, String severity, String title, String message, String suggestion,
-                             int statement, Range range, String confidence) {
+                             int statement, Range range, String confidence, String suggestedSql,
+                             String suggestedSqlKind, String verified, String suggestedSqlNote, String rewriteId) {
+    }
+
+    /** The user's rule settings: {@code {"disabled": ["AMB-S009"], "severity": {"AMB-P001": "LOW"}}}. */
+    public record RulesDto(List<String> disabled, Map<String, String> severity) {
+
+        static com.github.amber.dialect.findings.RuleConfig config(RulesDto r) {
+            return r == null ? com.github.amber.dialect.findings.RuleConfig.DEFAULT
+                    : com.github.amber.dialect.findings.RuleConfig.of(r.disabled(), r.severity());
+        }
+    }
+
+    /** One entry of {@code engine.rules}. */
+    public record RuleDto(String id, String severity, String title, String description, String category,
+                          boolean needsMetadata, boolean hasQuickFix) {
+    }
+
+    public record RulesResult(List<RuleDto> rules) {
+    }
+
+    static RulesResult rules() {
+        return new RulesResult(com.github.amber.dialect.findings.RuleCatalog.all().stream().map(r -> new RuleDto(r.id(),
+                r.severity().name(), r.localizedTitle(), r.localizedDescription(), r.category().id(), r.needsMetadata(),
+                r.hasQuickFix()))
+                .toList());
     }
 
     static List<FindingDto> findings(List<com.github.amber.dialect.findings.Finding> findings, List<Statement> steps) {
@@ -134,8 +164,13 @@ public final class Dtos {
         for (int i = 0; i < steps.size(); i++) {
             ids.put(steps.get(i), i);
         }
-        return findings.stream().map(f -> new FindingDto(f.rule(), f.severity().name(), f.title(), f.message(),
-                f.suggestion(), ids.getOrDefault(f.statement(), -1), Range.of(f.range()), f.confidence().name())).toList();
+        return findings.stream().map(f -> {
+            var x = f.suggested();
+            return new FindingDto(f.rule(), f.severity().name(), f.title(), f.message(), f.suggestion(),
+                    ids.getOrDefault(f.statement(), -1), Range.of(f.range()), f.confidence().name(),
+                    x == null ? null : x.sql(), x == null ? null : x.kind().name(), x == null ? null : x.verified(),
+                    x == null ? null : x.note(), x == null ? null : x.rewrite());
+        }).toList();
     }
 
     /** Maps statements to DTOs; ids are step indexes (source order, depth first). */

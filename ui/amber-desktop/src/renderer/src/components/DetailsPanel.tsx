@@ -1,14 +1,17 @@
 import clsx from 'clsx'
-import { Check, ChevronDown, ChevronRight, Copy, Sparkles } from 'lucide-react'
+import { ChevronDown, ChevronRight, Sparkles } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { AiProviderId } from '@shared/api'
 import type { AiBuildContextParams, AiCheckParams, AiCheckResult, AiContext } from '@shared/protocol'
+import { getLanguage, t } from '@/i18n'
 import { appendDelta, checkLabelText, conversationMessages, estimateTokens, parseSuggestions, sliceRange, targetStatement, unmaskText, type AiSuggestion } from '@/lib/ai'
 import { api, describeError, isNotAvailable, newRequestId } from '@/lib/api'
 import type { AnalysisIndex } from '@/lib/model'
 import { analyzeParams, currentMetadata, metadataParams, useStore } from '@/store'
 import { ObjectDetails, StatementBody } from '@/views/StatementView'
+import { CodeBlock } from './CodeBlock'
 import { FindingCard, StatementFindings } from './FindingDetails'
+import { OptimizedForStatement } from './Optimized'
 import { Button, NotAvailable, Select, Spinner } from './ui'
 
 export function DetailsPanel(): React.JSX.Element {
@@ -25,24 +28,25 @@ export function DetailsPanel(): React.JSX.Element {
   }, [statement, doc])
 
   return (
-    <aside className="flex h-full min-h-0 flex-col bg-surface" aria-label="Details">
+    <aside className="flex h-full min-h-0 flex-col bg-surface" aria-label={t('details.title')}>
       <header className="chrome flex h-9 shrink-0 items-center border-b border-line px-3">
-        <h2 className="text-sm font-medium">Details</h2>
+        <h2 className="text-sm font-medium">{t('details.title')}</h2>
       </header>
       <div className="min-h-0 flex-1 overflow-auto px-4 py-4">
         {!index ? (
-          <p className="text-sm text-ink-muted">Details of the selected statement or object appear here.</p>
+          <p className="text-sm text-ink-muted">{t('details.emptyNoScript')}</p>
         ) : statement ? (
           <div className="space-y-4">
             {finding ? <FindingCard finding={finding} /> : null}
             <StatementBody statement={statement} index={index} compact />
             <StatementFindings statementId={statement.id} />
+            <OptimizedForStatement statementId={statement.id} />
             {snippet ? (
               <section>
-                <h3 className="mb-1.5 text-sm font-semibold">Source</h3>
+                <h3 className="mb-1.5 text-sm font-semibold">{t('details.source')}</h3>
                 <pre className="code selectable overflow-x-auto rounded-[5px] border border-line bg-canvas p-2 text-[12px] leading-[18px] whitespace-pre text-ink">
                   {snippet.text}
-                  {snippet.more ? `\n… ${snippet.more} more lines` : ''}
+                  {snippet.more ? `\n${t('details.moreLines', { count: snippet.more })}` : ''}
                 </pre>
               </section>
             ) : null}
@@ -52,7 +56,7 @@ export function DetailsPanel(): React.JSX.Element {
         ) : selection?.type === 'object' ? (
           <ObjectDetails objectKey={selection.key} compact />
         ) : (
-          <p className="text-sm text-ink-muted">Before you change something, select it here: a statement or a table shows where its data comes from and what depends on it.</p>
+          <p className="text-sm text-ink-muted">{t('details.emptyHint')}</p>
         )}
       </div>
       <AiPanel />
@@ -101,8 +105,6 @@ interface SuggestionView {
   statement: number | null
   check: CheckOutcome | null
 }
-
-const NOTES_PLACEHOLDER = 'For example: orders grows by about 10M rows a day. It must stay one statement. Prefer readability over speed.'
 
 /**
  * AI suggestions (optional, advisory). The context comes from the engine (`ai.buildContext`), never
@@ -220,7 +222,7 @@ function AiPanel(): React.JSX.Element {
     const statement = targetStatement(suggestion, (id) => Boolean(index?.byId.has(id)), run.scopeStatement)
     if (!suggestion.rewrittenSql) return { suggestion, statement, check: null }
     const s = statement !== null ? index?.byId.get(statement) : undefined
-    if (!s) return { suggestion, statement, check: { ok: false, message: 'Not checked: the suggestion does not name a statement of this script.' } }
+    if (!s) return { suggestion, statement, check: { ok: false, message: t('ai.notChecked.noStatement') } }
     const params: AiCheckParams = {
       dialect: run.params.dialect,
       original: sliceRange(run.text, s.range),
@@ -233,7 +235,7 @@ function AiPanel(): React.JSX.Element {
     return {
       suggestion,
       statement,
-      check: { ok: false, message: isNotAvailable(c.error) ? 'Not checked: ai.check is not available in this engine version.' : `Not checked: ${describeError(c.error)}` }
+      check: { ok: false, message: isNotAvailable(c.error) ? t('ai.notChecked.unavailable') : t('ai.notChecked.error', { reason: describeError(c.error) }) }
     }
   }
 
@@ -275,19 +277,19 @@ function AiPanel(): React.JSX.Element {
 
   return (
     <section className="shrink-0 border-t border-line">
-      <button type="button" className="flex h-9 w-full items-center gap-2 px-3 text-sm hover:bg-surface-hover" onClick={() => setOpen(!open)} aria-expanded={open}>
+      <button type="button" className="flex h-9 w-full items-center gap-2 overflow-hidden px-3 text-sm hover:bg-surface-hover" onClick={() => setOpen(!open)} aria-expanded={open}>
         {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
         <Sparkles size={14} className="text-ink-muted" />
-        <span className="shrink-0 font-medium whitespace-nowrap">AI suggestions</span>
-        <span className="ml-auto flex min-w-0 items-center gap-1 text-xs text-ink-muted" title={provider ? `${provider === 'ollama' ? 'Ollama' : 'OpenAI-compatible'} · ${settings?.ai[provider].model || 'no model chosen'}` : undefined}>
+        <span className="shrink-0 font-medium whitespace-nowrap">{t('ai.title')}</span>
+        <span className="ml-auto flex min-w-0 items-center gap-1 text-xs text-ink-muted" title={provider ? `${provider === 'ollama' ? 'Ollama' : t('ai.openaiCompatible')} · ${settings?.ai[provider].model || t('ai.noModel')}` : undefined}>
           {provider ? (
             <>
-              <span className="shrink-0">{provider === 'ollama' ? 'Ollama' : 'OpenAI-compatible'}</span>
+              <span className="min-w-0 truncate">{provider === 'ollama' ? 'Ollama' : t('ai.openaiCompatible')}</span>
               <span aria-hidden>·</span>
-              <span className={clsx('code truncate text-[12px]', settings?.ai[provider].model ? 'text-ink' : 'text-risk-high')}>{settings?.ai[provider].model || 'no model chosen'}</span>
+              <span className={clsx('code truncate text-[12px]', settings?.ai[provider].model ? 'text-ink' : 'text-risk-high')}>{settings?.ai[provider].model || t('ai.noModel')}</span>
             </>
           ) : (
-            'Off'
+            t('ai.off')
           )}
         </span>
       </button>
@@ -296,54 +298,54 @@ function AiPanel(): React.JSX.Element {
           <ProviderSwitch provider={provider} settings={settings} onSettings={() => openDialog('settings', 'ai')} />
           {!provider ? (
             <div className="text-ink-muted">
-              AI is off. Amber's analysis works without it. To get optimization ideas, set up a local Ollama model or an OpenAI-compatible API.
+              {t('ai.offText')}
               <div className="mt-2">
                 <Button size="sm" onClick={() => openDialog('settings', 'ai')}>
-                  Set up AI
+                  {t('ai.setUp')}
                 </Button>
               </div>
             </div>
           ) : !analysis || analysis.status === 'FAILED' ? (
-            <p className="text-ink-muted">Analyze a script first.</p>
+            <p className="text-ink-muted">{t('ai.analyzeFirst')}</p>
           ) : (
             <>
               <div className="flex items-center gap-2">
                 <Select
-                  label="Scope"
+                  label={t('ai.scope')}
                   value={scope}
                   onChange={(v) => setScope(v as 'statement' | 'script')}
                   options={[
-                    { value: 'statement', label: 'Selected statement' },
-                    { value: 'script', label: 'Whole script' }
+                    { value: 'statement', label: t('ai.scopeStatement') },
+                    { value: 'script', label: t('ai.scopeScript') }
                   ]}
                   className="w-44"
                 />
                 <Button size="sm" onClick={() => void buildContext()} disabled={busy || stale || (scope === 'statement' && !selectedStatement)}>
                   {phase.step === 'building' ? <Spinner size={12} /> : null}
-                  {phase.step === 'chat' ? 'New conversation' : 'Preview context'}
+                  {phase.step === 'chat' ? t('ai.newConversation') : t('ai.previewContext')}
                 </Button>
               </div>
-              {stale ? <p className="text-xs text-ink-muted">The script was edited since the last analysis. Analyze it again first.</p> : null}
-              {scope === 'statement' && !selectedStatement && !stale ? <p className="text-xs text-ink-muted">Select a statement, or choose the whole script.</p> : null}
+              {stale ? <p className="text-xs text-ink-muted">{t('ai.stale')}</p> : null}
+              {scope === 'statement' && !selectedStatement && !stale ? <p className="text-xs text-ink-muted">{t('ai.selectStatement')}</p> : null}
               {phase.step !== 'chat' ? (
                 <div>
                   <label htmlFor="ai-notes" className="mb-1 block text-xs font-medium text-ink">
-                    Your notes for the model (optional)
+                    {t('ai.notesLabel')}
                   </label>
                   <textarea
                     id="ai-notes"
                     rows={3}
                     value={notes}
-                    placeholder={NOTES_PLACEHOLDER}
+                    placeholder={t('ai.notesPlaceholder')}
                     onChange={(e) => doc && setNotesByDoc({ ...notesByDoc, [doc.token]: e.target.value })}
                     className="selectable w-full resize-y rounded-[5px] border border-line bg-surface px-2 py-1.5 text-[13px] leading-5 text-ink outline-none placeholder:text-ink-faint focus:border-amber"
                   />
-                  <p className="text-xs text-ink-muted">Data volumes, constraints or goals. They are masked like the rest of the context.</p>
+                  <p className="text-xs text-ink-muted">{t('ai.notesHint')}</p>
                 </div>
               ) : null}
               {phase.step === 'unavailable' ? (
-                <NotAvailable feature="AI context building">
-                  Amber sends a model only what its analysis extracted, built by the engine, so suggestions stay off until the engine supports it.
+                <NotAvailable feature={t('ai.unavailableFeature')}>
+                  {t('ai.unavailableText')}
                 </NotAvailable>
               ) : null}
               {phase.step === 'error' ? <p className="text-risk-high">{phase.message}</p> : null}
@@ -394,16 +396,14 @@ function Conversation({
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2 text-xs text-ink-muted">
-        <span className="rounded-[3px] border border-line px-1">AI-generated</span>
-        <span>
-          {rounds.length} {rounds.length === 1 ? 'round' : 'rounds'} · about {tokens.toLocaleString('en-US')} tokens in this conversation
-        </span>
+        <span className="rounded-[3px] border border-line px-1">{t('ai.aiGenerated')}</span>
+        <span>{t('ai.conversationStats', { rounds: rounds.length, tokens })}</span>
       </div>
       {rounds.map((r, i) => (
         <RoundView key={r.requestId} round={r} number={i + 1} latest={i === rounds.length - 1} mask={mask} index={index} />
       ))}
       {!busy ? <FollowUpBox mask={mask} onSend={onFollowUp} /> : null}
-      <p className="text-xs text-ink-muted">Amber never runs AI-generated SQL and never writes it into your file.</p>
+      <p className="text-xs text-ink-muted">{t('ai.neverRuns')}</p>
     </div>
   )
 }
@@ -416,26 +416,24 @@ function RoundView({ round, number, latest, mask, index }: { round: Round; numbe
     setWasLatest(latest)
     setExpanded(latest)
   }
-  const title = round.question ? `You: ${round.question}` : 'Suggestions for the context'
+  const title = round.question ? t('ai.roundYou', { question: round.question }) : t('ai.roundContext')
   const count = round.suggestions?.length
   return (
     <div className="rounded-[6px] border border-line">
       <button type="button" className="flex w-full items-center gap-2 px-2.5 py-1.5 text-left hover:bg-surface-hover" onClick={() => setExpanded(!expanded)} aria-expanded={expanded}>
         {expanded ? <ChevronDown size={13} className="shrink-0 text-ink-muted" /> : <ChevronRight size={13} className="shrink-0 text-ink-muted" />}
-        <span className="shrink-0 text-xs text-ink-muted">Round {number}</span>
+        <span className="shrink-0 text-xs text-ink-muted">{t('ai.round', { number })}</span>
         <span className="min-w-0 flex-1 truncate text-sm text-ink">{title}</span>
         {round.status === 'streaming' ? (
           <span className="flex shrink-0 items-center gap-1 text-xs text-ink-muted">
-            <Spinner size={11} /> Receiving
+            <Spinner size={11} /> {t('ai.receiving')}
           </span>
         ) : round.status === 'checking' ? (
           <span className="flex shrink-0 items-center gap-1 text-xs text-ink-muted">
-            <Spinner size={11} /> Checking
+            <Spinner size={11} /> {t('ai.checking')}
           </span>
         ) : count !== undefined ? (
-          <span className="shrink-0 text-xs text-ink-muted">
-            {count} {count === 1 ? 'suggestion' : 'suggestions'}
-          </span>
+          <span className="shrink-0 text-xs text-ink-muted">{t('ai.suggestionsCount', { count })}</span>
         ) : null}
       </button>
       {expanded ? (
@@ -443,7 +441,7 @@ function RoundView({ round, number, latest, mask, index }: { round: Round; numbe
           {round.status === 'streaming' ? (
             <div className="flex items-center gap-2 text-xs text-ink-muted">
               <button type="button" className="underline" onClick={() => void api().ai.cancel(round.requestId)}>
-                Cancel
+                {t('common.cancel')}
               </button>
             </div>
           ) : null}
@@ -452,15 +450,15 @@ function RoundView({ round, number, latest, mask, index }: { round: Round; numbe
             round.suggestions.length ? (
               round.suggestions.map((v, i) => <SuggestionCard key={i} view={v} mask={mask} index={index} />)
             ) : (
-              <p className="text-ink-muted">The model suggested no changes.</p>
+              <p className="text-ink-muted">{t('ai.noChanges')}</p>
             )
           ) : null}
           {round.status === 'done' && !round.suggestions ? (
-            <p className="text-xs text-ink-muted">The model did not answer with the expected JSON, so nothing could be checked.</p>
+            <p className="text-xs text-ink-muted">{t('ai.badJson')}</p>
           ) : null}
           {round.status === 'done' && round.suggestions ? (
             <details className="text-xs">
-              <summary className="cursor-default text-ink-muted hover:text-ink">Model response</summary>
+              <summary className="cursor-default text-ink-muted hover:text-ink">{t('ai.modelResponse')}</summary>
               <pre className="code selectable mt-1 max-h-60 overflow-auto rounded-[5px] border border-line bg-canvas p-2 text-[12.5px] whitespace-pre-wrap">
                 {unmaskText(round.answer, mask)}
               </pre>
@@ -484,12 +482,12 @@ function FollowUpBox({ mask, onSend }: { mask: Record<string, string>; onSend: (
 
   useEffect(() => {
     if (!masking || !trimmed) return
-    const t = setTimeout(() => {
+    const timer = setTimeout(() => {
       void api()
         .engine.call<{ text: string }>('ai.maskText', { text: trimmed, mask }, newRequestId('mask'))
         .then((r) => setMasked({ source: trimmed, text: r.ok ? r.value.text : trimmed }))
     }, 350)
-    return () => clearTimeout(t)
+    return () => clearTimeout(timer)
   }, [trimmed, mask, masking])
 
   const send = async (): Promise<void> => {
@@ -500,7 +498,7 @@ function FollowUpBox({ mask, onSend }: { mask: Record<string, string>; onSend: (
       const r = await api().engine.call<{ text: string }>('ai.maskText', { text: trimmed, mask }, newRequestId('mask'))
       setSending(false)
       if (!r.ok) {
-        useStore.getState().toast(`Could not mask the message, so it was not sent: ${describeError(r.error)}`, 'error')
+        useStore.getState().toast(t('ai.maskFailed', { reason: describeError(r.error) }), 'error')
         return
       }
       prompt = r.value.text
@@ -513,13 +511,13 @@ function FollowUpBox({ mask, onSend }: { mask: Record<string, string>; onSend: (
   return (
     <div>
       <label htmlFor="ai-followup" className="mb-1 block text-xs font-medium text-ink">
-        Follow up
+        {t('ai.followUp')}
       </label>
       <textarea
         id="ai-followup"
         rows={2}
         value={text}
-        placeholder="Add a remark or ask again, e.g. suggestion 2 is wrong: this column is nullable"
+        placeholder={t('ai.followUpPlaceholder')}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
           if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) {
@@ -531,12 +529,12 @@ function FollowUpBox({ mask, onSend }: { mask: Record<string, string>; onSend: (
       />
       {masking && trimmed && masked?.source === trimmed && masked.text !== trimmed ? (
         <p className="mt-0.5 text-xs text-ink-muted">
-          Sent as: <span className="code text-[12.5px] text-ink">{masked.text}</span>
+          {t('ai.sentAs')} <span className="code text-[12.5px] text-ink">{masked.text}</span>
         </p>
       ) : null}
       <div className="mt-1.5 flex items-center gap-2">
         <Button size="sm" variant="primary" disabled={!trimmed || sending} onClick={() => void send()}>
-          {sending ? <Spinner size={11} /> : null} Send
+          {sending ? <Spinner size={11} /> : null} {t('ai.send')}
         </Button>
         <span className="text-xs text-ink-faint">{navigator.userAgent.includes('Mac') ? '⌘' : 'Ctrl+'}Enter</span>
       </div>
@@ -567,28 +565,27 @@ function ContextPreview({
   return (
     <div className="space-y-2">
       <div className="text-xs text-ink-muted">
-        About {context.tokenEstimate.toLocaleString('en-US')} tokens will be sent to {endpoint}.
-        {masked ? ` ${masked} names and literals are masked; the mapping stays on this computer.` : ' Names are not masked.'}
+        {t('ai.preview.tokens', { tokens: context.tokenEstimate, endpoint })} {masked ? t('ai.preview.masked', { count: masked }) : t('ai.preview.notMasked')}
       </div>
       {context.trimmed.length ? (
         <div className="rounded-[5px] border border-dashed border-line-strong px-2 py-1.5 text-xs text-ink-muted">
-          Left out to fit the budget: {context.trimmed.join(', ')}
+          {t('ai.preview.trimmed', { items: context.trimmed.join(t('common.listSeparator')) })}
         </div>
       ) : null}
       <details className="text-xs">
-        <summary className="cursor-default text-ink-muted hover:text-ink">System message</summary>
+        <summary className="cursor-default text-ink-muted hover:text-ink">{t('ai.preview.system')}</summary>
         <pre className="code selectable mt-1 max-h-32 overflow-auto rounded-[5px] border border-line bg-canvas p-2 text-[12.5px] whitespace-pre-wrap">{context.system}</pre>
       </details>
       <pre className="code selectable max-h-48 overflow-auto rounded-[5px] border border-line bg-canvas p-2 text-[12.5px] whitespace-pre-wrap">{context.user}</pre>
       {external ? (
         <label className="flex items-center gap-2 text-xs">
           <input type="checkbox" checked={confirmed} onChange={(e) => onConfirm(e.target.checked)} className="accent-[var(--amber)]" />
-          I understand this content leaves my computer.
+          {t('ai.preview.confirm')}
         </label>
       ) : null}
-      {notesChanged ? <p className="text-xs text-ink-muted">Your notes changed. Preview the context again to include them.</p> : null}
+      {notesChanged ? <p className="text-xs text-ink-muted">{t('ai.preview.notesChanged')}</p> : null}
       <Button size="sm" variant="primary" disabled={(external && !confirmed) || notesChanged} onClick={onSend}>
-        Send
+        {t('ai.send')}
       </Button>
     </div>
   )
@@ -597,7 +594,7 @@ function ContextPreview({
 function SuggestionCard({ view, mask, index }: { view: SuggestionView; mask: Record<string, string>; index: AnalysisIndex | null }): React.JSX.Element {
   const markRange = useStore((s) => s.markRange)
   const { suggestion, check } = view
-  const text = (t: string | undefined): string | undefined => (t ? unmaskText(t, mask) : undefined)
+  const text = (value: string | undefined): string | undefined => (value ? unmaskText(value, mask) : undefined)
   const target = view.statement !== null ? index?.byId.get(view.statement) : undefined
   // ai.check restores the names with the dialect's lexer; fall back to a display-only restore.
   const sql = check?.ok ? check.result.sql : suggestion.rewrittenSql ? unmaskText(suggestion.rewrittenSql, mask) : null
@@ -605,7 +602,7 @@ function SuggestionCard({ view, mask, index }: { view: SuggestionView; mask: Rec
   return (
     <article className="space-y-2 rounded-[6px] border border-line p-2.5 text-xs">
       <div className="flex items-start gap-2">
-        <h4 className="min-w-0 flex-1 text-sm font-medium text-ink">{text(suggestion.title) ?? 'Suggestion'}</h4>
+        <h4 className="min-w-0 flex-1 text-sm font-medium text-ink">{text(suggestion.title) ?? t('ai.suggestion.fallbackTitle')}</h4>
         {label ? (
           <span
             className={clsx(
@@ -625,38 +622,35 @@ function SuggestionCard({ view, mask, index }: { view: SuggestionView; mask: Rec
           className="text-ink-muted hover:text-ink hover:underline"
           onClick={() => markRange({ from: target.range.start.offset, to: target.range.end.offset })}
         >
-          Statement {target.id + 1}, line {target.range.start.line}
+          {t('ai.suggestion.statementLine', { number: target.id + 1, line: target.range.start.line })}
         </button>
       ) : null}
       <dl className="grid grid-cols-[92px_1fr] gap-x-2 gap-y-1">
         {text(suggestion.rationale) ? (
           <>
-            <dt className="text-ink-muted">Rationale</dt>
+            <dt className="text-ink-muted">{t('ai.suggestion.rationale')}</dt>
             <dd className="selectable text-ink">{text(suggestion.rationale)}</dd>
           </>
         ) : null}
         {text(suggestion.expectedEffect) ? (
           <>
-            <dt className="text-ink-muted">Expected effect</dt>
+            <dt className="text-ink-muted">{t('ai.suggestion.expectedEffect')}</dt>
             <dd className="selectable text-ink">{text(suggestion.expectedEffect)}</dd>
           </>
         ) : null}
         {text(suggestion.risk) ? (
           <>
-            <dt className="text-ink-muted">Risk</dt>
+            <dt className="text-ink-muted">{t('ai.suggestion.risk')}</dt>
             <dd className="selectable text-ink">{text(suggestion.risk)}</dd>
           </>
         ) : null}
       </dl>
       {check?.ok && check.result.label === 'STRUCTURE_PRESERVED' ? (
-        <p className="text-ink-muted">
-          The parser found the same output columns, written objects, sources, grouping and column lineage. This is not proof that the results are the same; review
-          and test it.
-        </p>
+        <p className="text-ink-muted">{t('ai.suggestion.preservedNote')}</p>
       ) : null}
       {check?.ok && check.result.label === 'STRUCTURE_CHANGED' && check.result.differences.length ? (
         <div>
-          <div className="text-ink-muted">What changed</div>
+          <div className="text-ink-muted">{t('ai.suggestion.whatChanged')}</div>
           <ul className="mt-0.5 list-disc space-y-0.5 pl-4 text-ink">
             {check.result.differences.map((d, i) => (
               <li key={i} className="selectable">
@@ -670,8 +664,8 @@ function SuggestionCard({ view, mask, index }: { view: SuggestionView; mask: Rec
         <ul className="space-y-0.5 text-risk-high">
           {check.result.diagnostics.map((d, i) => (
             <li key={i} className="selectable" title={d.message}>
-              {d.range ? `Line ${d.range.start.line}, column ${d.range.start.column}: ` : ''}
-              {d.message.length > 160 && d.offending ? `unexpected '${d.offending}'` : d.message.length > 160 ? `${d.message.slice(0, 159)}…` : d.message}
+              {d.range ? t('ai.suggestion.diagPosition', { line: d.range.start.line, column: d.range.start.column }) : ''}
+              {d.message.length > 160 && d.offending ? t('ai.suggestion.unexpected', { token: d.offending }) : d.message.length > 160 ? `${d.message.slice(0, 159)}…` : d.message}
             </li>
           ))}
         </ul>
@@ -682,40 +676,12 @@ function SuggestionCard({ view, mask, index }: { view: SuggestionView; mask: Rec
   )
 }
 
-function CodeBlock({ code }: { code: string }): React.JSX.Element {
-  const [copied, setCopied] = useState(false)
-  useEffect(() => {
-    if (!copied) return
-    const t = setTimeout(() => setCopied(false), 1500)
-    return () => clearTimeout(t)
-  }, [copied])
-  return (
-    <div className="relative">
-      <pre className="code selectable max-h-60 overflow-auto rounded-[5px] border border-line bg-canvas p-2 pr-8 text-[12.5px] whitespace-pre-wrap text-ink">{code}</pre>
-      <button
-        type="button"
-        aria-label={copied ? 'Copied' : 'Copy SQL'}
-        title={copied ? 'Copied' : 'Copy SQL'}
-        className="absolute top-1.5 right-1.5 flex h-6 w-6 items-center justify-center rounded-[4px] text-ink-muted hover:bg-surface-hover hover:text-ink"
-        onClick={() => {
-          void navigator.clipboard.writeText(code).then(
-            () => setCopied(true),
-            () => useStore.getState().toast('Could not copy to the clipboard.', 'error')
-          )
-        }}
-      >
-        {copied ? <Check size={13} /> : <Copy size={13} />}
-      </button>
-    </div>
-  )
-}
-
 /** Whether a provider can be used right now, and why not. */
 function providerReadiness(settings: ReturnType<typeof useStore.getState>['settings'], p: AiProviderId): string | null {
-  if (!settings) return 'Settings are loading'
+  if (!settings) return t('ai.readiness.loading')
   const s = settings.ai[p]
-  if (!s.model) return 'No model chosen'
-  if (p === 'openai' && !s.hasApiKey) return 'No API key saved'
+  if (!s.model) return t('ai.readiness.noModel')
+  if (p === 'openai' && !s.hasApiKey) return t('ai.readiness.noKey')
   return null
 }
 
@@ -740,42 +706,34 @@ function ProviderSwitch({
   return (
     <div className="space-y-1.5 pt-1">
       <div className="flex items-center gap-2">
-        <span className="text-xs text-ink-muted">Provider</span>
-        <div role="radiogroup" aria-label="AI provider" className="inline-flex overflow-hidden rounded-[6px] border border-line">
-          {choices.map((c, i) => {
-            const active = provider === c.id
+        <span className="shrink-0 whitespace-nowrap text-xs text-ink-muted">{t('ai.provider')}</span>
+        {/* A dropdown: one provider at a time, each with its model and a dot telling whether it is set up. */}
+        <Select
+          label={t('ai.providerAria')}
+          value={provider ?? ''}
+          onChange={(id) => void api().settings.update({ activeAiProvider: id as AiProviderId })}
+          options={choices.map((c) => {
             const model = settings?.ai[c.id].model
             const notReady = providerReadiness(settings, c.id)
-            return (
-              <button
-                key={c.id}
-                type="button"
-                role="radio"
-                aria-checked={active}
-                title={notReady ? `${c.label}: ${notReady.toLowerCase()}` : `${c.label} · ${model}`}
-                onClick={() => void api().settings.update({ activeAiProvider: c.id })}
-                className={clsx(
-                  'flex items-center gap-1.5 px-2.5 py-1 text-xs',
-                  i > 0 && 'border-l border-line',
-                  active ? 'bg-amber-wash font-medium text-ink' : 'text-ink-muted hover:bg-surface-hover hover:text-ink'
-                )}
-              >
-                <span className={clsx('h-1.5 w-1.5 rounded-full', notReady ? 'bg-line' : 'bg-amber')} aria-hidden />
-                {c.label}
-                {model ? <span className="code max-w-[9rem] truncate text-[12px] text-ink-muted">{model}</span> : null}
-              </button>
-            )
+            return {
+              value: c.id,
+              label: model ? `${c.label} · ${model}` : c.label,
+              icon: <span className={clsx('inline-block h-1.5 w-1.5 shrink-0 rounded-full', notReady ? 'bg-line-strong' : 'bg-amber')} aria-hidden />
+            }
           })}
-        </div>
-        <button type="button" className="ml-auto text-xs text-ink-muted underline hover:text-ink" onClick={onSettings}>
-          Settings
+          className="h-7 min-w-0 flex-1 text-xs"
+        />
+        <button type="button" className="ml-auto shrink-0 whitespace-nowrap text-xs text-ink-muted underline hover:text-ink" onClick={onSettings}>
+          {t('ai.settings')}
         </button>
       </div>
       {provider && missing ? (
         <p className="text-xs text-risk-high">
-          {provider === 'ollama' ? 'Ollama' : 'OpenAI'}: {missing.toLowerCase()}.{' '}
+          {provider === 'ollama' ? 'Ollama' : 'OpenAI'}
+          {t('common.colon')}
+          {missing.toLocaleLowerCase(getLanguage())}.{' '}
           <button type="button" className="underline" onClick={onSettings}>
-            Set it up
+            {t('ai.setItUp')}
           </button>
         </p>
       ) : null}

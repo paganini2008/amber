@@ -42,6 +42,16 @@ public record ScriptParse(Dialect dialect, SourceText source, ParseOptions optio
         return all;
     }
 
+    /**
+     * The same parse without the ANTLR trees: status, units and diagnostics only. Trees take most of the
+     * memory of a parse (about 1 GB for a 100,000-line script), so a parse kept after the IR is built
+     * should be kept like this.
+     */
+    public ScriptParse withoutTrees() {
+        return new ScriptParse(dialect, source, options, units.stream().map(UnitParse::withoutTree).toList(), elapsed,
+                preprocessing);
+    }
+
     public long count(UnitStatus status) {
         return units.stream().filter(u -> u.status() == status).count();
     }

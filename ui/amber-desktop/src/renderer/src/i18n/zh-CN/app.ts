@@ -1,0 +1,197 @@
+import type { En } from '../en'
+
+export const app: En['app'] = {
+  views: {
+    label: '视图',
+    outline: '大纲',
+    lifecycle: '生命周期',
+    dataflow: '数据流',
+    lineage: '血缘',
+    er: 'ER 图',
+    statement: '语句',
+    structure: '结构',
+    playback: '执行回放',
+    diff: '变更影响'
+  },
+  themes: {
+    system: '跟随系统',
+    amberLight: 'Amber 浅色',
+    amberDark: 'Amber 深色',
+    resin: '树脂',
+    highContrast: '高对比度'
+  },
+  resize: {
+    outline: '调整大纲宽度',
+    editor: '调整编辑器高度',
+    details: '调整详情宽度'
+  },
+  analysis: {
+    analyze: '分析',
+    again: '重新分析',
+    analyzing: '正在分析',
+    analyzingFile: '正在分析 {name}',
+    didNotFinish: '分析未完成',
+    edited: '上次分析后已编辑'
+  },
+  start: {
+    title: '维护那些没人愿意碰的遗留 SQL',
+    lead: '打开一个几千行、由许多人写成、充满表、存储过程和临时表的脚本，看清它到底做了什么。不会执行任何语句。',
+    questionWhat: '这个脚本到底做了什么？',
+    questionBreaks: '如果修改这一列，会影响哪些地方？',
+    questionSafe: '这次修改安全吗？',
+    questionHandover: '要交接？导出一份交接文档。',
+    open: '打开脚本…',
+    paste: '粘贴 SQL…',
+    drop: '也可以把 .sql 文件拖到窗口任意位置。',
+    samples: '试试示例',
+    samplesLead: '每种数据库一个遗留风格的小脚本：临时表、存储过程、MERGE 和嵌套查询。',
+    recent: '最近打开'
+  },
+  drop: {
+    open: '打开脚本',
+    openHint: '替换当前打开的脚本',
+    compare: '与当前脚本比较',
+    compareHint: '拖入的文件作为新版本。这次修改安全吗？'
+  },
+  title: {
+    fileMenu: '文件',
+    noScript: '未打开脚本',
+    readable: '让脚本重新变得易读',
+    formatScript: '格式化脚本',
+    formatSelection: '格式化选中内容',
+    isSafe: '这次修改安全吗？',
+    compareSaved: '与已保存的文件比较',
+    compareOlder: '与旧版本比较…',
+    compareNewer: '与新版本比较…',
+    openSample: '打开示例',
+    clearRecent: '清除最近打开的文件',
+    about: '关于 Amber',
+    dialect: 'SQL 方言',
+    theme: '主题',
+    detailsPanel: '详情面板',
+    settings: '设置'
+  },
+  export: {
+    label: '导出',
+    currentStructure: '当前查询结构',
+    currentView: '当前的图、矩阵或血缘',
+    png: 'PNG（{scale}×）',
+    mermaidStructure: 'Mermaid（嵌套子图）',
+    mermaidLineage: 'Mermaid（血缘）',
+    mermaidObjects: 'Mermaid（对象级）',
+    json: '分析结果（JSON）',
+    handover: '给下一位维护者的交接文档',
+    preview: '预览…',
+    markdown: '另存为 Markdown…',
+    html: '另存为 HTML…'
+  },
+  files: {
+    svg: 'SVG 图像',
+    png: 'PNG 图像',
+    html: 'HTML 页面'
+  },
+  outline: {
+    title: '大纲',
+    steps: '{count, plural, other {# 步}}',
+    expandAll: '全部展开',
+    collapseAll: '全部折叠',
+    expand: '展开',
+    collapse: '折叠',
+    noStatements: '没有语句。',
+    openScript: '打开脚本以查看其中的语句。',
+    statements: '语句',
+    findings: '{count, plural, other {# 个发现项}}'
+  },
+  status: {
+    error: '错误',
+    warning: '警告',
+    findings: '发现项',
+    metadata: '元数据',
+    references: '引用',
+    suggestedFixes: '建议：优化后的 SQL 和快速修复',
+    fixes: '建议',
+    syntax: '语法',
+    syntaxProblems: '语法问题',
+    formatReport: '格式化报告',
+    keptAsWritten: '保持原样',
+    findingsUnavailable: '此引擎版本不提供发现项。',
+    notAvailable: '此引擎版本不可用',
+    noFindings: '没有发现项。Amber 的规则在此脚本中没有发现风险。',
+    noSyntaxProblems: '没有语法问题。',
+    possible: '可能：',
+    metadataTitle: '分析所用的元数据',
+    parse: '解析：{state, select, failed {失败} partial {容错，部分} complete {允许容错，完整} other {严格 ✓}}',
+    lines: '{count, plural, other {# 行}}',
+    engine: '引擎 {version}',
+    engineStopped: '引擎已停止',
+    engineRestarting: '引擎正在重启',
+    engineStarting: '引擎正在启动',
+    restart: '重启'
+  },
+  error: {
+    title: '{name} 无法在严格模式下解析',
+    lead: '{count, plural, other {# 个语法错误}}导致分析中止。请确认方言是否正确，修正脚本，或使用容错模式分析：无法解析的语句将保留为未解析块并标记为部分解析。',
+    withFallback: '使用容错模式分析',
+    unexpected: '意外的“{token}”',
+    lineColumn: '第 {line} 行，第 {column} 列',
+    expected: '应为 {tokens}'
+  },
+  partial: {
+    banner: '已使用容错模式解析。{partial, plural, other {# 条语句}}只被部分理解，以淡色显示；问题面板中有 {errors, plural, other {# 个语法错误}}。'
+  },
+  format: {
+    nothing: '上次格式化没有需要报告的内容。',
+    explain: '当格式化器无法证明新布局的词法单元完全相同时（例如未闭合的字符串附近），会把该语句保持原样。',
+    alreadyDone: '已经格式化，无需更改。',
+    selectionDone: '所选语句已经格式化。',
+    script: '已格式化脚本',
+    statements: '已格式化 {count, plural, other {# 条语句}}',
+    kept: '{count} 条保持原样'
+  },
+  compare: {
+    saved: '{name}（已保存）',
+    edited: '{name}（已编辑）'
+  },
+  errors: {
+    notAvailable: '此引擎版本不支持该功能。',
+    cancelled: '已取消。',
+    engineNotRunning: '引擎未运行。',
+    engineError: '引擎报告了一个错误。'
+  },
+  toast: {
+    dismiss: '关闭',
+    show: '查看',
+    checkChange: '检查此修改',
+    openBeforeCompare: '请先打开脚本，再与另一个版本比较。',
+    analyzeFirst: '请先打开并分析一个脚本。',
+    updateAvailable: 'Amber {version} 已发布。请查看“设置 → 更新”。',
+    openFailed: '无法打开文件：{reason}',
+    openPathFailed: '无法打开 {path}：{reason}',
+    saved: '已保存 {file}',
+    pickColumn: '请先在血缘视图中选择一列。',
+    pickStructure: '请先选择一条具有查询结构的语句。',
+    pngFailed: '无法生成 PNG：{reason}',
+    noHandover: '此引擎版本无法生成交接文档。',
+    handoverFailed: '无法生成交接文档：{reason}',
+    noFileOnDisk: '此脚本没有对应的磁盘文件。请用“与…比较”选择另一个版本。',
+    savedReadFailed: '无法读取已保存的文件：{reason}',
+    noChanges: '自打开或保存以来没有修改。',
+    readFailed: '无法读取 {name}：{reason}',
+    summaryCopied: '变更摘要已复制为 Markdown。',
+    referencesFailed: '无法查找引用。',
+    definedOutside: '{name} 定义在此脚本之外。',
+    notFound: '在此脚本中没有找到名为 {name} 的对象。',
+    noFormat: '此引擎版本暂不支持格式化脚本。',
+    formatFailed: '无法格式化：{reason}',
+    changedWhileFormatting: '格式化期间脚本发生了变化。请重新格式化。',
+    fixesStale: '自给出这些修复建议后脚本已更改。请重新分析以刷新。',
+    fixesOverlap: '这些修复相互重叠。请逐个应用。',
+    appliedOne: '已应用“{title}”',
+    appliedMany: '已应用 {count, plural, other {# 个修复}}',
+    applied: '已应用',
+    appliedUnsaved: '{label}。保存之前，磁盘上的文件保持不变。',
+    noCompare: '此引擎版本暂不支持比较脚本。',
+    compareFailed: '比较未完成。',
+    metadataFailed: '无法读取元数据。'
+  }
+}

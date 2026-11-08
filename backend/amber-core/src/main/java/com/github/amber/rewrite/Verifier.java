@@ -1,5 +1,6 @@
 package com.github.amber.rewrite;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.ai.AiCheck;
 import com.github.amber.core.Dialect;
 import com.github.amber.core.ir.Script;
@@ -47,8 +48,42 @@ final class Verifier {
         this.originalDiagnostics = originalDiagnostics;
     }
 
-    /** The outcome, or null when the rewrite must be dropped. */
+    /**
+     * The outcome, or null when the rewrite must be dropped. The check runs in English so that the rule's
+     * {@link Candidate#expectedDifferences()} prefixes match; the differences shown are then those of the
+     * request's language.
+     */
     Outcome verify(RewriteContext ctx, Candidate c) {
+        Messages shown = Messages.current();
+        Checked checked;
+        try {
+            checked = Messages.call(Messages.en(), () -> check(ctx, c));
+        } catch (RuntimeException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalStateException(e);       // unreachable: check throws no checked exceptions
+        }
+        if (checked == null) {
+            return null;
+        }
+        AiCheck.Result r = checked.result();
+        if (r.label() == AiCheck.Label.STRUCTURE_CHANGED && c.safety() != Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES
+                && !r.differences().stream().allMatch(d -> c.expectedDifferences().stream().anyMatch(d::startsWith))) {
+            return null;                            // declared equivalent, but the structure moved: do not offer it
+        }
+        List<String> differences = r.differences();
+        if (!differences.isEmpty() && !shown.isEnglish()) {
+            differences = AiCheck.check(dialect, checked.before(), checked.after(), Map.of(), checked.catalog())
+                    .differences();                 // same comparison, worded in the request's language
+        }
+        return new Outcome(checked.rewritten(), r.label().name(), differences);
+    }
+
+    /** The check that decided, with the texts and catalog it compared. */
+    private record Checked(String rewritten, AiCheck.Result result, String before, String after, Catalog catalog) {
+    }
+
+    private Checked check(RewriteContext ctx, Candidate c) {
         int start = ctx.statement().range().start().offset();
         String original = text.substring(start, ctx.statement().range().end().offset());
         String rewritten;
@@ -58,25 +93,25 @@ final class Verifier {
             return null;
         }
         AiCheck.Result r = AiCheck.check(dialect, original, rewritten, Map.of(), scriptCatalog);
-        if (r.label() == AiCheck.Label.INVALID_SQL) {
-            if (parsesAlone(original)) {
-                return null;                        // the edits broke a statement that parses on its own
-            }
-            String plainOriginal = standalone(original);
-            if (plainOriginal != null && parsesAlone(plainOriginal)) {
-                r = AiCheck.check(dialect, plainOriginal, standalone(rewritten), Map.of(), scriptCatalog);
-            } else {
-                r = inScript(c);
-            }
-            if (r == null || r.label() == AiCheck.Label.INVALID_SQL) {
-                return null;
-            }
+        if (r.label() != AiCheck.Label.INVALID_SQL) {
+            return new Checked(rewritten, r, original, rewritten, scriptCatalog);
         }
-        if (r.label() == AiCheck.Label.STRUCTURE_CHANGED && c.safety() != Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES
-                && !r.differences().stream().allMatch(d -> c.expectedDifferences().stream().anyMatch(d::startsWith))) {
-            return null;                            // declared equivalent, but the structure moved: do not offer it
+        if (parsesAlone(original)) {
+            return null;                            // the edits broke a statement that parses on its own
         }
-        return new Outcome(rewritten, r.label().name(), r.differences());
+        String plainOriginal = standalone(original);
+        if (plainOriginal != null && parsesAlone(plainOriginal)) {
+            String plainRewritten = standalone(rewritten);
+            r = AiCheck.check(dialect, plainOriginal, plainRewritten, Map.of(), scriptCatalog);
+            return r.label() == AiCheck.Label.INVALID_SQL ? null
+                    : new Checked(rewritten, r, plainOriginal, plainRewritten, scriptCatalog);
+        }
+        String script = inScript(c);
+        if (script == null) {
+            return null;
+        }
+        r = AiCheck.check(dialect, text, script, Map.of(), base);
+        return r.label() == AiCheck.Label.INVALID_SQL ? null : new Checked(rewritten, r, text, script, base);
     }
 
     private boolean parsesAlone(String statement) {
@@ -117,8 +152,8 @@ final class Verifier {
         return sb.toString();
     }
 
-    /** Checks the rewrite inside the whole script; null when the script no longer parses cleanly. */
-    private AiCheck.Result inScript(Candidate c) {
+    /** The whole script with the rewrite applied, or null when it no longer parses cleanly. */
+    private String inScript(Candidate c) {
         String script = RewriteSuggester.apply(text, c.edits());
         ScriptParse p = frontend.parse(SourceText.of(script), ParseOptions.STRICT);
         if (p.status() != ScriptStatus.SUCCESS) {
@@ -128,7 +163,6 @@ final class Verifier {
         if (p.diagnostics().size() + s.diagnostics().size() > originalDiagnostics) {
             return null;
         }
-        AiCheck.Result r = AiCheck.check(dialect, text, script, Map.of(), base);
-        return r.label() == AiCheck.Label.INVALID_SQL ? null : r;
+        return script;
     }
 }

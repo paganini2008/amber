@@ -18,7 +18,7 @@ final class OracleLineageRules {
     /** PL/SQL: {@code v := expr}, {@code SELECT … [BULK COLLECT] INTO}, {@code FETCH c INTO}; every block is a scope. */
     private static final VariableRules VARIABLES = new VariableRules(Set.of("parameter"), Set.of("variable_declaration"),
             Set.of("assignment_statement"), Set.of("into_clause"), Set.of("fetch_statement"), true, true,
-            VariableRules.AtNames.NONE);
+            VariableRules.AtNames.NONE, Set.of("return_statement"), Set.of("cursor_loop_param"));
 
     static final LineageRules INSTANCE = new LineageRules(
             Set.of("query_block"),
@@ -52,6 +52,11 @@ final class OracleLineageRules {
                 @Override
                 public VariableRules variables() {
                     return VARIABLES;
+                }
+
+                @Override
+                public Set<String> returningClauses() {
+                    return Set.of("static_returning_clause");
                 }
             });
 

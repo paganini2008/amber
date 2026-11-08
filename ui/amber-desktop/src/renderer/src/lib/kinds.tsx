@@ -26,6 +26,7 @@ import {
   Wrench,
   type LucideIcon
 } from 'lucide-react'
+import { tOr } from '../i18n'
 
 const BY_KIND: Record<string, LucideIcon> = {
   SELECT: ScanSearch,
@@ -80,9 +81,59 @@ export function KindIcon({ kind, size = 14, className }: { kind: string; size?: 
   return <Icon size={size} strokeWidth={1.75} className={className} aria-hidden />
 }
 
+const humanize = (value: string): string => {
+  const lower = value.replace(/_/g, ' ').toLowerCase()
+  return lower.charAt(0).toUpperCase() + lower.slice(1)
+}
+
+/** Statement kind in the UI language, e.g. "Create procedure"; unknown kinds are humanized. */
 export function kindText(kind: string): string {
-  const t = kind.replace(/_/g, ' ').toLowerCase()
-  return t.charAt(0).toUpperCase() + t.slice(1)
+  return tOr(`kinds.statement.${kind}`, humanize(kind))
+}
+
+/** Statement category (QUERY, DML, …). */
+export function categoryText(category: string): string {
+  return tOr(`kinds.category.${category}`, humanize(category))
+}
+
+/** Object kind, capitalized ("Table") or for running text ("table"). */
+export function objectKindText(kind: string, lower = false): string {
+  return lower ? tOr(`kinds.objectLower.${kind}`, kind.replace(/_/g, ' ').toLowerCase()) : tOr(`kinds.object.${kind}`, humanize(kind))
+}
+
+/** Access name ("Read", "Insert"), or as a heading verb ("Inserts into"). */
+export function accessText(access: string, verb = false): string {
+  return verb ? tOr(`kinds.accessVerb.${access}`, humanize(access)) : tOr(`kinds.access.${access}`, humanize(access))
+}
+
+/** Object role in the script, lower case ("source", "target"). */
+export function roleText(role: string): string {
+  return tOr(`kinds.role.${role}`, role.toLowerCase())
+}
+
+export function severityText(severity: string): string {
+  return tOr(`kinds.severity.${severity}`, humanize(severity))
+}
+
+export function dialectName(dialect: string): string {
+  return tOr(`kinds.dialect.${dialect}`, dialect)
+}
+
+/**
+ * A finding's title and suggestion, and a rule's description. The engine writes them in the UI language
+ * (`locale` goes with every call), so its text is used as is; the catalog in i18n/findings is the same
+ * wording, kept for rule titles shown without an engine answer (e.g. the "why" of an optimized statement).
+ */
+export function findingTitle(f: { rule: string; title: string }): string {
+  return f.title || tOr(`findings.rules.${f.rule}.title`, f.rule)
+}
+
+export function findingSuggestion(f: { rule: string; suggestion: string | null }): string | null {
+  return f.suggestion
+}
+
+export function ruleDescription(rule: { id: string; description: string }): string {
+  return rule.description || tOr(`findings.rules.${rule.id}.description`, '')
 }
 
 export function isMuted(confidence: string): boolean {
@@ -90,16 +141,5 @@ export function isMuted(confidence: string): boolean {
 }
 
 export function confidenceText(confidence: string): string {
-  switch (confidence) {
-    case 'CERTAIN':
-      return 'Certain'
-    case 'INFERRED':
-      return 'Inferred'
-    case 'PARTIAL':
-      return 'Partially parsed'
-    case 'UNRESOLVED':
-      return 'Unresolved'
-    default:
-      return confidence
-  }
+  return tOr(`kinds.confidence.${confidence}`, confidence)
 }

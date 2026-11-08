@@ -1,4 +1,6 @@
 import type { ColumnChange, DiffReason, DiffResult, PairStatus, Range, StatementPair } from '@shared/protocol'
+import { getLanguage, t, tOr } from '../i18n'
+import { findingTitle } from './kinds'
 
 /**
  * Change impact between two versions of a script (`diff`): ordering, grouping and the Markdown
@@ -21,16 +23,8 @@ export function sortReasons(reasons: DiffReason[]): DiffReason[] {
 }
 
 export function riskText(risk: string): string {
-  switch (risk) {
-    case 'HIGH':
-      return 'High risk'
-    case 'MEDIUM':
-      return 'Medium risk'
-    case 'LOW':
-      return 'Low risk'
-    default:
-      return risk ? `${risk.charAt(0)}${risk.slice(1).toLowerCase()} risk` : 'Unknown risk'
-  }
+  if (!risk) return t('diff.risk.unknown')
+  return tOr(`diff.risk.${risk}`, t('diff.risk.other', { level: `${risk.charAt(0)}${risk.slice(1).toLowerCase()}` }))
 }
 
 /** One written column with every change the engine reported for it (sources and transform). */
@@ -124,37 +118,29 @@ export function pairFor(pairs: StatementPair[], before: number | null, after: nu
   return found
 }
 
-export const STATUS_LABEL: Record<string, string> = {
-  UNCHANGED: 'Unchanged',
-  FORMAT_ONLY: 'Formatting only',
-  MODIFIED: 'Modified',
-  ADDED: 'Added',
-  REMOVED: 'Removed',
-  MOVED: 'Moved'
-}
-
+/** A statement pair's status ("Modified", "Formatting only"); unknown values as the engine wrote them. */
 export function statusLabel(status: PairStatus): string {
-  return STATUS_LABEL[status] ?? status
+  return tOr(`diff.status.${status}`, status)
 }
 
 /** "2 modified, 1 added, 1 formatting only" (unchanged left out unless it is all there is). */
 export function countsText(c: DiffResult['summary']['statements']): string {
   const parts: string[] = []
-  if (c.modified) parts.push(`${c.modified} modified`)
-  if (c.added) parts.push(`${c.added} added`)
-  if (c.removed) parts.push(`${c.removed} removed`)
-  if (c.moved) parts.push(`${c.moved} moved`)
-  if (c.formatOnly) parts.push(`${c.formatOnly} formatting only`)
-  if (c.unchanged) parts.push(`${c.unchanged} unchanged`)
-  return parts.join(', ') || 'no statements'
+  if (c.modified) parts.push(t('diff.counts.modified', { count: c.modified }))
+  if (c.added) parts.push(t('diff.counts.added', { count: c.added }))
+  if (c.removed) parts.push(t('diff.counts.removed', { count: c.removed }))
+  if (c.moved) parts.push(t('diff.counts.moved', { count: c.moved }))
+  if (c.formatOnly) parts.push(t('diff.counts.formatOnly', { count: c.formatOnly }))
+  if (c.unchanged) parts.push(t('diff.counts.unchanged', { count: c.unchanged }))
+  return parts.join(t('common.listSeparator')) || t('diff.counts.none')
 }
 
 export function lineText(before: Range | null, after: Range | null): string {
-  const b = before ? `line ${before.start.line}` : null
-  const a = after ? `line ${after.start.line}` : null
-  if (b && a) return before!.start.line === after!.start.line ? `line ${before!.start.line}` : `line ${before!.start.line} → ${after!.start.line}`
-  if (a) return `new ${a}`
-  if (b) return `old ${b}`
+  if (before && after) {
+    return before.start.line === after.start.line ? t('diff.line', { line: before.start.line }) : t('diff.lineMoved', { from: before.start.line, to: after.start.line })
+  }
+  if (after) return t('diff.newLine', { line: after.start.line })
+  if (before) return t('diff.oldLine', { line: before.start.line })
   return ''
 }
 
@@ -166,11 +152,11 @@ function cell(text: string): string {
 export function diffMarkdown(result: DiffResult): string {
   const s = result.summary
   const lines: string[] = []
-  lines.push(`## Change impact: ${riskText(s.risk).toLowerCase()}`, '')
-  lines.push(`Compared \`${result.before.name}\` with \`${result.after.name}\`: ${countsText(s.statements)}.`, '')
+  lines.push(t('diff.markdown.heading', { risk: riskText(s.risk).toLocaleLowerCase(getLanguage()) }), '')
+  lines.push(t('diff.markdown.compared', { before: result.before.name, after: result.after.name, counts: countsText(s.statements) }), '')
   const reasons = sortReasons(s.reasons)
   if (reasons.length) {
-    lines.push('### Why', '')
+    lines.push(t('diff.markdown.why'), '')
     for (const r of reasons) {
       const where = lineText(r.beforeRange, r.afterRange)
       lines.push(`- **${r.level}** ${r.message}${where ? ` (${where})` : ''}`)
@@ -179,30 +165,30 @@ export function diffMarkdown(result: DiffResult): string {
   }
   const cols = columnRows(result.lineage?.columns ?? [])
   if (cols.length) {
-    lines.push('### Column lineage', '', '| Column | Before | After |', '| --- | --- | --- |')
+    lines.push(t('diff.markdown.columns'), '', t('diff.markdown.columnHeader'), '| --- | --- | --- |')
     for (const c of cols) {
-      const tf = sameList(c.beforeTransforms, c.afterTransforms) ? '' : ` (${c.beforeTransforms.join(', ') || 'none'} → ${c.afterTransforms.join(', ') || 'none'})`
+      const tf = sameList(c.beforeTransforms, c.afterTransforms) ? '' : ` (${c.beforeTransforms.join(', ') || t('diff.markdown.none')} → ${c.afterTransforms.join(', ') || t('diff.markdown.none')})`
       lines.push(`| ${cell(`${c.target}.${c.column}`)} | ${cell(c.before.join(', ') || '—')} | ${cell((c.after.join(', ') || '—') + tf)} |`)
     }
     lines.push('')
   }
   const indirect = result.lineage?.indirect ?? []
   if (indirect.length) {
-    lines.push('### Filters, joins and grouping', '')
+    lines.push(t('diff.markdown.indirect'), '')
     for (const i of indirect) lines.push(`- ${i.message}`)
     lines.push('')
   }
   const findings = result.findings ?? []
   if (findings.length) {
-    lines.push('### Findings', '')
-    for (const f of findings) lines.push(`- ${f.change === 'NEW' ? 'New' : 'Resolved'} ${f.severity} ${f.rule}: ${f.title}`)
+    lines.push(t('diff.markdown.findings'), '')
+    for (const f of findings) lines.push(`- ${f.change === 'NEW' ? t('diff.markdown.findingNew') : t('diff.markdown.findingResolved')} ${f.severity} ${f.rule}: ${findingTitle(f)}`)
     lines.push('')
   }
   if (s.notes?.length) {
     for (const n of s.notes) lines.push(`> ${n}`)
     lines.push('')
   }
-  lines.push('_From a static comparison by Amber. Nothing was executed; review and test before release._')
+  lines.push(t('diff.markdown.footer'))
   return lines.join('\n') + '\n'
 }
 

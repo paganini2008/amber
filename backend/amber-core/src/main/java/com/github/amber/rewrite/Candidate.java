@@ -26,6 +26,6 @@ record Candidate(String rule, String title, String explanation, List<Edit> edits
     }
 
     int firstOffset() {
-        return edits.getFirst().start();
+        return edits.get(0).start();
     }
 }

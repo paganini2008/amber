@@ -12,6 +12,11 @@
     "src/main/**/*",
     "src/preload/**/*",
     "src/shared/**/*",
+    "src/renderer/src/i18n/core.ts",
+    "src/renderer/src/i18n/catalog.ts",
+    "src/renderer/src/i18n/en/**/*",
+    "src/renderer/src/i18n/zh-CN/**/*",
+    "src/renderer/src/i18n/es/**/*",
     "test/**/*",
     "scripts/**/*.ts"
   ]

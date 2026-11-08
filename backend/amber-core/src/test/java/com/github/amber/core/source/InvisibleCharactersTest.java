@@ -27,7 +27,7 @@ class InvisibleCharactersTest {
         assertEquals(SCRIPT.length(), r.text().length());
         assertEquals("select a from t;\n select b  from u;\n select c from v;\n ", r.text());
         assertEquals(6, r.warnings().size());
-        Diagnostic nbsp = r.warnings().getFirst();
+        Diagnostic nbsp = r.warnings().get(0);
         assertEquals(1, nbsp.range().start().line());
         assertEquals(7, nbsp.range().start().column());
         assertTrue(nbsp.message().startsWith("1 no-break space treated as whitespace"));

@@ -6,6 +6,7 @@ import oracleLibrary from './oracle-library.sql?raw'
 import postgresqlNightly from './postgresql-nightly.sql?raw'
 import sqliteFitness from './sqlite-fitness.sql?raw'
 import sqlserverInventory from './sqlserver-inventory.sql?raw'
+import { tOr } from '../i18n'
 
 export interface Sample {
   /** File name shown for the opened document. */
@@ -13,7 +14,9 @@ export interface Sample {
   dialect: string
   /** Database name, shown first. */
   database: string
+  /** English card label; the UI shows sampleLabel() in the current language. */
   label: string
+  /** English feature note (tooltip); the UI shows sampleNote(). */
   note: string
   text: string
 }
@@ -85,3 +88,13 @@ export const SAMPLES: Sample[] = [
     text: sqliteFitness
   }
 ]
+
+/** The card label in the UI language. */
+export function sampleLabel(s: Sample): string {
+  return tOr(`samples.${s.dialect}.label`, s.label)
+}
+
+/** The feature note in the UI language (SQL keywords stay as written). */
+export function sampleNote(s: Sample): string {
+  return tOr(`samples.${s.dialect}.note`, s.note)
+}

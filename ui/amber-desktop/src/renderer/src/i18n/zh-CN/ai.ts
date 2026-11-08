@@ -1,0 +1,82 @@
+import type { En } from '../en'
+
+export const ai: En['ai'] = {
+  title: 'AI 建议',
+  openaiCompatible: '兼容 OpenAI',
+  noModel: '未选择模型',
+  off: '关闭',
+  offText: 'AI 已关闭。Amber 的分析不依赖 AI。如需获得优化思路，请设置本地 Ollama 模型或兼容 OpenAI 的 API。',
+  setUp: '设置 AI',
+  analyzeFirst: '请先分析一个脚本。',
+  scope: '范围',
+  scopeStatement: '所选语句',
+  scopeScript: '整个脚本',
+  newConversation: '新对话',
+  previewContext: '预览上下文',
+  stale: '脚本在上次分析后已被修改。请先重新分析。',
+  selectStatement: '请选择一条语句，或选择整个脚本。',
+  notesLabel: '给模型的备注（可选）',
+  notesPlaceholder: '例如：orders 每天增长约 1000 万行。必须保持为一条语句。可读性优先于速度。',
+  notesHint: '数据量、约束或目标。它们会像上下文的其余部分一样被脱敏。',
+  unavailableFeature: 'AI 上下文构建',
+  unavailableText: 'Amber 只向模型发送由引擎构建的分析结果，因此在引擎支持之前，建议功能保持关闭。',
+  aiGenerated: 'AI 生成',
+  conversationStats: '{rounds, plural, other {# 轮}} · 本次对话约 {tokens, number} 个 token',
+  neverRuns: 'Amber 从不运行 AI 生成的 SQL，也从不把它写入你的文件。',
+  roundYou: '你：{question}',
+  roundContext: '针对上下文的建议',
+  round: '第 {number} 轮',
+  receiving: '接收中',
+  checking: '检查中',
+  suggestionsCount: '{count, plural, other {# 条建议}}',
+  noChanges: '模型没有建议任何修改。',
+  badJson: '模型没有按预期的 JSON 格式回答，因此无法检查。',
+  modelResponse: '模型回复',
+  followUp: '继续提问',
+  followUpPlaceholder: '补充说明或再次提问，例如：第 2 条建议有误，这一列可以为空',
+  sentAs: '实际发送：',
+  send: '发送',
+  maskFailed: '无法对消息脱敏，因此没有发送：{reason}',
+  preview: {
+    tokens: '约 {tokens, number} 个 token 将发送到 {endpoint}。',
+    masked: '{count, plural, other {# 个名称和字面量已脱敏}}，映射关系只保存在本机。',
+    notMasked: '名称未脱敏。',
+    trimmed: '为控制在预算内而省略：{items}',
+    system: '系统消息',
+    confirm: '我了解这些内容会离开我的电脑。',
+    notesChanged: '备注已更改。请重新预览上下文以包含它们。'
+  },
+  suggestion: {
+    fallbackTitle: '建议',
+    statementLine: '第 {number} 条语句，第 {line} 行',
+    rationale: '理由',
+    expectedEffect: '预期效果',
+    risk: '风险',
+    preservedNote: '解析器发现输出列、写入对象、数据源、分组和列血缘都相同。这并不能证明结果相同，请审阅并测试。',
+    whatChanged: '变化内容',
+    diagPosition: '第 {line} 行，第 {column} 列：',
+    unexpected: '意外的“{token}”',
+    copySql: '复制 SQL',
+    copyFailed: '无法复制到剪贴板。'
+  },
+  notChecked: {
+    noStatement: '未检查：建议中没有指明本脚本的语句。',
+    unavailable: '未检查：当前引擎版本不支持 ai.check。',
+    error: '未检查：{reason}'
+  },
+  readiness: {
+    loading: '正在加载设置',
+    noModel: '未选择模型',
+    noKey: '未保存 API 密钥'
+  },
+  provider: '服务商',
+  providerAria: 'AI 服务商',
+  settings: '设置',
+  setItUp: '去设置',
+  check: {
+    STRUCTURE_PRESERVED: '结构保持不变',
+    STRUCTURE_CHANGED: '结构已改变',
+    INVALID_SQL: 'SQL 无效',
+    none: '未检查'
+  }
+}

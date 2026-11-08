@@ -106,7 +106,7 @@ class RewritePostgreSqlTest {
         assertEquals(Safety.EQUIVALENT_WITH_METADATA, s004.safety());
         List<Rewrite> s008s = RewriteTestSupport.of(list, "AMB-S008");
         assertEquals(2, s008s.size());
-        Rewrite s008 = s008s.getFirst();
+        Rewrite s008 = s008s.get(0);
         assertEquals("update events set kind = 'old' where happened_at < date '2020-01-01'", s008.rewrittenStatement());
         // SELECT … INTO STRICT only parses inside the function: verified within the whole rewritten script
         Rewrite strict = s008s.get(1);

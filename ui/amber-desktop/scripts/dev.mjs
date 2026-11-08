@@ -3,7 +3,7 @@
 // development. node_modules is never modified; packaged builds are branded by electron-builder instead.
 // Extra arguments are passed to electron-vite (e.g. `npm run dev -- --remoteDebuggingPort 9333`).
 import { execFileSync, spawn } from 'node:child_process'
-import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import { cpSync, existsSync, mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
@@ -16,7 +16,9 @@ function brandedApp() {
   const png = join(root, 'build', 'icon.png')
   const target = join(root, '.dev', 'Amber.app')
   const stamp = join(root, '.dev', 'electron-version')
-  const version = JSON.parse(readFileSync(join(root, 'node_modules', 'electron', 'package.json'), 'utf8')).version
+  // Rebuild when Electron or the icon changes.
+  const electronVersion = JSON.parse(readFileSync(join(root, 'node_modules', 'electron', 'package.json'), 'utf8')).version
+  const version = existsSync(png) ? `${electronVersion} icon:${statSync(png).size}:${statSync(png).mtimeMs}` : electronVersion
   const executable = join(target, 'Contents', 'MacOS', 'Electron')
   if (existsSync(executable) && existsSync(stamp) && readFileSync(stamp, 'utf8') === version) return executable
   if (!existsSync(source) || !existsSync(png)) return null

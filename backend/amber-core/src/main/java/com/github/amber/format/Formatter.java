@@ -118,7 +118,8 @@ public final class Formatter {
             int lineStart = lineStart(text, p.start);
             boolean startsLine = text.substring(lineStart, p.start).isBlank();
             String prefix = !whole && startsLine ? text.substring(lineStart, p.start) : "";
-            int startColumn = whole && startsLine ? 0 : p.start - lineStart;
+            // assemble() puts a line break before a unit that directly follows a formatted one on the same line
+            int startColumn = whole && (startsLine || breakInserted(text, pieces)) ? 0 : p.start - lineStart;
             try {
                 String reason = formatUnit(dialect, p, opts, lineSeparator, prefix, startColumn);
                 if (reason != null) {
@@ -287,6 +288,19 @@ public final class Formatter {
             }
         }
         return after.size() == pieces.size() ? -1 : count;
+    }
+
+    /**
+     * Whether {@link #assemble} will start the last piece on a new line although it follows the previous
+     * one on the same line: the previous piece is formatted and only blanks lie between them.
+     */
+    private static boolean breakInserted(String text, List<Piece> pieces) {
+        if (pieces.size() < 2) {
+            return false;
+        }
+        Piece prev = pieces.get(pieces.size() - 2);
+        Piece cur = pieces.get(pieces.size() - 1);
+        return prev.formatted != null && text.substring(prev.end, cur.start).isBlank();
     }
 
     private static boolean overlaps(Piece p, int start, int end) {

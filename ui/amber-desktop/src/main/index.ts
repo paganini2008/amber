@@ -5,6 +5,7 @@ import { resolveTheme } from '../shared/themes'
 import { loadDevEnv, logs, readConfig } from './config'
 import { EngineSupervisor, resolveEngineCommand } from './engine/supervisor'
 import { isSafeExternalUrl, registerIpc } from './ipc'
+import { mainLanguage, setMainLanguage } from './i18n'
 import { buildMenu } from './menu'
 import { SettingsStore } from './settings/store'
 
@@ -13,6 +14,8 @@ import { SettingsStore } from './settings/store'
 loadDevEnv(join(app.getAppPath(), '.env'), app.isPackaged)
 const config = readConfig(process.env, app.isPackaged)
 if (config.devCdpPort) app.commandLine.appendSwitch('remote-debugging-port', String(config.devCdpPort))
+// Development only: a separate settings folder, so a recording or test never shows or changes the real one.
+if (config.devUserData) app.setPath('userData', config.devUserData)
 
 const isMac = process.platform === 'darwin'
 const TITLE_BAR_HEIGHT = 40
@@ -68,6 +71,17 @@ function applyTheme(value: Settings): void {
       // Not supported on this platform/window.
     }
   }
+}
+
+function installMenu(): void {
+  Menu.setApplicationMenu(buildMenu({ isMac, isDev: !app.isPackaged, send: sendMenu, repo: config.updateRepo }))
+}
+
+/** Main-process messages follow Settings → General → Language; the native menu is rebuilt live. */
+function applyLanguage(value: Settings): void {
+  if (value.language === mainLanguage()) return
+  setMainLanguage(value.language)
+  installMenu()
 }
 
 function sendMenu(command: MenuCommand): void {
@@ -139,8 +153,9 @@ void app.whenReady().then(() => {
   // No permission (camera, notifications, …) is ever needed.
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
 
-  registerIpc({ config, engine, settings, getWindow: () => mainWindow, applyTheme })
-  Menu.setApplicationMenu(buildMenu({ isMac, isDev: !app.isPackaged, send: sendMenu, repo: config.updateRepo }))
+  setMainLanguage(settings.get().language)
+  registerIpc({ config, engine, settings, getWindow: () => mainWindow, applyTheme, applyLanguage })
+  installMenu()
   createWindow()
   applyTheme(settings.get())
   void engine.start().catch(() => undefined)

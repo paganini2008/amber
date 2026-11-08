@@ -2,6 +2,7 @@ package com.github.amber.ai;
 
 import com.github.amber.core.Dialect;
 import com.github.amber.core.diagnostic.Diagnostic;
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.ObjectKind;
 import com.github.amber.core.ir.ObjectRef;
@@ -57,24 +58,23 @@ public final class AiCheck {
         DialectFrontend f = DialectFrontends.get(dialect);
         ScriptParse after = f.parse(SourceText.of(parsed), ParseOptions.STRICT);
         if (after.status() != ScriptStatus.SUCCESS) {
-            return new Result(Label.INVALID_SQL, sql, List.of("The SQL does not parse as " + dialect.displayName()),
+            return new Result(Label.INVALID_SQL, sql, List.of(Messages.t("ai.check.invalid", dialect.displayName())),
                     after.diagnostics());
         }
         ScriptParse before = f.parse(SourceText.of(terminated(original.strip())), ParseOptions.FALLBACK);
         Shape a = shape(ScriptIrBuilder.build(f, before, catalog.copy()));
         Shape b = shape(ScriptIrBuilder.build(f, after, catalog.copy()));
         List<String> diffs = new ArrayList<>();
-        compare("Output columns", a.outputs, b.outputs, diffs);
-        compare("Written objects", a.writes, b.writes, diffs);
-        compare("Source tables", a.sources, b.sources, diffs);
-        compare("Grouping columns", a.grouping, b.grouping, diffs);
-        compare("Ordering and row limits", a.rowShaping, b.rowShaping, diffs);
+        compare("ai.check.label.outputs", a.outputs, b.outputs, diffs);
+        compare("ai.check.label.writes", a.writes, b.writes, diffs);
+        compare("ai.check.label.sources", a.sources, b.sources, diffs);
+        compare("ai.check.label.grouping", a.grouping, b.grouping, diffs);
+        compare("ai.check.label.rowShaping", a.rowShaping, b.rowShaping, diffs);
         for (String out : a.lineage.keySet()) {
             if (b.lineage.containsKey(out) && !a.lineage.get(out).equals(b.lineage.get(out))) {
                 diffs.add(b.lineage.get(out).isEmpty() && !a.lineage.get(out).isEmpty()
-                        ? out + " no longer comes from " + String.join(", ", a.lineage.get(out))
-                          + " (the rewrite may use an alias outside its scope)"
-                        : "Lineage of " + out + ": " + a.lineage.get(out) + " → " + b.lineage.get(out));
+                        ? Messages.t("ai.check.lostSources", out, String.join(", ", a.lineage.get(out)))
+                        : Messages.t("ai.check.lineage", out, a.lineage.get(out), b.lineage.get(out)));
             }
         }
         return new Result(diffs.isEmpty() ? Label.STRUCTURE_PRESERVED : Label.STRUCTURE_CHANGED, sql, diffs, List.of());
@@ -177,9 +177,33 @@ public final class AiCheck {
                 && n.ownerKind() != ColumnNode.OwnerKind.RESULT;
     }
 
-    private static void compare(String what, Object a, Object b, List<String> diffs) {
+    private static void compare(String labelKey, Object a, Object b, List<String> diffs) {
         if (!a.equals(b)) {
-            diffs.add(what + ": " + a + " → " + b);
+            diffs.add(Messages.t("ai.check.difference", Messages.t(labelKey), a, b));
         }
+    }
+
+    /** English labels that start a difference, with their message keys (see {@link #localizedPrefix}). */
+    private static final Map<String, String> LABELS = Map.of("Output columns", "ai.check.label.outputs",
+            "Written objects", "ai.check.label.writes", "Source tables", "ai.check.label.sources",
+            "Grouping columns", "ai.check.label.grouping", "Ordering and row limits", "ai.check.label.rowShaping",
+            "Lineage of", "ai.check.label.lineage");
+
+    /**
+     * A difference prefix given in English (e.g. {@code "Ordering and row limits:"} or {@code "Lineage of"}),
+     * in the current language, so code can recognize differences with {@code startsWith} in any language.
+     * Prefixes that start with no known label come back unchanged.
+     */
+    public static String localizedPrefix(String english) {
+        for (Map.Entry<String, String> e : LABELS.entrySet()) {
+            if (english.startsWith(e.getKey())) {
+                String rest = english.substring(e.getKey().length());
+                if (rest.startsWith(":")) {
+                    rest = Messages.t("ai.check.colon") + rest.substring(1);
+                }
+                return Messages.t(e.getValue()) + rest;
+            }
+        }
+        return english;
     }
 }

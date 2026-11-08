@@ -163,3 +163,13 @@ describe('analyzeParams', () => {
     expect(analyzeParams({ ...doc, modified: true }, 'oracle', settings, false)).toEqual({ dialect: 'oracle', text: 'select 1', name: 'a.sql', allowFallback: false })
   })
 })
+
+describe('engine answers over IPC', () => {
+  it('arrive as JSON text and become a Result again; errors and plain results pass through', async () => {
+    const { fromWire } = await import('./api')
+    expect(fromWire<{ a: number }>({ ok: true, json: '{"a":1}' })).toEqual({ ok: true, value: { a: 1 } })
+    const error = { ok: false as const, error: { code: -32601, message: 'x' } }
+    expect(fromWire(error)).toBe(error)
+    expect(fromWire({ ok: true, value: 2 })).toEqual({ ok: true, value: 2 })
+  })
+})

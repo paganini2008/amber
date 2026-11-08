@@ -1,5 +1,6 @@
 import type { ConnectionProfile } from '@shared/api'
 import type { LoadMetadataResult, MetadataPack, TableMeta } from '@shared/protocol'
+import { t } from '../i18n'
 
 /**
  * Metadata the analysis can use: offline (DDL files, metadata packs) and online (tables read
@@ -103,25 +104,25 @@ export function summarizeLoad(result: LoadMetadataResult, connectionIds: string[
 /** Short status-bar text, or null when there is nothing to show (offline without files). */
 export function metadataStatusText(online: OnlineState, files: MetadataFiles): string | null {
   const offline = files.ddlFiles.length + files.metadataPacks.length
-  const offlineText = offline ? `${offline} metadata ${offline === 1 ? 'file' : 'files'}` : null
+  const offlineText = offline ? t('online.status.files', { count: offline }) : null
   let onlineText: string | null = null
   switch (online.status) {
     case 'off':
       break
     case 'idle':
-      onlineText = 'Online'
+      onlineText = t('online.status.online')
       break
     case 'loading':
-      onlineText = 'Online · reading metadata'
+      onlineText = t('online.status.reading')
       break
     case 'error':
-      onlineText = 'Online · metadata failed'
+      onlineText = t('online.status.failed')
       break
     case 'ready': {
       const r = online.result
       const n = r?.tables ?? online.tables?.length ?? 0
       const warn = r ? Object.keys(r.errors ?? {}).length + (r.ambiguous?.length ?? 0) : 0
-      onlineText = `Online · ${n} ${n === 1 ? 'table' : 'tables'}${warn ? ' · check' : ''}`
+      onlineText = warn ? t('online.status.tablesCheck', { count: n }) : t('online.status.tables', { count: n })
       break
     }
   }

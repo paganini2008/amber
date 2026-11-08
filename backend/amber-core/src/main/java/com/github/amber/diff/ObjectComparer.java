@@ -1,5 +1,6 @@
 package com.github.amber.diff;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.analysis.ObjectLifecycle;
 import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.ObjectKind;
@@ -61,19 +62,19 @@ final class ObjectComparer {
             }
         }
         for (ObjectLifecycle b : removed) {
-            ObjectLifecycle.Event e = b.events().getFirst();
-            String msg = b.name() + " is no longer used (" + accesses(b) + ")";
+            ObjectLifecycle.Event e = b.events().get(0);
+            String msg = Messages.t("diff.object.noLongerUsed", b.name(), accesses(b));
             out.add(change(ctx, ObjectChangeKind.REMOVED, b, null, msg, e, null));
             if (!b.createdInScript() && accessSet(b).stream().anyMatch(Access::writesData)) {
-                ctx.reason(Risk.MEDIUM, "TARGET_DROPPED", "The script no longer writes " + b.name(), e.step(), null);
+                ctx.reason(Risk.MEDIUM, "TARGET_DROPPED", Messages.t("diff.object.noLongerWrites", b.name()), e.step(), null);
             }
         }
         for (Map.Entry<ObjectLifecycle, ObjectLifecycle> m : matched.entrySet()) {
             compareObject(ctx, m.getKey(), m.getValue(), out);
         }
         for (ObjectLifecycle a : afterLeft) {
-            ObjectLifecycle.Event e = a.events().getFirst();
-            String msg = a.name() + " is newly used (" + accesses(a) + ")";
+            ObjectLifecycle.Event e = a.events().get(0);
+            String msg = Messages.t("diff.object.newlyUsed", a.name(), accesses(a));
             out.add(change(ctx, ObjectChangeKind.ADDED, a, null, msg, null, e));
             for (Access access : accessSet(a)) {
                 accessRisk(ctx, a, access, firstEvent(a, access));
@@ -96,38 +97,37 @@ final class ObjectComparer {
                 ObjectLifecycle.Event e = firstEvent(b, x);
                 out.add(change(ctx, ObjectChangeKind.ACCESS_REMOVED, b, x, verb(x, false, b), e, null));
                 if (!b.createdInScript() && (x.writesData() || x == Access.DROP)) {
-                    ctx.reason(Risk.MEDIUM, "WRITE_REMOVED", "The script no longer " + x + "s " + b.name(), e.step(), null);
+                    ctx.reason(Risk.MEDIUM, "WRITE_REMOVED", Messages.t("diff.object.noLongerAccess", b.name(), x), e.step(), null);
                 }
             }
         }
         if (b.role() != a.role()) {
-            String msg = a.name() + " changes role: " + b.role() + " → " + a.role();
+            String msg = Messages.t("diff.object.role", a.name(), b.role(), a.role());
             ObjectChange c = new ObjectChange(Scope.SCRIPT, ObjectChangeKind.ROLE_CHANGED, a.name().toString(),
                     a.name().key(), a.kind().name(), null, b.role().name(), a.role().name(), msg,
-                    b.events().getFirst().step(), a.events().getFirst().step(), b.events().getFirst().range(),
-                    a.events().getFirst().range());
+                    b.events().get(0).step(), a.events().get(0).step(), b.events().get(0).range(),
+                    a.events().get(0).range());
             out.add(c);
             ctx.reason(a.createdInScript() ? Risk.LOW : Risk.MEDIUM, "ROLE_CHANGED", msg,
                     c.beforeStatement(), c.afterStatement());
         }
         if (b.kind() != a.kind()) {
-            String msg = a.name() + " changes kind: " + b.kind() + " → " + a.kind();
+            String msg = Messages.t("diff.object.kind", a.name(), b.kind(), a.kind());
             out.add(new ObjectChange(Scope.SCRIPT, ObjectChangeKind.KIND_CHANGED, a.name().toString(), a.name().key(),
-                    a.kind().name(), null, b.role().name(), a.role().name(), msg, b.events().getFirst().step(),
-                    a.events().getFirst().step(), b.events().getFirst().range(), a.events().getFirst().range()));
-            ctx.reason(Risk.MEDIUM, "KIND_CHANGED", msg, b.events().getFirst().step(), a.events().getFirst().step());
+                    a.kind().name(), null, b.role().name(), a.role().name(), msg, b.events().get(0).step(),
+                    a.events().get(0).step(), b.events().get(0).range(), a.events().get(0).range()));
+            ctx.reason(Risk.MEDIUM, "KIND_CHANGED", msg, b.events().get(0).step(), a.events().get(0).step());
         }
     }
 
     private static void accessRisk(DiffContext ctx, ObjectLifecycle a, Access x, ObjectLifecycle.Event e) {
         boolean preexisting = !a.createdInScript();
         if (DESTRUCTIVE.contains(x) && preexisting) {
-            ctx.reason(Risk.HIGH, "DESTRUCTIVE_ACCESS", "The script now " + x + "s " + a.name()
-                    + ", an object it does not create", null, e.step());
+            ctx.reason(Risk.HIGH, "DESTRUCTIVE_ACCESS", Messages.t("diff.object.destructive", a.name(), x), null, e.step());
         } else if (preexisting && (WRITES.contains(x) && x != Access.CREATE)) {
-            ctx.reason(Risk.HIGH, "NEW_TARGET", "The script now writes to " + a.name() + " (" + x + ")", null, e.step());
+            ctx.reason(Risk.HIGH, "NEW_TARGET", Messages.t("diff.object.newTarget", a.name(), x), null, e.step());
         } else if (preexisting && x == Access.READ) {
-            ctx.reason(Risk.MEDIUM, "NEW_SOURCE", "The script now reads " + a.name(), null, e.step());
+            ctx.reason(Risk.MEDIUM, "NEW_SOURCE", Messages.t("diff.object.newSource", a.name()), null, e.step());
         }
     }
 
@@ -160,17 +160,16 @@ final class ObjectComparer {
     }
 
     private static ObjectLifecycle.Event firstEvent(ObjectLifecycle l, Access x) {
-        return l.events().stream().filter(e -> e.access() == x).findFirst().orElse(l.events().getFirst());
+        return l.events().stream().filter(e -> e.access() == x).findFirst().orElse(l.events().get(0));
     }
 
     private static String verb(Access x, boolean added, ObjectLifecycle l) {
         String n = l.name().toString();
-        return switch (x) {
-            case READ -> added ? n + " is newly read" : n + " is no longer read";
-            case CREATE -> added ? n + " is newly created" : n + " is no longer created";
-            case DROP -> added ? n + " is newly dropped" : n + " is no longer dropped";
-            default -> added ? "Now " + x + "s " + n : "No longer " + x + "s " + n;
+        String which = switch (x) {
+            case READ, CREATE, DROP -> x.name();
+            default -> "other";
         };
+        return Messages.t("diff.access." + (added ? "added." : "removed.") + which, n, x);
     }
 
     private static ObjectChange change(DiffContext ctx, ObjectChangeKind kind, ObjectLifecycle l, Access access,
@@ -193,7 +192,7 @@ final class ObjectComparer {
                 ObjectRef r = e.getValue();
                 out.add(new ObjectChange(Scope.STATEMENT, ObjectChangeKind.REF_ADDED, r.name().toString(),
                         r.name().key(), r.kind().name(), r.access().name(), null, null,
-                        p.b.label() + " now " + refVerb(r.access()) + " " + r.name(), p.a.id, p.b.id, null, r.range()));
+                        Messages.t("diff.ref.now." + refKey(r.access()), p.b.label(), r.name(), r.access()), p.a.id, p.b.id, null, r.range()));
             }
         }
         for (Map.Entry<String, ObjectRef> e : rb.entrySet()) {
@@ -201,21 +200,21 @@ final class ObjectComparer {
                 ObjectRef r = e.getValue();
                 out.add(new ObjectChange(Scope.STATEMENT, ObjectChangeKind.REF_REMOVED, r.name().toString(),
                         r.name().key(), r.kind().name(), r.access().name(), null, null,
-                        p.a.label() + " no longer " + refVerb(r.access()) + " " + r.name(), p.a.id, p.b.id, r.range(),
+                        Messages.t("diff.ref.noLonger." + refKey(r.access()), p.a.label(), r.name(), r.access()), p.a.id, p.b.id, r.range(),
                         null));
             }
         }
         Set<String> wb = writes(rb);
         Set<String> wa = writes(ra);
         if (!wb.equals(wa) && !(wb.isEmpty() && wa.isEmpty())) {
-            ctx.reason(Risk.HIGH, "TARGET_CHANGED", p.b.st.kind() + " target changed: " + names(wb, rb) + " → "
-                    + names(wa, ra), p.a.id, p.b.id);
+            ctx.reason(Risk.HIGH, "TARGET_CHANGED", Messages.t("diff.ref.targetChanged", p.b.st.kind(), names(wb, rb),
+                    names(wa, ra)), p.a.id, p.b.id);
         }
         Set<String> sb = reads(rb);
         Set<String> sa = reads(ra);
         if (!sb.equals(sa)) {
-            ctx.reason(Risk.MEDIUM, "SOURCES_CHANGED", p.b.label() + " reads " + names(sa, ra) + " instead of "
-                    + names(sb, rb), p.a.id, p.b.id);
+            ctx.reason(Risk.MEDIUM, "SOURCES_CHANGED", Messages.t("diff.ref.sourcesChanged", p.b.label(), names(sa, ra),
+                    names(sb, rb)), p.a.id, p.b.id);
         }
     }
 
@@ -255,18 +254,16 @@ final class ObjectComparer {
 
     private static String names(Set<String> keys, Map<String, ObjectRef> refs) {
         if (keys.isEmpty()) {
-            return "(none)";
+            return Messages.t("diff.ref.none");
         }
         return String.join(", ", keys.stream().map(k -> refs.get(k).name().toString()).toList());
     }
 
-    private static String refVerb(Access a) {
+    /** Message key suffix of an access in a statement: its own wording, or "other" (the SQL verb + s). */
+    private static String refKey(Access a) {
         return switch (a) {
-            case READ -> "reads";
-            case CREATE -> "creates";
-            case DROP -> "drops";
-            case EXECUTE -> "executes";
-            default -> a.name() + "s";
+            case READ, CREATE, DROP, EXECUTE -> a.name();
+            default -> "other";
         };
     }
 }

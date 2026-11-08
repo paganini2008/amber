@@ -1,5 +1,6 @@
 package com.github.amber.rewrite;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.Dialect;
 import com.github.amber.core.ir.StatementKind;
 import com.github.amber.dialect.split.ScanToken;
@@ -84,7 +85,7 @@ final class RepeatedSubqueryRule implements RewriteRule {
     }
 
     private Candidate rewrite(RewriteContext ctx, Sql sql, List<Integer> opens) {
-        int open = opens.getFirst();
+        int open = opens.get(0);
         int close = sql.close(open);
         if (!selfContained(ctx, sql, open, close)) {
             return null;
@@ -118,13 +119,9 @@ final class RepeatedSubqueryRule implements RewriteRule {
                         + RewriteContext.kw("FROM", ref) + " " + name));
             }
         }
-        return new Candidate(id(), "Repeated subquery → CTE",
-                "The same subquery is written " + opens.size() + " times in this statement. Computing it once in the "
-                + "CTE " + name + " and referring to it by name keeps the copies from drifting apart and lets the "
-                + "database evaluate it once.",
-                edits, Safety.EQUIVALENT, "The subquery refers only to its own tables and uses nothing that changes "
-                + "between evaluations, so every copy returns the same rows as the CTE. If the subquery has DISTINCT or "
-                + "ORDER BY, the structural check counts it once instead of " + opens.size() + " times.",
+        return new Candidate(id(), Messages.t("rewrite.repeatedSubquery.title"),
+                Messages.t("rewrite.repeatedSubquery.explanation", opens.size(), name),
+                edits, Safety.EQUIVALENT, Messages.t("rewrite.repeatedSubquery.safety", opens.size()),
                 List.of("Ordering and row limits:"));
     }
 

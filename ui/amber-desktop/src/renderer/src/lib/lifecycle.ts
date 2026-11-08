@@ -1,5 +1,7 @@
-import type { Lifecycle } from '@shared/protocol'
+import type { Lifecycle, LifecycleEvent } from '@shared/protocol'
 import type { AnalysisIndex } from './model'
+import { tOr } from '../i18n'
+import { accessText, objectKindText } from './kinds'
 
 export type LifecycleSort = 'role' | 'first-use' | 'name' | 'kind'
 
@@ -19,26 +21,44 @@ export interface MatrixModel {
   columns: number[]
   /** `${key}|${step}` → accesses, in event order. */
   cells: Map<string, string[]>
+  /** `${key}|${step}` → the events behind the cell (with `via` when a call reaches the object). */
+  events: Map<string, LifecycleEvent[]>
 }
 
 export const cellKey = (key: string, step: number): string => `${key}|${step}`
 
 /** Access marker letters for the matrix. Shape (by class) and letter both carry meaning. */
-export const ACCESS_MARK: Record<string, { letter: string; label: string; cls: 'write' | 'read' | 'struct' | 'exec' }> = {
-  CREATE: { letter: 'C', label: 'Create', cls: 'struct' },
-  INSERT: { letter: 'I', label: 'Insert', cls: 'write' },
-  UPDATE: { letter: 'U', label: 'Update', cls: 'write' },
-  DELETE: { letter: 'D', label: 'Delete', cls: 'write' },
-  MERGE: { letter: 'M', label: 'Merge', cls: 'write' },
-  READ: { letter: 'R', label: 'Read', cls: 'read' },
-  DROP: { letter: 'X', label: 'Drop', cls: 'struct' },
-  TRUNCATE: { letter: 'T', label: 'Truncate', cls: 'struct' },
-  ALTER: { letter: 'A', label: 'Alter', cls: 'struct' },
-  EXECUTE: { letter: 'E', label: 'Execute', cls: 'exec' }
+export interface AccessMark {
+  /** The marker letter (the SQL keyword's initial; not translated). */
+  letter: string
+  /** The access name in the UI language. */
+  readonly label: string
+  cls: 'write' | 'read' | 'struct' | 'exec'
 }
 
-export function markFor(access: string): { letter: string; label: string; cls: 'write' | 'read' | 'struct' | 'exec' } {
-  return ACCESS_MARK[access] ?? { letter: access.charAt(0), label: access.toLowerCase(), cls: 'read' }
+const mark = (access: string, letter: string, cls: AccessMark['cls']): AccessMark => ({
+  letter,
+  cls,
+  get label() {
+    return accessText(access)
+  }
+})
+
+export const ACCESS_MARK: Record<string, AccessMark> = {
+  CREATE: mark('CREATE', 'C', 'struct'),
+  INSERT: mark('INSERT', 'I', 'write'),
+  UPDATE: mark('UPDATE', 'U', 'write'),
+  DELETE: mark('DELETE', 'D', 'write'),
+  MERGE: mark('MERGE', 'M', 'write'),
+  READ: mark('READ', 'R', 'read'),
+  DROP: mark('DROP', 'X', 'struct'),
+  TRUNCATE: mark('TRUNCATE', 'T', 'struct'),
+  ALTER: mark('ALTER', 'A', 'struct'),
+  EXECUTE: mark('EXECUTE', 'E', 'exec')
+}
+
+export function markFor(access: string): AccessMark {
+  return ACCESS_MARK[access] ?? mark(access, access.charAt(0), 'read')
 }
 
 export interface MatrixOptions {
@@ -54,10 +74,14 @@ export function buildMatrix(index: AnalysisIndex, options: MatrixOptions): Matri
     (l) => !needle || l.name.toLowerCase().includes(needle) || l.kind.toLowerCase().includes(needle)
   )
   const cells = new Map<string, string[]>()
+  const events = new Map<string, LifecycleEvent[]>()
   const used = new Set<number>()
   for (const l of lifecycles) {
     for (const e of l.events) {
       const k = cellKey(l.key, e.step)
+      const ev = events.get(k)
+      if (ev) ev.push(e)
+      else events.set(k, [e])
       const list = cells.get(k)
       if (list) {
         if (!list.includes(e.access)) list.push(e.access)
@@ -96,7 +120,7 @@ export function buildMatrix(index: AnalysisIndex, options: MatrixOptions): Matri
   }
 
   const columns = options.allSteps ? index.order.map((s) => s.id) : [...used].sort((a, b) => a - b)
-  return { rows, columns, cells }
+  return { rows, columns, cells, events }
 }
 
 function rank(order: string[], value: string): number {
@@ -105,18 +129,6 @@ function rank(order: string[], value: string): number {
 }
 
 function groupLabel(sort: LifecycleSort, value: string): string {
-  if (sort === 'role') {
-    switch (value) {
-      case 'SOURCE':
-        return 'Sources'
-      case 'INTERMEDIATE':
-        return 'Intermediate'
-      case 'TARGET':
-        return 'Targets'
-      case 'STRUCTURE':
-        return 'Structure only'
-    }
-  }
-  const lower = value.replace(/_/g, ' ').toLowerCase()
-  return lower.charAt(0).toUpperCase() + lower.slice(1)
+  if (sort === 'role') return tOr(`lifecycle.group.${value}`, value)
+  return objectKindText(value)
 }

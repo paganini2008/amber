@@ -1,5 +1,6 @@
 package com.github.amber.rewrite;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.Dialect;
 import com.github.amber.core.ir.StatementKind;
 
@@ -69,18 +70,17 @@ final class SelectStarRule implements RewriteRule {
                 for (String c : cols.get()) {
                     names.add(prefix + quote(ctx, s, c));
                 }
-                origins.add(s.name() + (ctx.catalogNamesExact(s) ? " (imported metadata)" : " (created in the script)"));
+                origins.add(Messages.t(ctx.catalogNamesExact(s) ? "rewrite.selectStar.origin.metadata"
+                        : "rewrite.selectStar.origin.script", s.name()));
             }
             if (!ok || names.isEmpty()) {
                 continue;
             }
             String list = layout(sql, b.listStart, names);
-            out.add(new Candidate(id(), "SELECT * → explicit column list",
-                    "SELECT * in a statement that writes a table or view silently changes what is written whenever "
-                    + "a source table gains, loses or reorders columns. Listing the columns fixes the shape.",
+            out.add(new Candidate(id(), Messages.t("rewrite.selectStar.title"),
+                    Messages.t("rewrite.selectStar.explanation"),
                     List.of(ctx.replace(b.listStart, b.listStart, list)), Safety.EQUIVALENT_WITH_METADATA,
-                    "The columns are those known for " + String.join(", ", origins) + ", in table order, which is what "
-                    + "* expands to today. If the table definition differs in the database, check the list."));
+                    Messages.t("rewrite.selectStar.safety", String.join(", ", origins))));
         }
         return out;
     }

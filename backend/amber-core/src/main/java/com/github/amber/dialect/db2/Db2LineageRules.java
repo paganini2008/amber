@@ -20,7 +20,7 @@ final class Db2LineageRules {
     /** SQL PL: {@code DECLARE v … DEFAULT}, {@code SET v = …}, {@code SELECT … INTO}, {@code FETCH c INTO}. */
     private static final VariableRules VARIABLES = new VariableRules(Set.of("parameter_declaration"),
             Set.of("declaration"), Set.of("set_statement"), Set.of("into_clause"), Set.of("fetch_statement"), true, false,
-            VariableRules.AtNames.NONE);
+            VariableRules.AtNames.NONE, Set.of("return_statement"), Set.of());
     static final LineageRules INSTANCE = new LineageRules(
             Set.of("subselect"),
             Set.of("query", "select_statement"),

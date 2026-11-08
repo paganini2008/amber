@@ -1,7 +1,9 @@
 import { create } from 'zustand'
 import type { EngineStatus, OpenedFile, Settings } from '@shared/api'
-import type { AnalysisResult, AnalyzeParams, Dialect, DiffParams, DiffResult, FormatResult, Range, ReferenceQuery, ReferencesResult, Rewrite, RpcErrorObject, TableMeta } from '@shared/protocol'
+import type { AnalysisResult, AnalyzeParams, Dialect, DiffParams, DiffResult, EngineRulesResult, ErModel, ErModelParams, FormatResult, OptimizedStatement, OptimizeParams, OptimizeResult, Range, ReferenceQuery, ReferencesResult, Rewrite, RpcErrorObject, RuleInfo, TableMeta } from '@shared/protocol'
 import { RPC_ERROR } from '@shared/protocol'
+import { setLanguage, t } from './i18n'
+import { resolveLanguage } from './i18n/core'
 import { api, isNotAvailable, newRequestId } from './lib/api'
 import { buildFlowGraph, type FlowGraph } from './lib/dataflow'
 import { indexLineage, type LineageDirection, type LineageIndex } from './lib/lineage'
@@ -10,9 +12,11 @@ import { indexAnalysis, type AnalysisIndex } from './lib/model'
 import { queryLabel } from './lib/references'
 import { formatSummary, minimalChanges } from './lib/format'
 import { toChanges, type TextChange } from './lib/rewrites'
+import { canApplyFindingSql, sortChanges, statementChange } from './lib/optimize'
+import { upgradedRelationships } from './lib/er'
 import { buildPlan, BRANCH_KINDS, type BranchDecision, type PlanStep } from './lib/playback'
 
-export type ViewId = 'outline' | 'lifecycle' | 'dataflow' | 'lineage' | 'statement' | 'structure' | 'playback' | 'diff'
+export type ViewId = 'outline' | 'lifecycle' | 'dataflow' | 'lineage' | 'er' | 'statement' | 'structure' | 'playback' | 'diff'
 export type Selection = { type: 'statement'; id: number } | { type: 'object'; key: string } | null
 export type SelectionSource = 'editor' | 'view' | 'playback'
 export type DialogName = 'settings' | 'about' | 'paste' | 'handover'
@@ -83,6 +87,41 @@ export interface Toast {
   actions?: { label: string; run: () => void }[]
 }
 
+/** Rule-based optimized statements (`rewrite.optimize`, no AI) for the current analysis. */
+export interface OptimizeState {
+  status: 'idle' | 'loading' | 'ready' | 'error' | 'unavailable'
+  items: OptimizedStatement[]
+  error: string | null
+  /** The script text the result was computed for; ranges and originals only hold for it. */
+  forText: string | null
+  requestId: string | null
+}
+
+/** What the optimized-SQL dialog shows: a statement's optimized version, or one finding's SQL. */
+export type OptimizedPreview = { kind: 'statement'; statement: number } | { kind: 'finding'; finding: number } | null
+
+/** The ER diagram (`er.model`), fetched when the ER view is open. */
+export interface ErState {
+  status: 'idle' | 'loading' | 'ready' | 'error' | 'unavailable'
+  result: ErModel | null
+  error: string | null
+  /** The analysis the result belongs to; a new analysis makes it stale. */
+  forAnalysis: AnalysisResult | null
+  /** The script text it was computed for (an answer for the same text can only differ by metadata). */
+  forText: string | null
+  requestId: string | null
+  includeDataFlow: boolean
+  /** Relationships whose confidence rose since the previous answer (e.g. online metadata arrived). */
+  upgraded: number
+}
+
+/** The rule catalogue from `engine.rules`, for Settings → Rules. */
+export interface RuleCatalogState {
+  status: 'idle' | 'loading' | 'ready' | 'error' | 'unavailable'
+  items: RuleInfo[]
+  error: string | null
+}
+
 export interface RewritesState {
   status: 'idle' | 'loading' | 'ready' | 'error' | 'unavailable'
   items: Rewrite[]
@@ -134,6 +173,11 @@ interface State {
   rewrites: RewritesState
   /** The rewrite shown in the preview dialog. */
   rewritePreview: string | null
+  /** Optimized statements (rule-based, no AI). */
+  optimize: OptimizeState
+  optimizedPreview: OptimizedPreview
+  ruleCatalog: RuleCatalogState
+  er: ErState
   /** Changes for the editor to apply as one undoable transaction (from quick fixes). */
   editorEdits: { nonce: number; changes: TextChange[]; label: string; baseText: string; report?: boolean } | null
   /** The editor's current selection (document offsets), for "Format selection". */
@@ -193,6 +237,16 @@ interface State {
   setEditorSelection(from: number, to: number): void
   loadRewrites(): Promise<void>
   previewRewrite(id: string | null): void
+  loadOptimize(): Promise<void>
+  previewOptimized(preview: OptimizedPreview): void
+  /** Replaces the given statements with their optimized versions in the editor, as one undoable step. */
+  applyOptimized(statementIds: number[]): void
+  /** Replaces a finding's statement with the finding's optimized SQL (single-statement rewrites only). */
+  applyFindingSql(findingIndex: number): void
+  loadRuleCatalog(): Promise<void>
+  /** Fetches the ER model for the current analysis (keeps the previous one on screen meanwhile). */
+  loadEr(): Promise<void>
+  setErOptions(options: { includeDataFlow?: boolean; dismissUpgrade?: boolean }): void
   /** Applies rewrites to the editor buffer (one undoable step), then analyzes again. Never writes the file. */
   applyRewrites(ids: string[]): void
   /** Called by the editor once it applied `editorEdits`. */
@@ -200,7 +254,8 @@ interface State {
   /** Compares the script before the last quick fixes with the edited buffer. */
   checkAppliedChange(): Promise<void>
   /** Compares two versions and opens the Change impact view. */
-  compare(before: CompareSide, after: CompareSide): Promise<void>
+  /** `keepView` re-runs a comparison in place (e.g. after a language change) without switching to it. */
+  compare(before: CompareSide, after: CompareSide, options?: { keepView?: boolean }): Promise<void>
   swapCompare(): void
   closeCompare(): void
   selectDiffPair(key: string | null, focus?: { before: Range | null; after: Range | null }): void
@@ -222,6 +277,28 @@ interface State {
   setAskAtBranches(ask: boolean): void
 }
 
+let relocalizeTimer: ReturnType<typeof setTimeout> | null = null
+
+/**
+ * After a language change, re-requests what is on screen so the engine's prose follows: the analysis
+ * (fixes, optimized SQL, ER and references follow it), an open comparison and the rule list. Debounced;
+ * selection and view stay as they are.
+ */
+function relocalize(get: () => State): void {
+  if (relocalizeTimer) clearTimeout(relocalizeTimer)
+  relocalizeTimer = setTimeout(() => {
+    relocalizeTimer = null
+    const s = get()
+    if (s.doc && s.analysis) void s.analyze()
+    const d = s.diff
+    if (d.before && d.after && d.status !== 'idle') void s.compare(d.before, d.after, { keepView: true })
+    if (s.ruleCatalog.status === 'ready' || s.ruleCatalog.status === 'error') {
+      useStore.setState({ ruleCatalog: { status: 'idle', items: s.ruleCatalog.items, error: null } })
+      void get().loadRuleCatalog()
+    }
+  }, 250)
+}
+
 /**
  * The params `analyze` is called with. `ai.buildContext` and `ai.check` reuse them so the engine
  * sees the same script, dialect and metadata (statement ids then match the analysis).
@@ -239,7 +316,7 @@ export function analyzeParams(
     doc.path && !doc.modified
       ? { dialect, path: doc.path, name: doc.name, allowFallback, ...(settings?.encoding && settings.encoding !== 'auto' ? { encoding: settings.encoding } : {}) }
       : { dialect, text: doc.text, name: doc.name, allowFallback }
-  return { ...base, ...metadata }
+  return { ...base, ...metadata, ...(settings?.rules ? { rules: settings.rules } : {}) }
 }
 
 /** The metadata `analyze` gets right now: offline files, plus online tables when online mode is on. */
@@ -313,6 +390,10 @@ export const useStore = create<State>((set, get) => ({
   diff: { status: 'idle', before: null, after: null, result: null, error: null, requestId: null, selected: null, showUnchanged: false },
   rewrites: { status: 'idle', items: [], error: null, forText: null, requestId: null },
   rewritePreview: null,
+  optimize: { status: 'idle', items: [], error: null, forText: null, requestId: null },
+  optimizedPreview: null,
+  ruleCatalog: { status: 'idle', items: [], error: null },
+  er: { status: 'idle', result: null, error: null, forAnalysis: null, forText: null, requestId: null, includeDataFlow: false, upgraded: 0 },
   editorEdits: null,
   editorSelection: { from: 0, to: 0 },
   formatReport: null,
@@ -320,8 +401,15 @@ export const useStore = create<State>((set, get) => ({
   beforeFixes: null,
 
   setSettings(settings) {
-    const first = get().settings === null
+    const previous = get().settings
+    const first = previous === null
+    // The language switches before the new settings render, so every view re-renders in it at once.
+    setLanguage(resolveLanguage(settings.language))
     set({ settings })
+    // The engine writes summaries, findings, notes and documents in the UI language: ask again.
+    if (!first && previous.language !== settings.language) relocalize(get)
+    // Rule settings change what the engine reports: analyze again (fixes and optimizations follow).
+    if (!first && JSON.stringify(previous.rules) !== JSON.stringify(settings.rules) && get().doc) void get().analyze()
     if (first) set({ dialect: settings.defaultDialect, online: settings.online.enabled ? { ...OFFLINE, status: 'idle' } : OFFLINE })
     else if (!settings.online.enabled && get().online.status !== 'off') {
       // Online mode was switched off elsewhere (another window, the settings file): drop its state.
@@ -338,6 +426,11 @@ export const useStore = create<State>((set, get) => ({
   loadDocument(file) {
     get().cancelAnalysis()
     get().cancelMetadata()
+    // Follow-up work for the previous script (quick fixes, optimized SQL, ER, references) can take minutes
+    // on a huge script; cancel it so the new script's analysis does not wait behind it in the engine.
+    for (const id of [get().rewrites.requestId, get().optimize.requestId, get().er.requestId, get().references.requestId]) {
+      if (id) void api().engine.cancel(id)
+    }
     docToken += 1
     set({
       doc: { token: docToken, path: file.path, name: file.name, text: file.text, encoding: file.encoding, edited: false, modified: false },
@@ -355,6 +448,9 @@ export const useStore = create<State>((set, get) => ({
       playback: emptyPlayback(),
       references: { status: 'idle', query: null, result: null, error: null, requestId: null },
       rewrites: { status: 'idle', items: [], error: null, forText: null, requestId: null },
+      optimize: { status: 'idle', items: [], error: null, forText: null, requestId: null },
+      optimizedPreview: null,
+      er: { ...get().er, status: 'idle', result: null, error: null, forAnalysis: null, forText: null, requestId: null, upgraded: 0 },
       rewritePreview: null,
       beforeFixes: null,
       bottomPanel: get().bottomPanel === 'references' ? null : get().bottomPanel,
@@ -417,6 +513,9 @@ export const useStore = create<State>((set, get) => ({
     })
     if (analysis.status !== 'FAILED') scheduleMetadataLoad(false)
     void get().loadRewrites()
+    void get().loadOptimize()
+    // The ER diagram follows the analysis (and its metadata) while its view is open; otherwise when it opens.
+    if (get().view === 'er') void get().loadEr()
     // Offsets may have moved: refresh an open References panel.
     const rq = get().references.query
     if (rq && get().bottomPanel === 'references' && analysis.status !== 'FAILED') void get().findReferences(rq)
@@ -453,6 +552,8 @@ export const useStore = create<State>((set, get) => ({
 
   setView(view) {
     set({ view })
+    const { er, analysis } = get()
+    if (view === 'er' && analysis && er.forAnalysis !== analysis && er.status !== 'loading') void get().loadEr()
   },
 
   toggleCollapsed(id) {
@@ -592,7 +693,7 @@ export const useStore = create<State>((set, get) => ({
     if (get().references.requestId !== requestId) return
     if (!r.ok) {
       if (r.error.code === RPC_ERROR.REQUEST_CANCELLED) return
-      set({ references: { status: 'error', query, result: null, error: r.error.message || 'Could not find references.', requestId: null } })
+      set({ references: { status: 'error', query, result: null, error: r.error.message || t('app.toast.referencesFailed'), requestId: null } })
       set({ bottomPanel: 'references' })
       return
     }
@@ -603,7 +704,7 @@ export const useStore = create<State>((set, get) => ({
       if (get().index?.byId.has(def.statement)) get().selectStatement(def.statement, 'view', false)
       get().markRange({ from: def.range.start.offset, to: def.range.end.offset })
     } else {
-      get().toast(r.value.occurrences.length ? `${r.value.name} is defined outside this script.` : `Nothing named ${queryLabel(query)} was found in this script.`)
+      get().toast(r.value.occurrences.length ? t('app.toast.definedOutside', { name: r.value.name }) : t('app.toast.notFound', { name: queryLabel(query) }))
       set({ bottomPanel: 'references' })
     }
   },
@@ -636,23 +737,23 @@ export const useStore = create<State>((set, get) => ({
     const r = await api().engine.call<FormatResult>('format', params, newRequestId('format'))
     set({ formatting: false })
     if (!r.ok) {
-      get().toast(isNotAvailable(r.error) ? 'This engine version cannot format scripts yet.' : `Could not format: ${r.error.message}`, 'error')
+      get().toast(isNotAvailable(r.error) ? t('app.toast.noFormat') : t('app.toast.formatFailed', { reason: r.error.message }), 'error')
       return
     }
     const report = r.value.warnings.length || r.value.skipped.length ? { warnings: r.value.warnings, skipped: r.value.skipped } : null
     set({ formatReport: report })
     const summary = formatSummary(analysis?.statements ?? [], r.value.skipped, selection, r.value.changed && r.value.text !== text)
     if (!r.value.changed || r.value.text === text) {
-      get().toast(summary, 'info', report ? [{ label: 'Show', run: () => get().setBottomPanel('format') }] : undefined)
+      get().toast(summary, 'info', report ? [{ label: t('app.toast.show'), run: () => get().setBottomPanel('format') }] : undefined)
       return
     }
     if (get().doc?.text !== text) {
-      get().toast('The script changed while it was being formatted. Format it again.', 'error')
+      get().toast(t('app.toast.changedWhileFormatting'), 'error')
       return
     }
     set({
       beforeFixes: get().beforeFixes ?? { name: doc.name, text },
-      editorEdits: { nonce: Date.now(), changes: minimalChanges(text, r.value.text), label: `${summary}.`, baseText: text, report: Boolean(report) }
+      editorEdits: { nonce: Date.now(), changes: minimalChanges(text, r.value.text), label: summary, baseText: text, report: Boolean(report) }
     })
   },
 
@@ -682,10 +783,123 @@ export const useStore = create<State>((set, get) => ({
     set({ rewritePreview: id })
   },
 
+  async loadOptimize() {
+    const { doc, analysis, dialect, settings, usedFallback } = get()
+    const previous = get().optimize.requestId
+    if (previous) void api().engine.cancel(previous)
+    if (!doc || !analysis || analysis.status === 'FAILED' || !(analysis.findings ?? []).length) {
+      set({ optimize: { status: 'idle', items: [], error: null, forText: null, requestId: null } })
+      return
+    }
+    const requestId = newRequestId('optimize')
+    const text = doc.text
+    set({ optimize: { ...get().optimize, status: 'loading', requestId } })
+    const params: OptimizeParams = { ...analyzeParams(doc, dialect, settings, usedFallback, currentMetadata(get())), statements: [] }
+    const r = await api().engine.call<OptimizeResult>('rewrite.optimize', params, requestId)
+    if (get().optimize.requestId !== requestId) return
+    if (!r.ok) {
+      if (r.error.code === RPC_ERROR.REQUEST_CANCELLED) return
+      set({ optimize: { status: isNotAvailable(r.error) ? 'unavailable' : 'error', items: [], error: r.error.message, forText: null, requestId: null } })
+      return
+    }
+    set({ optimize: { status: 'ready', items: r.value.statements ?? [], error: null, forText: text, requestId: null } })
+  },
+
+  previewOptimized(preview) {
+    set({ optimizedPreview: preview })
+  },
+
+  applyOptimized(statementIds) {
+    const { optimize, doc, index } = get()
+    if (!doc || !index || optimize.forText !== doc.text || doc.edited) {
+      get().toast(t('app.toast.fixesStale'), 'error')
+      return
+    }
+    const chosen = optimize.items.filter((o) => statementIds.includes(o.statement))
+    const changes: TextChange[] = []
+    for (const o of chosen) {
+      const change = statementChange(doc.text, index.byId.get(o.statement)?.range, o.original, o.optimized)
+      if (change) changes.push(change)
+    }
+    if (!changes.length) {
+      get().toast(t('optimize.toast.noMatch'), 'error')
+      return
+    }
+    let sorted: TextChange[]
+    try {
+      sorted = sortChanges(changes)
+    } catch {
+      get().toast(t('app.toast.fixesOverlap'), 'error')
+      return
+    }
+    const label = t('optimize.toast.applied', { count: changes.length })
+    set({ beforeFixes: get().beforeFixes ?? { name: doc.name, text: doc.text }, optimizedPreview: null, editorEdits: { nonce: Date.now(), changes: sorted, label, baseText: doc.text } })
+  },
+
+  applyFindingSql(findingIndex) {
+    const { analysis, doc, index } = get()
+    const f = analysis?.findings?.[findingIndex]
+    if (!doc || !index || !f || !canApplyFindingSql(f) || doc.edited) {
+      get().toast(t('app.toast.fixesStale'), 'error')
+      return
+    }
+    const range = index.byId.get(f.statement)?.range
+    const change = range ? statementChange(doc.text, range, doc.text.slice(range.start.offset, range.end.offset), f.suggestedSql!) : null
+    if (!change) {
+      get().toast(t('optimize.toast.noMatch'), 'error')
+      return
+    }
+    const label = t('optimize.toast.applied', { count: 1 })
+    set({ beforeFixes: get().beforeFixes ?? { name: doc.name, text: doc.text }, optimizedPreview: null, editorEdits: { nonce: Date.now(), changes: [change], label, baseText: doc.text } })
+  },
+
+  async loadEr() {
+    const { doc, analysis, dialect, settings, usedFallback } = get()
+    const previous = get().er
+    if (previous.requestId) void api().engine.cancel(previous.requestId)
+    if (!doc || !analysis || analysis.status === 'FAILED') return
+    const requestId = newRequestId('er')
+    set({ er: { ...previous, status: 'loading', requestId, error: null } })
+    const params: ErModelParams = { ...analyzeParams(doc, dialect, settings, usedFallback, currentMetadata(get())), includeDataFlow: previous.includeDataFlow }
+    const r = await api().engine.call<ErModel>('er.model', params, requestId)
+    if (get().er.requestId !== requestId) return
+    if (!r.ok) {
+      if (r.error.code === RPC_ERROR.REQUEST_CANCELLED) return
+      set({ er: { ...get().er, status: isNotAvailable(r.error) ? 'unavailable' : 'error', error: r.error.message, requestId: null } })
+      return
+    }
+    // Same script, more metadata (online mode): tell how many relationships the database confirmed.
+    const before = previous.result
+    const sameText = previous.forText === doc.text
+    const upgraded = before && sameText ? upgradedRelationships(before, r.value).length : 0
+    set({ er: { ...get().er, status: 'ready', result: r.value, forAnalysis: analysis, forText: doc.text, requestId: null, upgraded: upgraded || (sameText ? get().er.upgraded : 0) } })
+  },
+
+  setErOptions(options) {
+    const er = get().er
+    if (options.dismissUpgrade) set({ er: { ...er, upgraded: 0 } })
+    if (options.includeDataFlow !== undefined && options.includeDataFlow !== er.includeDataFlow) {
+      set({ er: { ...get().er, includeDataFlow: options.includeDataFlow, upgraded: 0 } })
+      void get().loadEr()
+    }
+  },
+
+  async loadRuleCatalog() {
+    if (get().ruleCatalog.status === 'loading' || get().ruleCatalog.status === 'ready') return
+    // Keep the current list on screen while it reloads (e.g. in another language).
+    set({ ruleCatalog: { status: 'loading', items: get().ruleCatalog.items, error: null } })
+    const r = await api().engine.call<EngineRulesResult>('engine.rules', {}, newRequestId('rules'))
+    if (!r.ok) {
+      set({ ruleCatalog: { status: isNotAvailable(r.error) ? 'unavailable' : 'error', items: [], error: r.error.message } })
+      return
+    }
+    set({ ruleCatalog: { status: 'ready', items: r.value.rules ?? [], error: null } })
+  },
+
   applyRewrites(ids) {
     const { rewrites, doc } = get()
     if (!doc || rewrites.forText !== doc.text || doc.edited) {
-      get().toast('The script changed since these fixes were suggested. Analyze it again to refresh them.', 'error')
+      get().toast(t('app.toast.fixesStale'), 'error')
       return
     }
     const chosen = rewrites.items.filter((r) => ids.includes(r.id))
@@ -694,10 +908,10 @@ export const useStore = create<State>((set, get) => ({
     try {
       changes = toChanges(chosen.flatMap((r) => r.edits))
     } catch {
-      get().toast('These fixes overlap. Apply them one at a time.', 'error')
+      get().toast(t('app.toast.fixesOverlap'), 'error')
       return
     }
-    const label = chosen.length === 1 ? `Applied “${chosen[0]!.title}”.` : `Applied ${chosen.length} fixes.`
+    const label = chosen.length === 1 ? t('app.toast.appliedOne', { title: chosen[0]!.title }) : t('app.toast.appliedMany', { count: chosen.length })
     set({ beforeFixes: get().beforeFixes ?? { name: doc.name, text: doc.text }, rewritePreview: null, editorEdits: { nonce: Date.now(), changes, label, baseText: doc.text } })
   },
 
@@ -709,9 +923,9 @@ export const useStore = create<State>((set, get) => ({
     set({ doc: { ...doc, text, edited: true, modified: true } })
     void get().analyze()
     const actions: NonNullable<Toast['actions']> = []
-    if (pending?.report) actions.push({ label: 'Show', run: () => get().setBottomPanel('format') })
-    actions.push({ label: 'Check the change', run: () => void get().checkAppliedChange() })
-    get().toast(`${pending?.label ?? 'Applied.'} The file on disk is unchanged until you save.`, 'info', actions)
+    if (pending?.report) actions.push({ label: t('app.toast.show'), run: () => get().setBottomPanel('format') })
+    actions.push({ label: t('app.toast.checkChange'), run: () => void get().checkAppliedChange() })
+    get().toast(t('app.toast.appliedUnsaved', { label: pending?.label ?? t('app.toast.applied') }), 'info', actions)
   },
 
   async checkAppliedChange() {
@@ -728,22 +942,27 @@ export const useStore = create<State>((set, get) => ({
     if (before) await get().compare({ name: `${before.name} (before fixes)`, text: before.text, path: null }, { name: `${doc.name} (edited)`, text: doc.text, path: null })
   },
 
-  async compare(before, after) {
+  async compare(before, after, options) {
     const previous = get().diff.requestId
     if (previous) void api().engine.cancel(previous)
     const requestId = newRequestId('diff')
-    set({ diff: { ...get().diff, status: 'loading', before, after, result: null, error: null, requestId, selected: null }, view: 'diff' })
+    const keep = options?.keepView
+    set({
+      diff: { ...get().diff, status: 'loading', before, after, result: keep ? get().diff.result : null, error: null, requestId, selected: keep ? get().diff.selected : null },
+      view: keep ? get().view : 'diff'
+    })
     const params: DiffParams = {
       dialect: get().dialect,
       before: { text: before.text, name: before.name },
       after: { text: after.text, name: after.name },
-      ...metadataInputs(get().metadataFiles, get().settings?.online.enabled ? get().online.tables : null)
+      ...metadataInputs(get().metadataFiles, get().settings?.online.enabled ? get().online.tables : null),
+      ...(get().settings?.rules ? { rules: get().settings!.rules } : {})
     }
     const r = await api().engine.call<DiffResult>('diff', params, requestId)
     if (get().diff.requestId !== requestId) return
     if (!r.ok) {
       if (r.error.code === RPC_ERROR.REQUEST_CANCELLED) return
-      set({ diff: { ...get().diff, status: 'error', error: isNotAvailable(r.error) ? 'This engine version cannot compare scripts yet.' : r.error.message || 'The comparison did not finish.', requestId: null } })
+      set({ diff: { ...get().diff, status: 'error', error: isNotAvailable(r.error) ? t('app.toast.noCompare') : r.error.message || t('app.toast.compareFailed'), requestId: null } })
       return
     }
     set({ diff: { ...get().diff, status: 'ready', result: r.value, requestId: null } })
@@ -909,7 +1128,7 @@ async function loadMetadata(key: string, connectionIds: string[]): Promise<void>
   if (now.online.requestId !== requestId || !now.settings?.online.enabled) return
   if (!r.ok) {
     if (r.error.code === RPC_ERROR.REQUEST_CANCELLED) return
-    useStore.setState({ online: { ...now.online, status: 'error', error: r.error.message || 'Could not read metadata.', requestId: null } })
+    useStore.setState({ online: { ...now.online, status: 'error', error: r.error.message || t('app.toast.metadataFailed'), requestId: null } })
     return
   }
   const tables = r.value.pack?.tables ?? []

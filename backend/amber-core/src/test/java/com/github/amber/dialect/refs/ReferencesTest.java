@@ -76,7 +76,7 @@ class ReferencesTest {
         assertEquals(List.of(3, 3, 6), lines(r), r::toString);
         assertTrue(r.occurrences().stream().allMatch(o -> o.access().equals("READ")));
         var written = References.ofColumn(script(Dialect.POSTGRESQL, SQL), "tmp_paid", "total");
-        assertEquals("CREATE", written.occurrences().getFirst().access());
+        assertEquals("CREATE", written.occurrences().get(0).access());
         assertNotNull(written.definition());
         assertTrue(written.occurrences().stream().anyMatch(o -> o.access().equals("WRITE") && o.range().start().line() == 2));
         assertTrue(written.occurrences().stream().anyMatch(o -> o.access().equals("READ") && o.range().start().line() == 4));

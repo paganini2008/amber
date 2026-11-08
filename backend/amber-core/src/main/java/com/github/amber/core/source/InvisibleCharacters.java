@@ -13,8 +13,9 @@ import java.util.Map;
  * ideographic spaces, zero-width characters, stray byte-order marks, DOS end-of-file markers and
  * other control characters. They creep into legacy scripts through copy and paste from documents,
  * web pages and old editors. Grammars reject them, so before parsing each is replaced by a plain
- * space (or a line break for Unicode line separators): the text keeps its length and every offset
- * stays exact. Each kind found is reported as a warning, because the database may reject them too.
+ * space: the text keeps its length and every offset stays exact. Unicode line separators (U+0085, U+2028,
+ * U+2029) become spaces too: editors and databases do not end lines there, so line numbers stay those of
+ * the editor. Each kind found is reported as a warning, because the database may reject them too.
  *
  * @Author: Fred Feng
  * @Date: 07/11/2026
@@ -41,7 +42,7 @@ public final class InvisibleCharacters {
             if (out == null) {
                 out = text.toCharArray();
             }
-            out[i] = (c == ' ' || c == ' ' || c == '\u0085') ? '\n' : ' ';
+            out[i] = ' ';
             int[] stat = found.computeIfAbsent(kind, k -> new int[] {0, -1});
             stat[0]++;
             if (stat[1] < 0) {

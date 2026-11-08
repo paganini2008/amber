@@ -66,7 +66,7 @@ final class MarkdownHtml {
         }
         return """
                 <!doctype html>
-                <html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+                <html lang="%s"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
                 <title>%s</title>
                 <style>
                 :root{--ink:#17232a;--muted:#52616a;--paper:#faf7f0;--line:#dfd5c2;--chrome:#0f2a33;--amber:#8a4b00}
@@ -82,7 +82,7 @@ final class MarkdownHtml {
                 pre{background:rgba(0,0,0,.04);border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto}
                 </style></head><body><main>
                 %s</main></body></html>
-                """.formatted(escape(title), body);
+                """.formatted(com.github.amber.core.i18n.Messages.current().tag(), escape(title), body);   // lang of the request
     }
 
     private static void table(List<String> rows, StringBuilder out) {

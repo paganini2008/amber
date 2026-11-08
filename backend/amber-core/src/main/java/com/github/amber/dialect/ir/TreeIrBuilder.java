@@ -477,7 +477,8 @@ public final class TreeIrBuilder {
      * {@code CREATE TABLE (schema_name '.')? table_name}.
      */
     private ObjectName qualifiedNameOf(ParserRuleContext ctx) {
-        if (ctx.getParent() instanceof ParserRuleContext parent) {
+        ParserRuleContext parent = ctx.getParent();
+        if (parent != null) {
             int idx = parent.children.indexOf(ctx);
             if (idx >= 2 && parent.getChild(idx - 1) instanceof TerminalNode dot && ".".equals(dot.getText())
                     && parent.getChild(idx - 2) instanceof ParserRuleContext schema) {

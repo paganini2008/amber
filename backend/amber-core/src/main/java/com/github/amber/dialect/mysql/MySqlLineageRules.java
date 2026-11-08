@@ -17,7 +17,7 @@ final class MySqlLineageRules {
     /** Stored-program locals and parameters; {@code @name} user variables live for the session. */
     private static final VariableRules VARIABLES = new VariableRules(Set.of("functionParameter"),
             Set.of("variableDeclaration"), Set.of("setStatement"), Set.of("intoClause"), Set.of("cursorFetch"), true, false,
-            VariableRules.AtNames.SESSION);
+            VariableRules.AtNames.SESSION, Set.of("returnStatement"), Set.of());
     static final LineageRules INSTANCE = new LineageRules(
             Set.of("querySpecification"),
             Set.of("queryExpression", "queryExpressionParens", "subquery", "selectStatement"),

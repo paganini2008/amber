@@ -1,5 +1,6 @@
 import { RangeSet, StateEffect, StateField, type Extension } from '@codemirror/state'
 import { GutterMarker, gutter, type EditorView } from '@codemirror/view'
+import { getLanguage, t } from '@/i18n'
 
 export interface GutterFix {
   /** Where the fix applies (its first edit). */
@@ -15,19 +16,20 @@ const BULB =
 class FixMarker extends GutterMarker {
   constructor(
     readonly ids: string[],
-    readonly title: string
+    readonly title: string,
+    readonly language = getLanguage()
   ) {
     super()
   }
 
   override eq(other: GutterMarker): boolean {
-    return other instanceof FixMarker && other.ids.join() === this.ids.join()
+    return other instanceof FixMarker && other.ids.join() === this.ids.join() && other.language === this.language
   }
 
   override toDOM(): Node {
     const el = document.createElement('span')
     el.className = 'cm-fix-marker'
-    el.title = this.ids.length > 1 ? `${this.ids.length} quick fixes (Cmd/Ctrl+.)` : `Quick fix: ${this.title} (Cmd/Ctrl+.)`
+    el.title = this.ids.length > 1 ? t('editor.fixMarkerMany', { count: this.ids.length }) : t('editor.fixMarkerOne', { title: this.title })
     el.setAttribute('aria-label', el.title)
     el.innerHTML = BULB
     return el

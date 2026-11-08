@@ -91,7 +91,8 @@ final class H2IrRules extends IrRules {
 
     @Override
     public boolean acceptName(ParserRuleContext node) {
-        if (!(node.getParent() instanceof ParserRuleContext parent) || !TABLE_POSITIONS.contains(ruleName(parent))) {
+        ParserRuleContext parent = node.getParent();
+        if (parent == null || !TABLE_POSITIONS.contains(ruleName(parent))) {
             return false;
         }
         if (ruleName(parent).equals("create_index_statement")) {

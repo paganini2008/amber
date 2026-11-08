@@ -3,7 +3,7 @@ import { sql } from '@codemirror/lang-sql'
 import { bracketMatching, foldGutter, indentOnInput, syntaxHighlighting } from '@codemirror/language'
 import { classHighlighter } from '@lezer/highlight'
 import { highlightSelectionMatches, search, searchKeymap } from '@codemirror/search'
-import { Compartment, EditorState, Prec } from '@codemirror/state'
+import { Compartment, EditorState, Prec, type Extension } from '@codemirror/state'
 import {
   EditorView,
   drawSelection,
@@ -15,21 +15,29 @@ import {
 import { useEffect, useMemo, useRef, useState } from 'react'
 import type { ReferenceQuery } from '@shared/protocol'
 import { referenceMenuItems } from '@/components/References'
+import { t, useLanguage } from '@/i18n'
+import { findingTitle } from '@/lib/kinds'
 import { statementAtOffset } from '@/lib/model'
 import { isKeywordToken, occurrenceRanges, referenceTarget, tokenAt } from '@/lib/references'
 import { rewritesAt } from '@/lib/rewrites'
 import { useStore } from '@/store'
 import { codemirrorDialect } from './dialects'
+import { editorPhrases } from './phrases'
 import { findingsGutter, showFindings } from './findingsGutter'
 import { fixGutter, showFixes } from './fixGutter'
 import { createLayer, type Mark } from './layers'
+
+/** The editor's aria-label and CodeMirror's own phrases (search panel, folding) in the UI language. */
+function wordingExtension(): Extension {
+  return [EditorView.contentAttributes.of({ 'aria-label': t('editor.aria'), spellcheck: 'false' }), EditorState.phrases.of(editorPhrases())]
+}
 
 /** What the name at a document position refers to, or null (with a hint) when nothing can be looked up. */
 function queryAt(view: EditorView, pos: number): ReferenceQuery | null {
   const st = useStore.getState()
   if (!st.analysis || !st.index || st.analysis.status === 'FAILED') return null
   if (st.doc?.edited) {
-    st.toast('The script was edited since the last analysis. Analyze it again to look names up.')
+    st.toast(t('editor.staleLookup'))
     return null
   }
   const text = view.state.doc.toString()
@@ -48,7 +56,7 @@ function openFixes(ids: string[], x: number, y: number): void {
     st.openContextMenu(
       x,
       y,
-      items.map((r) => ({ label: `Fix: ${r.title}`, hint: r.rule.replace(/^AMB-/, ''), onSelect: () => st.previewRewrite(r.id) }))
+      items.map((r) => ({ label: t('fixes.fixItem', { title: r.title }), hint: r.rule.replace(/^AMB-/, ''), onSelect: () => st.previewRewrite(r.id) }))
     )
 }
 
@@ -65,7 +73,7 @@ function quickFix(view: EditorView): boolean {
   const ranges = new Map(st.index.order.map((s) => [s.id, s.range]))
   const found = rewritesAt(st.rewrites.items, pos, ranges)
   if (!found.length) {
-    st.toast('No quick fix here. Suggested fixes for the whole script are in the Fixes tab below.')
+    st.toast(t('editor.noFixHere'))
     return true
   }
   const c = view.coordsAtPos(pos)
@@ -91,6 +99,9 @@ export function SqlEditor(): React.JSX.Element {
   const host = useRef<HTMLDivElement>(null)
   const viewRef = useRef<EditorView | null>(null)
   const language = useRef(new Compartment())
+  // CodeMirror's phrases and the editor's aria-label follow the UI language.
+  const wording = useRef(new Compartment())
+  const uiLanguage = useLanguage()
   const amberLayer = useRef(createLayer())
   const refsLayer = useRef(createLayer())
   const [lineCount, setLineCount] = useState(1)
@@ -160,8 +171,8 @@ export function SqlEditor(): React.JSX.Element {
               e.preventDefault()
               st.openContextMenu(e.clientX, e.clientY, [
                 ...(q ? referenceMenuItems(q) : []),
-                ...(sel.empty ? [] : [{ label: 'Format selection', hint: mac ? '⌘K ⌘F' : 'Ctrl+K Ctrl+F', onSelect: () => void st.formatScript('selection') }]),
-                { label: 'Format script', hint: mac ? '⇧⌥F' : 'Shift+Alt+F', onSelect: () => void st.formatScript('script') }
+                ...(sel.empty ? [] : [{ label: t('menu.edit.formatSelection'), hint: mac ? '⌘K ⌘F' : 'Ctrl+K Ctrl+F', onSelect: () => void st.formatScript('selection') }]),
+                { label: t('menu.edit.formatScript'), hint: mac ? '⇧⌥F' : 'Shift+Alt+F', onSelect: () => void st.formatScript('script') }
               ])
               return true
             }
@@ -170,7 +181,7 @@ export function SqlEditor(): React.JSX.Element {
           refsLayer.current.extension,
           amberLayer.current.extension,
           diagLayer.current.extension,
-          EditorView.contentAttributes.of({ 'aria-label': 'SQL script', spellcheck: 'false' }),
+          wording.current.of(wordingExtension()),
           EditorView.updateListener.of((update) => {
             if (update.docChanged) setLineCount(update.state.doc.lines)
             if (update.docChanged && !programmatic.current) {
@@ -221,6 +232,10 @@ export function SqlEditor(): React.JSX.Element {
     viewRef.current?.dispatch({ effects: language.current.reconfigure(sql({ dialect: codemirrorDialect(dialect) })) })
   }, [dialect])
 
+  useEffect(() => {
+    viewRef.current?.dispatch({ effects: wording.current.reconfigure(wordingExtension()) })
+  }, [uiLanguage])
+
   // Diagnostics
   useEffect(() => {
     const view = viewRef.current
@@ -234,9 +249,9 @@ export function SqlEditor(): React.JSX.Element {
     diagLayer.current.set(view, marks)
     showFindings(
       view,
-      (analysis?.findings ?? []).map((f, index) => ({ offset: f.range.start.offset, severity: f.severity, index, title: `${f.title} (${f.rule})` }))
+      (analysis?.findings ?? []).map((f, index) => ({ offset: f.range.start.offset, severity: f.severity, index, title: `${findingTitle(f)} (${f.rule})` }))
     )
-  }, [analysis])
+  }, [analysis, uiLanguage])
 
   // Amber: the selected statement's range, or every place the selected object is touched.
   useEffect(() => {
@@ -272,9 +287,9 @@ export function SqlEditor(): React.JSX.Element {
     const length = view.state.doc.length
     refsLayer.current.set(
       view,
-      ranges.filter((r) => r.to <= length).map((r) => ({ from: r.from, to: Math.max(r.to, r.from + 1), className: r.definition ? 'cm-ref-def' : 'cm-ref', title: r.definition ? 'definition' : undefined }))
+      ranges.filter((r) => r.to <= length).map((r) => ({ from: r.from, to: Math.max(r.to, r.from + 1), className: r.definition ? 'cm-ref-def' : 'cm-ref', title: r.definition ? t('editor.definition') : undefined }))
     )
-  }, [ranges])
+  }, [ranges, uiLanguage])
   const ticks = useMemo(() => {
     const view = viewRef.current
     if (!view || !ranges.length) return []
@@ -290,7 +305,7 @@ export function SqlEditor(): React.JSX.Element {
     if (!view) return
     const ok = rewrites.status === 'ready' && !docEdited && rewrites.forText === useStore.getState().doc?.text
     showFixes(view, ok ? rewrites.items.filter((r) => r.edits.length).map((r) => ({ offset: r.edits[0]!.range.start.offset, ids: [r.id], title: r.title })) : [])
-  }, [rewrites, docEdited])
+  }, [rewrites, docEdited, uiLanguage])
 
   // Apply quick-fix edits as one undoable step, then hand the new text back for analysis.
   const editorEdits = useStore((s) => s.editorEdits)
@@ -299,7 +314,7 @@ export function SqlEditor(): React.JSX.Element {
     if (!view || !editorEdits) return
     if (view.state.doc.toString() !== editorEdits.baseText) {
       useStore.setState({ editorEdits: null })
-      useStore.getState().toast('The editor text changed in the meantime. Try again.', 'error')
+      useStore.getState().toast(t('editor.textChanged'), 'error')
       return
     }
     view.dispatch({

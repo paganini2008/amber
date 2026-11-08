@@ -145,8 +145,8 @@ class ScriptDiffTest {
         StatementPair p = flat(r).stream().filter(x -> x.status() == Status.MODIFIED).findFirst().orElseThrow();
         assertEquals("DELETE", p.kind());
         assertFalse(p.hunks().isEmpty());
-        assertTrue(p.hunks().getFirst().beforeText().toUpperCase().contains("WHERE"), explain(r));
-        assertEquals("", p.hunks().getFirst().afterText());
+        assertTrue(p.hunks().get(0).beforeText().toUpperCase().contains("WHERE"), explain(r));
+        assertEquals("", p.hunks().get(0).afterText());
     }
 
     @Test
@@ -335,7 +335,7 @@ class ScriptDiffTest {
         assertEquals(2, moved.beforeId());
         assertEquals(0, moved.afterId());
         assertTrue(hasReason(r, Risk.MEDIUM, "ORDER_CHANGED"), explain(r));
-        assertEquals("INSERT", r.statements().getFirst().kind());
+        assertEquals("INSERT", r.statements().get(0).kind());
     }
 
     @Test
@@ -412,7 +412,7 @@ class ScriptDiffTest {
     private static void assertMovedIntoIf(Dialect d, String before, String after) {
         DiffResult r = diff(d, before, after);
         assertEquals(1, r.controlFlow().size(), explain(r));
-        DiffResult.ControlFlowChange c = r.controlFlow().getFirst();
+        DiffResult.ControlFlowChange c = r.controlFlow().get(0);
         assertEquals("UPDATE", c.kind(), explain(r));
         assertTrue(c.message().contains("moved into IF"), c.message());
         assertTrue(c.afterPath().size() > c.beforePath().size(), explain(r));
@@ -667,10 +667,10 @@ class ScriptDiffTest {
         assertEquals(1, r.summary().statements().modified(), explain(r));
         assertEquals(Risk.LOW, r.summary().risk(), explain(r));
         assertTrue(hasReason(r, Risk.LOW, "MODIFIED"), explain(r));
-        StatementPair p = r.statements().getFirst();
+        StatementPair p = r.statements().get(0);
         assertEquals(1, p.hunks().size());
-        assertEquals("1", p.hunks().getFirst().beforeText());
-        assertEquals("2", p.hunks().getFirst().afterText());
+        assertEquals("1", p.hunks().get(0).beforeText());
+        assertEquals("2", p.hunks().get(0).afterText());
         assertTrue(p.similarity() > 0.5 && p.similarity() < 1);
     }
 

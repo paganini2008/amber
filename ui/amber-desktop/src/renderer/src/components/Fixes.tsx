@@ -3,10 +3,13 @@ import { Lightbulb, TriangleAlert } from 'lucide-react'
 import { useMemo } from 'react'
 import type { Finding, Rewrite } from '@shared/protocol'
 import { DiffPanes } from '@/editor/DiffPanes'
+import { t } from '@/i18n'
 import { checkLabelText } from '@/lib/ai'
 import { KindIcon, kindText } from '@/lib/kinds'
 import { groupByStatement, isBlocked, previewPair, rewritesFor, safetyText, sameResultBatch } from '@/lib/rewrites'
-import { useStore } from '@/store'
+import type { AnalysisIndex } from '@/lib/model'
+import { useStore, type RewritesState } from '@/store'
+import { OptimizedSection } from './Optimized'
 import { Button, Dialog, Spinner } from './ui'
 
 /** Rewrites that still match the editor text (offsets are only valid for the analyzed text). */
@@ -37,14 +40,14 @@ export function FixButton({ finding, compact }: { finding: Pick<Finding, 'rule' 
     <button
       type="button"
       className={clsx('fix-button', compact && 'fix-button-compact')}
-      title={fixes.length === 1 ? `Quick fix: ${fixes[0]!.title}` : `${fixes.length} quick fixes`}
+      title={fixes.length === 1 ? t('fixes.quickFix', { title: fixes[0]!.title }) : t('fixes.count', { count: fixes.length })}
       onClick={(e) => {
         e.stopPropagation()
         if (fixes.length === 1) preview(fixes[0]!.id)
-        else openMenu(e.clientX, e.clientY, fixes.map((r) => ({ label: `Fix: ${r.title}`, onSelect: () => preview(r.id) })))
+        else openMenu(e.clientX, e.clientY, fixes.map((r) => ({ label: t('fixes.fixItem', { title: r.title }), onSelect: () => preview(r.id) })))
       }}
     >
-      <Lightbulb size={12} aria-hidden /> Fix…
+      <Lightbulb size={12} aria-hidden /> {t('fixes.fixButton')}
     </button>
   )
 }
@@ -60,29 +63,53 @@ export function FixesPanel(): React.JSX.Element {
   const groups = useMemo(() => groupByStatement(items), [items])
   const batch = useMemo(() => sameResultBatch(items), [items])
 
+  if (doc?.edited) return <p className="px-3 py-2 text-sm text-ink-muted">{t('fixes.stale')}</p>
+  return (
+    <div className="text-sm">
+      {/* Optimized statements (all verified rewrites of a statement together) come first. */}
+      <OptimizedSection />
+      <QuickFixes state={state} items={items} groups={groups} batch={batch} index={index} preview={preview} apply={apply} />
+    </div>
+  )
+}
+
+function QuickFixes({
+  state,
+  items,
+  groups,
+  batch,
+  index,
+  preview,
+  apply
+}: {
+  state: RewritesState
+  items: Rewrite[]
+  groups: { statement: number; items: Rewrite[] }[]
+  batch: { apply: Rewrite[] }
+  index: AnalysisIndex | null
+  preview: (id: string | null) => void
+  apply: (ids: string[]) => void
+}): React.JSX.Element {
   if (state.status === 'loading') {
     return (
       <p className="flex items-center gap-2 px-3 py-2 text-sm text-ink-muted">
-        <Spinner size={12} /> Looking for fixes
+        <Spinner size={12} /> {t('fixes.loading')}
       </p>
     )
   }
-  if (state.status === 'unavailable') return <p className="px-3 py-2 text-sm text-ink-muted">This engine version does not suggest fixes yet.</p>
+  if (state.status === 'unavailable') return <p className="px-3 py-2 text-sm text-ink-muted">{t('fixes.unavailable')}</p>
   if (state.status === 'error') return <p className="px-3 py-2 text-sm text-risk-high">{state.error}</p>
-  if (doc?.edited) return <p className="px-3 py-2 text-sm text-ink-muted">The script was edited since the last analysis. Analyze it again to see the fixes that still apply.</p>
-  if (!items.length) return <p className="px-3 py-2 text-sm text-ink-muted">No quick fixes. Amber has rule-based fixes for some legacy patterns, such as NOT IN subqueries and LEFT JOINs that behave as inner joins.</p>
+  if (!items.length) return <p className="px-3 py-2 text-sm text-ink-muted">{t('fixes.none')}</p>
 
   return (
-    <div className="text-sm">
+    <div>
       <div className="sticky top-0 z-[1] flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-line bg-surface px-3 py-1.5">
         <Lightbulb size={13} className="text-amber-ink" />
-        <span className="text-ink">
-          {items.length} suggested {items.length === 1 ? 'fix' : 'fixes'} to clean up legacy patterns
-        </span>
-        <span className="text-xs text-ink-muted">Each one is checked by the parser. Applying changes only the editor, never the file on disk.</span>
+        <span className="text-ink">{t('fixes.summary', { count: items.length })}</span>
+        <span className="text-xs text-ink-muted">{t('fixes.summaryHint')}</span>
         <span className="flex-1" />
-        <Button size="sm" variant="primary" disabled={batch.apply.length === 0} onClick={() => apply(batch.apply.map((r) => r.id))} title="Applies every fix rated “Same result” that does not overlap another one">
-          Apply all with “Same result” ({batch.apply.length})
+        <Button size="sm" variant="primary" disabled={batch.apply.length === 0} onClick={() => apply(batch.apply.map((r) => r.id))} title={t('fixes.applyAllTitle')}>
+          {t('fixes.applyAll', { count: batch.apply.length })}
         </Button>
       </div>
       {groups.map((g) => {
@@ -91,8 +118,8 @@ export function FixesPanel(): React.JSX.Element {
           <div key={g.statement} className="pb-1">
             <div className="flex items-center gap-2 px-3 pt-1.5 pb-0.5 text-xs text-ink-muted">
               {s ? <KindIcon kind={s.kind} size={12} /> : null}
-              <span className="truncate font-medium text-ink">{s?.summary || (s ? kindText(s.kind) : `Statement ${g.statement + 1}`)}</span>
-              {s ? <span className="shrink-0">line {s.range.start.line}</span> : null}
+              <span className="truncate font-medium text-ink">{s?.summary || (s ? kindText(s.kind) : t('fixes.statement', { number: g.statement + 1 }))}</span>
+              {s ? <span className="shrink-0">{t('common.line', { line: s.range.start.line })}</span> : null}
             </div>
             {g.items.map((r) => (
               <button
@@ -103,9 +130,9 @@ export function FixesPanel(): React.JSX.Element {
               >
                 <span className="code w-12 shrink-0 text-[12px] text-ink-faint">{r.rule.replace(/^AMB-/, '')}</span>
                 <span className="min-w-0 flex-1 truncate text-ink">{r.title}</span>
-                {isBlocked(r) ? <span className="shrink-0 text-xs text-ink-muted">Apply {r.conflictsWith} first, then re-check</span> : null}
+                {isBlocked(r) ? <span className="shrink-0 text-xs text-ink-muted">{t('fixes.applyFirst', { id: r.conflictsWith ?? '' })}</span> : null}
                 <SafetyBadge safety={r.safety} />
-                <span className="shrink-0 text-xs text-amber-ink">Preview</span>
+                <span className="shrink-0 text-xs text-amber-ink">{t('fixes.preview')}</span>
               </button>
             ))}
           </div>
@@ -134,25 +161,25 @@ export function RewriteDialog(): React.JSX.Element {
     <Dialog
       open={id !== null}
       onOpenChange={(o) => !o && close(null)}
-      title={rewrite ? rewrite.title : 'Quick fix'}
-      description={rewrite ? `${rewrite.rule} · clean up this legacy pattern. Applying changes the editor only; save the file yourself when you are happy.` : undefined}
+      title={rewrite ? rewrite.title : t('fixes.dialog.title')}
+      description={rewrite ? t('fixes.dialog.description', { rule: rewrite.rule }) : undefined}
       width={1040}
       footer={
         rewrite ? (
           <>
-            {blocked ? <span className="mr-auto self-center text-sm text-ink-muted">Apply {rewrite.conflictsWith} first, then re-check: the two fixes touch the same text.</span> : null}
+            {blocked ? <span className="mr-auto self-center text-sm text-ink-muted">{t('fixes.dialog.blocked', { id: rewrite.conflictsWith ?? '' })}</span> : null}
             <Button variant="ghost" onClick={() => close(null)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button variant="primary" disabled={blocked} onClick={() => apply([rewrite.id])}>
-              Apply to editor
+              {t('fixes.dialog.apply')}
             </Button>
           </>
         ) : null
       }
     >
       {!rewrite || !preview || !s ? (
-        <p className="p-5 text-sm text-ink-muted">This fix no longer matches the script. Analyze it again to refresh the suggestions.</p>
+        <p className="p-5 text-sm text-ink-muted">{t('fixes.dialog.noLongerMatches')}</p>
       ) : (
         <div className="flex h-[66vh] flex-col">
           <div className="shrink-0 space-y-2.5 border-b border-line px-5 py-3">
@@ -162,19 +189,19 @@ export function RewriteDialog(): React.JSX.Element {
             </div>
             {rewrite.safetyNote ? (
               <div className={clsx('rounded-[6px] border px-3 py-2 text-[14px] leading-[21px] text-ink', s.tone === 'edge' ? 'safety-note-edge' : 'border-line bg-surface-2')}>
-                {s.tone === 'edge' ? <span className="font-semibold">Edge case: </span> : null}
+                {s.tone === 'edge' ? <span className="font-semibold">{t('fixes.dialog.edgeCase')}</span> : null}
                 {rewrite.safetyNote}
               </div>
             ) : null}
             <p className="text-[14px] leading-[21px] text-ink">{rewrite.explanation}</p>
             <p className="text-sm text-ink-muted">
-              Parser check: <span className="text-ink">{checkLabelText(rewrite.check)}</span>
+              {t('fixes.dialog.parserCheck')} <span className="text-ink">{checkLabelText(rewrite.check)}</span>
               {rewrite.checkDifferences.length ? ` (${rewrite.checkDifferences.join('; ')})` : ''}
             </p>
           </div>
           <div className="grid shrink-0 grid-cols-2 divide-x divide-line border-b border-line bg-surface-2 text-xs text-ink-muted">
-            <span className="px-3 py-0.5">Now</span>
-            <span className="px-3 py-0.5">After the fix</span>
+            <span className="px-3 py-0.5">{t('fixes.dialog.now')}</span>
+            <span className="px-3 py-0.5">{t('fixes.dialog.after')}</span>
           </div>
           <DiffPanes before={preview.before} after={preview.after} dialect={dialect} pair={preview.pair} />
         </div>

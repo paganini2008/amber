@@ -32,7 +32,8 @@ import java.util.Set;
  *
  * <p>Rules: AMB-S002 LEFT JOIN made inner by WHERE, AMB-S004 NOT IN subquery, AMB-S008 day function on a
  * filtered column, AMB-S009 UNION, AMB-S010 SELECT * written to a table, AMB-S011 DISTINCT with GROUP BY,
- * AMB-S012 ORDER BY in a subquery, AMB-D002 repeated subquery. A {@code -- amber:ignore RULE} comment that
+ * AMB-S012 ORDER BY in a subquery, AMB-D002 repeated subquery, AMB-P003 correlated aggregate subquery in the
+ * select list. A {@code -- amber:ignore RULE} comment that
  * suppresses a finding also suppresses its rewrite.
  *
  * @Author: Fred Feng
@@ -43,7 +44,7 @@ public final class RewriteSuggester {
 
     private static final List<RewriteRule> RULES = List.of(new LeftJoinRule(), new NotInRule(), new DateRangeRule(),
             new UnionAllRule(), new SelectStarRule(), new DistinctGroupByRule(), new SubqueryOrderByRule(),
-            new RepeatedSubqueryRule());
+            new RepeatedSubqueryRule(), new CorrelatedSubqueryRule());
 
     private RewriteSuggester() {
     }
@@ -69,9 +70,26 @@ public final class RewriteSuggester {
      */
     public static List<Rewrite> suggest(Dialect dialect, String text, Catalog catalog, List<Integer> statementIds,
                                         boolean allowFallback) {
+        return suggest(dialect, text, catalog, statementIds, allowFallback, rule -> true);
+    }
+
+    /**
+     * As {@link #suggest(Dialect, String, Catalog, List, boolean)}, proposing only rewrites of rules for which
+     * {@code ruleEnabled} is true (the user's rule settings).
+     */
+    public static List<Rewrite> suggest(Dialect dialect, String text, Catalog catalog, List<Integer> statementIds,
+                                        boolean allowFallback, java.util.function.Predicate<String> ruleEnabled) {
         DialectFrontend f = DialectFrontends.get(dialect);
-        SourceText source = SourceText.of(text);
-        ScriptParse parse = f.parse(source, allowFallback ? ParseOptions.FALLBACK : ParseOptions.STRICT);
+        ScriptParse parse = f.parse(SourceText.of(text), allowFallback ? ParseOptions.FALLBACK : ParseOptions.STRICT);
+        return suggest(dialect, text, parse, catalog, statementIds, allowFallback, ruleEnabled);
+    }
+
+    /** As above with the script already parsed (in the mode {@code allowFallback} asks for). */
+    static List<Rewrite> suggest(Dialect dialect, String text, ScriptParse parse, Catalog catalog,
+                                 List<Integer> statementIds, boolean allowFallback,
+                                 java.util.function.Predicate<String> ruleEnabled) {
+        DialectFrontend f = DialectFrontends.get(dialect);
+        SourceText source = parse.source();
         if (parse.status() == ScriptStatus.FAILED || (!allowFallback && parse.status() != ScriptStatus.SUCCESS)) {
             return List.of();
         }
@@ -91,6 +109,9 @@ public final class RewriteSuggester {
         List<Rewrite> out = new ArrayList<>();
         int[] counter = {0};
         for (int id = 0; id < steps.size(); id++) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new java.util.concurrent.CancellationException("cancelled");    // $/cancel
+            }
             Statement st = steps.get(id);
             if ((!wanted.isEmpty() && !wanted.contains(id)) || st.kind().isContainer()
                     || st.kind() == StatementKind.CLIENT_COMMAND || st.kind() == StatementKind.DATA
@@ -103,15 +124,16 @@ public final class RewriteSuggester {
             }
             RewriteContext ctx = new RewriteContext(dialect, source, st, id, sql, scriptCatalog, parents.get(st),
                     creates, firstCreate, steps);
-            out.addAll(forStatement(ctx, verifier, counter));
+            out.addAll(forStatement(ctx, verifier, counter, ruleEnabled));
         }
         return out;
     }
 
-    private static List<Rewrite> forStatement(RewriteContext ctx, Verifier verifier, int[] counter) {
+    private static List<Rewrite> forStatement(RewriteContext ctx, Verifier verifier, int[] counter,
+                                              java.util.function.Predicate<String> ruleEnabled) {
         List<Candidate> candidates = new ArrayList<>();
         for (RewriteRule rule : RULES) {
-            if (ctx.ignored(rule.id())) {
+            if (ctx.ignored(rule.id()) || !ruleEnabled.test(rule.id())) {
                 continue;
             }
             try {
