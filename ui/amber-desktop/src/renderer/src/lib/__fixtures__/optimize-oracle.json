@@ -1,0 +1,644 @@
+{
+ "text": "CREATE TABLE sales.orders (id NUMBER PRIMARY KEY, customer_id NUMBER, status VARCHAR2(10), created DATE, amount NUMBER);\nCREATE TABLE sales.customers (id NUMBER PRIMARY KEY, name VARCHAR2(100), region VARCHAR2(10));\n\nSELECT c.name,\n       (SELECT SUM(o.amount) FROM sales.orders o WHERE o.customer_id = c.id) AS total\n  FROM sales.customers c;\n\nSELECT DISTINCT o.status, COUNT(*) FROM sales.orders o WHERE o.status = 'NEW' GROUP BY o.status;\n\nSELECT id FROM sales.orders WHERE status = 'A'\nUNION\nSELECT id FROM sales.orders WHERE status = 'B';\n\nSELECT * FROM sales.orders o WHERE o.amount + 1 = 5;\n\nUPDATE sales.orders SET status = 'X' WHERE customer_id = 7;\nUPDATE sales.orders SET amount = 0 WHERE customer_id = 7;\n\nBEGIN\n  FOR r IN (SELECT id FROM sales.orders WHERE status = 'OLD') LOOP\n    DELETE FROM sales.customers WHERE id = r.id;\n  END LOOP;\nEND;\n/\n",
+ "statementRanges": {
+  "0": {
+   "start": {
+    "offset": 0,
+    "line": 1,
+    "column": 1
+   },
+   "end": {
+    "offset": 119,
+    "line": 1,
+    "column": 120
+   }
+  },
+  "1": {
+   "start": {
+    "offset": 121,
+    "line": 2,
+    "column": 1
+   },
+   "end": {
+    "offset": 214,
+    "line": 2,
+    "column": 94
+   }
+  },
+  "2": {
+   "start": {
+    "offset": 217,
+    "line": 4,
+    "column": 1
+   },
+   "end": {
+    "offset": 342,
+    "line": 6,
+    "column": 25
+   }
+  },
+  "3": {
+   "start": {
+    "offset": 345,
+    "line": 8,
+    "column": 1
+   },
+   "end": {
+    "offset": 440,
+    "line": 8,
+    "column": 96
+   }
+  },
+  "4": {
+   "start": {
+    "offset": 443,
+    "line": 10,
+    "column": 1
+   },
+   "end": {
+    "offset": 542,
+    "line": 12,
+    "column": 47
+   }
+  },
+  "5": {
+   "start": {
+    "offset": 545,
+    "line": 14,
+    "column": 1
+   },
+   "end": {
+    "offset": 596,
+    "line": 14,
+    "column": 52
+   }
+  },
+  "6": {
+   "start": {
+    "offset": 599,
+    "line": 16,
+    "column": 1
+   },
+   "end": {
+    "offset": 657,
+    "line": 16,
+    "column": 59
+   }
+  },
+  "7": {
+   "start": {
+    "offset": 659,
+    "line": 17,
+    "column": 1
+   },
+   "end": {
+    "offset": 715,
+    "line": 17,
+    "column": 57
+   }
+  },
+  "8": {
+   "start": {
+    "offset": 718,
+    "line": 19,
+    "column": 1
+   },
+   "end": {
+    "offset": 855,
+    "line": 23,
+    "column": 4
+   }
+  },
+  "9": {
+   "start": {
+    "offset": 726,
+    "line": 20,
+    "column": 3
+   },
+   "end": {
+    "offset": 850,
+    "line": 22,
+    "column": 11
+   }
+  },
+  "10": {
+   "start": {
+    "offset": 736,
+    "line": 20,
+    "column": 13
+   },
+   "end": {
+    "offset": 784,
+    "line": 20,
+    "column": 61
+   }
+  },
+  "11": {
+   "start": {
+    "offset": 795,
+    "line": 21,
+    "column": 5
+   },
+   "end": {
+    "offset": 838,
+    "line": 21,
+    "column": 48
+   }
+  }
+ },
+ "findings": [
+  {
+   "rule": "AMB-S011",
+   "severity": "LOW",
+   "title": "DISTINCT with GROUP BY",
+   "message": "GROUP BY already returns one row per group.",
+   "suggestion": "Remove DISTINCT unless the select list adds columns outside the groups.",
+   "statement": 3,
+   "range": {
+    "start": {
+     "offset": 345,
+     "line": 8,
+     "column": 1
+    },
+    "end": {
+     "offset": 360,
+     "line": 8,
+     "column": 16
+    }
+   },
+   "confidence": "INFERRED",
+   "suggestedSql": "SELECT o.status, COUNT(*) FROM sales.orders o WHERE o.status = 'NEW' GROUP BY o.status",
+   "suggestedSqlKind": "REWRITE_OF_STATEMENT",
+   "verified": "STRUCTURE_CHANGED",
+   "suggestedSqlNote": "Equivalent rewrite.",
+   "rewriteId": "R2"
+  },
+  {
+   "rule": "AMB-S009",
+   "severity": "LOW",
+   "title": "UNION removes duplicates",
+   "message": "UNION sorts or hashes the result to remove duplicates.",
+   "suggestion": "Use UNION ALL when the branches cannot overlap or duplicates are fine.",
+   "statement": 4,
+   "range": {
+    "start": {
+     "offset": 490,
+     "line": 11,
+     "column": 1
+    },
+    "end": {
+     "offset": 495,
+     "line": 11,
+     "column": 6
+    }
+   },
+   "confidence": "INFERRED",
+   "suggestedSql": "SELECT id FROM sales.orders WHERE status = 'A'\nUNION ALL\nSELECT id FROM sales.orders WHERE status = 'B'",
+   "suggestedSqlKind": "REWRITE_OF_STATEMENT",
+   "verified": "STRUCTURE_PRESERVED",
+   "suggestedSqlNote": "Changes behavior in edge cases: Only if the branches cannot return the same row and no branch returns duplicates, or if duplicate rows are acceptable: UNION ALL keeps the duplicates UNION removed.",
+   "rewriteId": "R3"
+  },
+  {
+   "rule": "AMB-S005",
+   "severity": "MEDIUM",
+   "title": "Table read several times",
+   "message": "sales.orders is read 2 times in this statement.",
+   "suggestion": "Read it once in a CTE (or with conditional aggregation) and reuse the result.",
+   "statement": 4,
+   "range": {
+    "start": {
+     "offset": 511,
+     "line": 12,
+     "column": 16
+    },
+    "end": {
+     "offset": 523,
+     "line": 12,
+     "column": 28
+    }
+   },
+   "confidence": "CERTAIN",
+   "suggestedSql": null,
+   "suggestedSqlKind": null,
+   "verified": null,
+   "suggestedSqlNote": null,
+   "rewriteId": null
+  },
+  {
+   "rule": "AMB-S006",
+   "severity": "MEDIUM",
+   "title": "Row-by-row DML in a loop",
+   "message": "This delete runs once per loop iteration.",
+   "suggestion": "Replace the loop with one set-based statement (INSERT \u2026 SELECT, UPDATE \u2026 FROM, MERGE), or batch it (FORALL / bulk binds).",
+   "statement": 11,
+   "range": {
+    "start": {
+     "offset": 795,
+     "line": 21,
+     "column": 5
+    },
+    "end": {
+     "offset": 838,
+     "line": 21,
+     "column": 48
+    }
+   },
+   "confidence": "INFERRED",
+   "suggestedSql": null,
+   "suggestedSqlKind": null,
+   "verified": null,
+   "suggestedSqlNote": null,
+   "rewriteId": null
+  },
+  {
+   "rule": "AMB-P003",
+   "severity": "LOW",
+   "title": "Correlated subquery in the select list",
+   "message": "This subquery refers to c.id of the outer query, so it runs once for every row the outer query returns (some optimizers rewrite it, many do not).",
+   "suggestion": "Compute it once for all rows: join a grouped derived table (LEFT JOIN (SELECT key, agg(\u2026) \u2026 GROUP BY key) d ON d.key = outer key) or use a LATERAL join / OUTER APPLY (12c+). Amber offers a verified rewrite for the simple aggregate form.",
+   "statement": 2,
+   "range": {
+    "start": {
+     "offset": 239,
+     "line": 5,
+     "column": 8
+    },
+    "end": {
+     "offset": 308,
+     "line": 5,
+     "column": 77
+    }
+   },
+   "confidence": "INFERRED",
+   "suggestedSql": "SELECT c.name,\n       SQ1.AGG_VALUE AS total\n  FROM sales.customers c LEFT JOIN (SELECT o.customer_id, SUM(o.amount) AS AGG_VALUE FROM sales.orders o GROUP BY o.customer_id) SQ1 ON SQ1.customer_id = c.id",
+   "suggestedSqlKind": "REWRITE_OF_STATEMENT",
+   "verified": "STRUCTURE_CHANGED",
+   "suggestedSqlNote": "Equivalent given the known metadata. The correlated columns have the same type on both sides (CUSTOMER_ID) in the known metadata, so grouping by the inner column matches each outer row at most once. The structural check sees the new GROUP BY and source.",
+   "rewriteId": "R1"
+  },
+  {
+   "rule": "AMB-P007",
+   "severity": "LOW",
+   "title": "Calculation on a compared column",
+   "message": "Arithmetic on o.amount (o.amount + 1) is computed for every row before the comparison, so an index on o.amount cannot be used.",
+   "suggestion": "Move the calculation to the other side of the comparison so the bare column is compared. For example: o.amount = 5 - 1.",
+   "statement": 5,
+   "range": {
+    "start": {
+     "offset": 580,
+     "line": 14,
+     "column": 36
+    },
+    "end": {
+     "offset": 592,
+     "line": 14,
+     "column": 48
+    }
+   },
+   "confidence": "INFERRED",
+   "suggestedSql": "SELECT * FROM sales.orders o WHERE o.amount = 5 - 1",
+   "suggestedSqlKind": "REWRITE_OF_STATEMENT",
+   "verified": "STRUCTURE_PRESERVED",
+   "suggestedSqlNote": "Same rows for exact numbers and dates; check rounding for floating-point columns.",
+   "rewriteId": null
+  },
+  {
+   "rule": "AMB-P004",
+   "severity": "INFO",
+   "title": "Statements that can be combined",
+   "message": "This UPDATE changes the same rows of SALES . ORDERS as the UPDATE on line 16 (same WHERE); each UPDATE finds, locks and writes the rows again.",
+   "suggestion": "Combine them into one UPDATE (the second does not read what the first sets, so the result is the same; check triggers that count statements):\nUPDATE sales.orders SET status = 'X', amount = 0 WHERE customer_id = 7",
+   "statement": 7,
+   "range": {
+    "start": {
+     "offset": 659,
+     "line": 17,
+     "column": 1
+    },
+    "end": {
+     "offset": 715,
+     "line": 17,
+     "column": 57
+    }
+   },
+   "confidence": "CERTAIN",
+   "suggestedSql": "UPDATE sales.orders SET status = 'X', amount = 0 WHERE customer_id = 7",
+   "suggestedSqlKind": "REWRITE_OF_STATEMENT",
+   "verified": "STRUCTURE_PRESERVED",
+   "suggestedSqlNote": "Replaces both UPDATEs. Same result because the second one neither sets nor reads a column the first one sets; row triggers fire once instead of twice.",
+   "rewriteId": null
+  },
+  {
+   "rule": "AMB-P005",
+   "severity": "MEDIUM",
+   "title": "Cursor loop that can be one statement",
+   "message": "This loop runs one delete per row of its cursor, and the loop body uses nothing but the cursor row; one set-based statement does the same work in a single pass.",
+   "suggestion": "Replace the loop with one set-based statement (UPDATE \u2026 FROM / MERGE, INSERT \u2026 SELECT, DELETE \u2026 WHERE EXISTS). Check first that the cursor cannot return the same target row twice (aggregate it then), and that no per-row error handling or commit is needed.",
+   "statement": 9,
+   "range": {
+    "start": {
+     "offset": 726,
+     "line": 20,
+     "column": 3
+    },
+    "end": {
+     "offset": 790,
+     "line": 20,
+     "column": 67
+    }
+   },
+   "confidence": "INFERRED",
+   "suggestedSql": null,
+   "suggestedSqlKind": null,
+   "verified": null,
+   "suggestedSqlNote": null,
+   "rewriteId": null
+  }
+ ],
+ "optimize": {
+  "statements": [
+   {
+    "statement": 2,
+    "original": "SELECT c.name,\n       (SELECT SUM(o.amount) FROM sales.orders o WHERE o.customer_id = c.id) AS total\n  FROM sales.customers c",
+    "optimized": "SELECT c.name,\n       SQ1.AGG_VALUE AS total\n  FROM sales.customers c LEFT JOIN (SELECT o.customer_id, SUM(o.amount) AS AGG_VALUE FROM sales.orders o GROUP BY o.customer_id) SQ1 ON SQ1.customer_id = c.id",
+    "applied": [
+     {
+      "id": "R1",
+      "rule": "AMB-P003",
+      "title": "Correlated subquery \u2192 LEFT JOIN of a grouped derived table",
+      "safety": "EQUIVALENT_WITH_METADATA"
+     }
+    ],
+    "skipped": [],
+    "safety": "EQUIVALENT_WITH_METADATA",
+    "check": {
+     "label": "STRUCTURE_CHANGED",
+     "differences": [
+      "Grouping columns: [] \u2192 [SALES.ORDERS.CUSTOMER_ID]"
+     ]
+    },
+    "additionalDdl": []
+   },
+   {
+    "statement": 3,
+    "original": "SELECT DISTINCT o.status, COUNT(*) FROM sales.orders o WHERE o.status = 'NEW' GROUP BY o.status",
+    "optimized": "SELECT o.status, COUNT(*) FROM sales.orders o WHERE o.status = 'NEW' GROUP BY o.status",
+    "applied": [
+     {
+      "id": "R2",
+      "rule": "AMB-S011",
+      "title": "Remove DISTINCT (GROUP BY already returns distinct rows)",
+      "safety": "EQUIVALENT"
+     }
+    ],
+    "skipped": [],
+    "safety": "EQUIVALENT",
+    "check": {
+     "label": "STRUCTURE_CHANGED",
+     "differences": [
+      "Ordering and row limits: [DISTINCT] \u2192 []"
+     ]
+    },
+    "additionalDdl": []
+   }
+  ],
+  "optimizedText": "CREATE TABLE sales.orders (id NUMBER PRIMARY KEY, customer_id NUMBER, status VARCHAR2(10), created DATE, amount NUMBER);\nCREATE TABLE sales.customers (id NUMBER PRIMARY KEY, name VARCHAR2(100), region VARCHAR2(10));\n\nSELECT c.name,\n       SQ1.AGG_VALUE AS total\n  FROM sales.customers c LEFT JOIN (SELECT o.customer_id, SUM(o.amount) AS AGG_VALUE FROM sales.orders o GROUP BY o.customer_id) SQ1 ON SQ1.customer_id = c.id;\n\nSELECT o.status, COUNT(*) FROM sales.orders o WHERE o.status = 'NEW' GROUP BY o.status;\n\nSELECT id FROM sales.orders WHERE status = 'A'\nUNION\nSELECT id FROM sales.orders WHERE status = 'B';\n\nSELECT * FROM sales.orders o WHERE o.amount + 1 = 5;\n\nUPDATE sales.orders SET status = 'X' WHERE customer_id = 7;\nUPDATE sales.orders SET amount = 0 WHERE customer_id = 7;\n\nBEGIN\n  FOR r IN (SELECT id FROM sales.orders WHERE status = 'OLD') LOOP\n    DELETE FROM sales.customers WHERE id = r.id;\n  END LOOP;\nEND;\n/\n"
+ },
+ "rules": [
+  {
+   "id": "AMB-S001",
+   "severity": "HIGH",
+   "title": "Cartesian product",
+   "description": "Several tables in FROM without any join or WHERE condition: every row is combined with every row.",
+   "category": "risk",
+   "needsMetadata": false,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-S002",
+   "severity": "MEDIUM",
+   "title": "LEFT JOIN behaves as INNER JOIN",
+   "description": "A WHERE condition on the right table of a LEFT JOIN drops the rows the outer join kept.",
+   "category": "risk",
+   "needsMetadata": false,
+   "hasQuickFix": true
+  },
+  {
+   "id": "AMB-S003",
+   "severity": "MEDIUM",
+   "title": "Leading wildcard",
+   "description": "LIKE '%x' cannot use an index on the column.",
+   "category": "performance",
+   "needsMetadata": false,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-S004",
+   "severity": "MEDIUM",
+   "title": "NOT IN with a subquery",
+   "description": "One NULL from the subquery makes NOT IN match no rows (certain when metadata says the column is nullable).",
+   "category": "risk",
+   "needsMetadata": false,
+   "hasQuickFix": true
+  },
+  {
+   "id": "AMB-S005",
+   "severity": "MEDIUM",
+   "title": "Table read several times",
+   "description": "The same table is read several times in one statement.",
+   "category": "performance",
+   "needsMetadata": false,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-S006",
+   "severity": "MEDIUM",
+   "title": "Row-by-row DML in a loop",
+   "description": "An INSERT, UPDATE, DELETE or MERGE runs once per loop iteration.",
+   "category": "performance",
+   "needsMetadata": false,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-S007",
+   "severity": "MEDIUM",
+   "title": "COMMIT inside a loop",
+   "description": "Committing every iteration is slow and leaves partial results when the loop fails.",
+   "category": "risk",
+   "needsMetadata": false,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-S008",
+   "severity": "MEDIUM",
+   "title": "Function on a filtered column",
+   "description": "A function or calculation on a column in WHERE prevents an index on it from being used (HIGH when metadata shows the index).",
+   "category": "performance",
+   "needsMetadata": false,
+   "hasQuickFix": true
+  },
+  {
+   "id": "AMB-S009",
+   "severity": "LOW",
+   "title": "UNION removes duplicates",
+   "description": "UNION sorts or hashes the result; UNION ALL may be enough.",
+   "category": "performance",
+   "needsMetadata": false,
+   "hasQuickFix": true
+  },
+  {
+   "id": "AMB-S010",
+   "severity": "LOW",
+   "title": "SELECT * written into a table or view",
+   "description": "The column list changes whenever the source table changes.",
+   "category": "maintainability",
+   "needsMetadata": false,
+   "hasQuickFix": true
+  },
+  {
+   "id": "AMB-S011",
+   "severity": "LOW",
+   "title": "DISTINCT with GROUP BY",
+   "description": "GROUP BY already returns one row per group.",
+   "category": "performance",
+   "needsMetadata": false,
+   "hasQuickFix": true
+  },
+  {
+   "id": "AMB-S012",
+   "severity": "LOW",
+   "title": "ORDER BY in a subquery",
+   "description": "The order of a subquery or CTE without a row limit is not kept by the outer query.",
+   "category": "maintainability",
+   "needsMetadata": false,
+   "hasQuickFix": true
+  },
+  {
+   "id": "AMB-M001",
+   "severity": "HIGH",
+   "title": "Many-to-many join",
+   "description": "The join columns are unique on neither side, so rows repeat on both sides.",
+   "category": "risk",
+   "needsMetadata": true,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-D001",
+   "severity": "LOW",
+   "title": "Duplicate statement",
+   "description": "The same statement appears again (literals ignored).",
+   "category": "maintainability",
+   "needsMetadata": false,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-D002",
+   "severity": "LOW",
+   "title": "Repeated subquery",
+   "description": "The same subquery appears several times in the script.",
+   "category": "maintainability",
+   "needsMetadata": false,
+   "hasQuickFix": true
+  },
+  {
+   "id": "AMB-I001",
+   "severity": "INFO",
+   "title": "Dynamic SQL",
+   "description": "SQL built at run time is not analyzed.",
+   "category": "info",
+   "needsMetadata": false,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-I002",
+   "severity": "INFO",
+   "title": "Columns without a table",
+   "description": "Columns that could not be attributed to a table.",
+   "category": "info",
+   "needsMetadata": false,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-P001",
+   "severity": "INFO",
+   "title": "Possible missing index",
+   "description": "A column used in joins or filters has no index that starts with it in the known table definition (raised to LOW when used in 3 or more statements). A hint only: check real data volumes and existing indexes.",
+   "category": "performance",
+   "needsMetadata": true,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-P002",
+   "severity": "MEDIUM",
+   "title": "Implicit conversion",
+   "description": "A column of a known type is compared with a value of another type, so the database converts one side: the column (an index cannot be used) or the value (with session-dependent formats or run-time errors).",
+   "category": "performance",
+   "needsMetadata": true,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-P003",
+   "severity": "LOW",
+   "title": "Correlated subquery in the select list",
+   "description": "A scalar subquery that refers to the outer row runs once per row; a join to a grouped derived table runs once.",
+   "category": "performance",
+   "needsMetadata": false,
+   "hasQuickFix": true
+  },
+  {
+   "id": "AMB-P004",
+   "severity": "INFO",
+   "title": "Statements that can be combined",
+   "description": "Consecutive UPDATEs of the same rows, or an UPDATE plus INSERT \u2026 WHERE NOT EXISTS on the same table (an upsert), can be one statement.",
+   "category": "performance",
+   "needsMetadata": false,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-P005",
+   "severity": "MEDIUM",
+   "title": "Cursor loop that can be one statement",
+   "description": "A cursor loop whose body is a single DML using only the cursor row can be written as one set-based statement.",
+   "category": "performance",
+   "needsMetadata": false,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-P006",
+   "severity": "INFO",
+   "title": "OR across indexed columns",
+   "description": "OR between conditions on different indexed columns of one table can keep any single index from being used.",
+   "category": "performance",
+   "needsMetadata": true,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-P007",
+   "severity": "LOW",
+   "title": "Calculation on a compared column",
+   "description": "Arithmetic or concatenation on a column in WHERE / ON, or NVL / COALESCE / ISNULL on a join column, keeps an index on it from being used.",
+   "category": "performance",
+   "needsMetadata": false,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-P008",
+   "severity": "LOW",
+   "title": "COUNT used to test existence",
+   "description": "COUNT(*) > 0 counts every matching row; EXISTS stops at the first one.",
+   "category": "performance",
+   "needsMetadata": false,
+   "hasQuickFix": false
+  },
+  {
+   "id": "AMB-P009",
+   "severity": "LOW",
+   "title": "DISTINCT hiding a duplicating join",
+   "description": "The selected columns already include a unique key of one table; DISTINCT only removes duplicates the joins produce.",
+   "category": "performance",
+   "needsMetadata": true,
+   "hasQuickFix": false
+  }
+ ]
+}

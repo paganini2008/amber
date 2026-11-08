@@ -1,5 +1,6 @@
 import { StringDecoder } from 'node:string_decoder'
 import { RPC_ERROR, type RpcErrorObject } from '../../shared/protocol'
+import { tm } from '../i18n'
 
 export class RpcError extends Error {
   readonly code: number
@@ -41,24 +42,32 @@ interface Pending {
  * Splits a byte or string stream into lines. Handles chunks that end mid-line and mid-character.
  */
 export class LineSplitter {
-  private buffer = ''
+  /**
+   * The unfinished line, as pieces. Only new chunks are searched for a line break and the pieces are
+   * joined once per line: a large answer (100 MB on one line for a huge script) used to be rescanned
+   * and copied for every 64 KB chunk, which took minutes.
+   */
+  private pending: string[] = []
   private readonly decoder = new StringDecoder('utf8')
 
   constructor(private readonly onLine: (line: string) => void) {}
 
   push(chunk: Buffer | string): void {
-    this.buffer += typeof chunk === 'string' ? chunk : this.decoder.write(chunk)
+    let text = typeof chunk === 'string' ? chunk : this.decoder.write(chunk)
     let index: number
-    while ((index = this.buffer.indexOf('\n')) >= 0) {
-      let line = this.buffer.slice(0, index)
-      this.buffer = this.buffer.slice(index + 1)
+    while ((index = text.indexOf('\n')) >= 0) {
+      this.pending.push(text.slice(0, index))
+      text = text.slice(index + 1)
+      let line = this.pending.length === 1 ? this.pending[0]! : this.pending.join('')
+      this.pending = []
       if (line.endsWith('\r')) line = line.slice(0, -1)
       if (line.trim().length > 0) this.onLine(line)
     }
+    if (text) this.pending.push(text)
   }
 
   reset(): void {
-    this.buffer = ''
+    this.pending = []
   }
 }
 
@@ -89,7 +98,7 @@ export class JsonRpcClient {
     const id = this.nextId++
     return new Promise<T>((resolve, reject) => {
       if (options.signal?.aborted) {
-        reject(new RpcError(RPC_ERROR.REQUEST_CANCELLED, 'Request cancelled'))
+        reject(new RpcError(RPC_ERROR.REQUEST_CANCELLED, tm('main.engine.cancelled')))
         return
       }
       let timer: ReturnType<typeof setTimeout> | undefined
@@ -108,7 +117,7 @@ export class JsonRpcClient {
       if (options.timeoutMs && options.timeoutMs > 0) {
         timer = setTimeout(() => {
           this.notify('$/cancel', { id })
-          this.settle(id, new RpcError(RPC_ERROR.TIMEOUT, `Engine did not answer "${method}" in time`))
+          this.settle(id, new RpcError(RPC_ERROR.TIMEOUT, tm('main.engine.timedOut', { method })))
         }, options.timeoutMs)
       }
       const message: Record<string, unknown> = { jsonrpc: '2.0', id, method }
@@ -116,7 +125,7 @@ export class JsonRpcClient {
       try {
         this.send(JSON.stringify(message))
       } catch (error) {
-        this.settle(id, new RpcError(RPC_ERROR.ENGINE_UNAVAILABLE, errorMessage(error, 'Engine is not running')))
+        this.settle(id, new RpcError(RPC_ERROR.ENGINE_UNAVAILABLE, errorMessage(error, tm('main.engine.notRunning'))))
       }
     })
   }
@@ -135,7 +144,7 @@ export class JsonRpcClient {
   cancel(id: number): void {
     if (!this.pending.has(id)) return
     this.notify('$/cancel', { id })
-    this.settle(id, new RpcError(RPC_ERROR.REQUEST_CANCELLED, 'Request cancelled'))
+    this.settle(id, new RpcError(RPC_ERROR.REQUEST_CANCELLED, tm('main.engine.cancelled')))
   }
 
   /** Rejects every pending request, e.g. when the engine process exits. */

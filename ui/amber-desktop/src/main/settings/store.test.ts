@@ -16,6 +16,18 @@ function makeStore(): { store: SettingsStore; dir: string } {
 }
 
 describe('SettingsStore', () => {
+  it('defaults to English and empty rule settings, and normalizes saved rules', () => {
+    const { store, dir } = makeStore()
+    expect(store.get().language).toBe('en')
+    expect(store.get().rules).toEqual({ disabled: [], severity: {} })
+    store.update({ language: 'zh-CN', rules: { disabled: ['amb-s009', 'AMB-S009', ' AMB-P001 '], severity: { 'amb-s008': 'HIGH', 'AMB-P004': 'BOGUS' as 'LOW' } } })
+    const reloaded = new SettingsStore(join(dir, 'settings.json'), join(dir, 'secrets.json'), box)
+    expect(reloaded.get().language).toBe('zh-CN')
+    expect(reloaded.get().rules).toEqual({ disabled: ['AMB-P001', 'AMB-S009'], severity: { 'AMB-S008': 'HIGH' } })
+    store.update({ language: 'fr' as 'en' })
+    expect(store.get().language).toBe('en')
+  })
+
   it('starts with defaults and persists patches', () => {
     const { store, dir } = makeStore()
     expect(store.get().theme).toBe('system')

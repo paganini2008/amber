@@ -19,7 +19,7 @@ class WholeScriptSplitterTest {
         SourceText src = SourceText.of("\n  select 1;\n select 2;  \n");
         List<StatementUnit> units = WholeScriptSplitter.INSTANCE.split(src);
         assertEquals(1, units.size());
-        assertEquals("select 1;\n select 2;", src.slice(units.getFirst().range()));
+        assertEquals("select 1;\n select 2;", src.slice(units.get(0).range()));
         assertEquals(List.of(), WholeScriptSplitter.INSTANCE.split(SourceText.of("  \n ")));
     }
 }

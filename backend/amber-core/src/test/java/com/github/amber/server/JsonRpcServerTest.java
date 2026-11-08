@@ -183,4 +183,11 @@ class JsonRpcServerTest {
         assertTrue(byId(r, 5).get("result").get("text").asText().endsWith("select 2;"), "only the first statement formatted");
         assertEquals(-32602, byId(r, 6).get("error").get("code").asInt());
     }
+
+    @Test
+    void wrappedInterruptionsCountAsCancellation() {
+        assertTrue(JsonRpcServer.isCancellation(new java.util.concurrent.CompletionException(new InterruptedException())));
+        assertTrue(JsonRpcServer.isCancellation(new RuntimeException(new java.util.concurrent.CancellationException())));
+        assertTrue(!JsonRpcServer.isCancellation(new IllegalStateException("boom")));
+    }
 }

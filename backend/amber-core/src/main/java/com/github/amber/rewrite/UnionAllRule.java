@@ -1,5 +1,6 @@
 package com.github.amber.rewrite;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.meta.TableMeta;
 import com.github.amber.dialect.split.ScanToken;
 
@@ -46,13 +47,11 @@ final class UnionAllRule implements RewriteRule {
             ScanToken u = sql.tok(i);
             Edit edit = ctx.insert(u.end(), " " + RewriteContext.kw("ALL", u));
             List<Block> branches = chain(sql, i);
-            String title = "UNION → UNION ALL";
-            String explanation = "UNION sorts or hashes the whole result to remove duplicate rows. UNION ALL skips "
-                    + "that work and keeps every row.";
+            String title = Messages.t("rewrite.unionAll.title");
+            String explanation = Messages.t("rewrite.unionAll.explanation");
             if (branches != null && membership(sql, branches)) {
                 out.add(new Candidate(id(), title, explanation, List.of(edit), Safety.EQUIVALENT,
-                        "The set is only used to test membership (IN / EXISTS), where duplicate rows do not change "
-                        + "the result."));
+                        Messages.t("rewrite.unionAll.safety.membership")));
                 continue;
             }
             String proof = branches == null ? null : disjointAndDistinct(ctx, sql, branches);
@@ -60,8 +59,7 @@ final class UnionAllRule implements RewriteRule {
                 out.add(new Candidate(id(), title, explanation, List.of(edit), Safety.EQUIVALENT_WITH_METADATA, proof));
             } else {
                 out.add(new Candidate(id(), title, explanation, List.of(edit), Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES,
-                        "Only if the branches cannot return the same row and no branch returns duplicates, or if "
-                        + "duplicate rows are acceptable: UNION ALL keeps the duplicates UNION removed."));
+                        Messages.t("rewrite.unionAll.safety.edgeCases")));
             }
         }
         return out;
@@ -91,7 +89,7 @@ final class UnionAllRule implements RewriteRule {
             if (prev == null) {
                 break;
             }
-            chain.addFirst(prev);
+            chain.add(0, prev);
             cur = prev;
         }
         cur = left;
@@ -117,8 +115,8 @@ final class UnionAllRule implements RewriteRule {
 
     /** The set is the whole content of {@code IN (…)}, {@code EXISTS (…)} or {@code = ANY (…)}. */
     private static boolean membership(Sql sql, List<Block> chain) {
-        Block first = chain.getFirst();
-        Block last = chain.getLast();
+        Block first = chain.get(0);
+        Block last = chain.get(chain.size() - 1);
         int open = first.openParen();
         if (open < 0 || sql.close(open) != last.end) {
             return false;
@@ -160,13 +158,12 @@ final class UnionAllRule implements RewriteRule {
                 if (pos < 0) {
                     return null;
                 }
-                reasons.add("column " + (pos + 1) + " is " + show(constants.get(a).get(pos)) + " in branch " + (a + 1)
-                        + " and " + show(constants.get(c).get(pos)) + " in branch " + (c + 1));
+                reasons.add(Messages.t("rewrite.unionAll.reason", pos + 1, show(constants.get(a).get(pos)), a + 1,
+                        show(constants.get(c).get(pos)), c + 1));
             }
         }
-        return "No row can come from two branches (" + String.join("; ", reasons) + "), and each branch returns "
-                + "distinct rows (DISTINCT, GROUP BY over its selected columns, or its table's key is selected per the "
-                + "known metadata), so UNION has no duplicates to remove.";
+        return Messages.t("rewrite.unionAll.safety.disjoint",
+                String.join(Messages.t("rewrite.unionAll.reasonSeparator"), reasons));
     }
 
     private static String show(Object o) {
@@ -240,10 +237,10 @@ final class UnionAllRule implements RewriteRule {
         if (b.groupBy >= 0) {
             return groupedBySelected(sql, b, items);
         }
-        if (sources.size() != 1 || sources.getFirst().kind() != Source.Kind.TABLE) {
+        if (sources.size() != 1 || sources.get(0).kind() != Source.Kind.TABLE) {
             return false;
         }
-        Source s = sources.getFirst();
+        Source s = sources.get(0);
         var meta = ctx.meta(s);
         if (meta.isEmpty()) {
             return false;

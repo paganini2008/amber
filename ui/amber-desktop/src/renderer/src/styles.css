@@ -40,9 +40,11 @@
   --qb-derived: #2a78d6;
   --qb-subquery: #2a78d6;
 
-  --font-ui: 'IBM Plex Sans', system-ui, sans-serif;
+  --font-ui: 'IBM Plex Sans Variable', 'IBM Plex Sans', system-ui, sans-serif;
+  /* Body weight between regular and medium: 400 looked thin on screen */
+  --font-body-weight: 450;
   --font-code: 'IBM Plex Mono', ui-monospace, monospace;
-  --code-size: 13px;
+  --code-size: 14px;
   --motion: 180ms;
 
   color-scheme: light;
@@ -138,9 +140,11 @@ body {
   background: var(--canvas);
   color: var(--ink);
   font-family: var(--font-ui);
-  font-size: 13px;
-  line-height: 18px;
-  -webkit-font-smoothing: antialiased;
+  font-size: 14px;
+  line-height: 20px;
+  font-weight: var(--font-body-weight);
+  /* Keep the platform's default text rendering: grayscale "antialiased" made strokes look thin */
+  -webkit-font-smoothing: auto;
   overflow: hidden;
   user-select: none;
 }
@@ -243,6 +247,10 @@ body {
 .mark-struct {
   border: 1px solid var(--ink-muted);
   color: var(--ink);
+}
+.mark-via {
+  outline: 1.5px dashed var(--ink-muted);
+  outline-offset: 1.5px;
 }
 .mark-exec {
   border: 1px dashed var(--ink-muted);
@@ -509,8 +517,9 @@ body {
   animation: amber-rise 1400ms ease-out both;
   pointer-events: none;
 }
+/* The app icon is a rounded square with its own shape and shading: shown as is, no clip or glow. */
 .hero-logo {
-  filter: drop-shadow(0 10px 34px color-mix(in srgb, var(--amber) 55%, transparent));
+  display: block;
 }
 @keyframes amber-rise {
   from {
@@ -530,24 +539,13 @@ body {
   border-color: var(--amber);
   background: color-mix(in srgb, var(--surface) 92%, var(--amber));
 }
-.monogram {
-  display: inline-flex;
-  flex-shrink: 0;
-  align-items: center;
-  justify-content: center;
-  width: 38px;
-  height: 38px;
-  border-radius: 8px;
-  background: var(--chrome);
-  color: var(--chrome-amber);
-  font-family: var(--font-code);
-  font-size: 14px;
-  font-weight: 500;
-  box-shadow: inset 0 -2px 0 color-mix(in srgb, var(--amber) 55%, transparent);
+/* Database marks (components/DbIcon): local SVG tiles, no clipping or shadow of their own. */
+.db-icon {
+  display: inline-block;
+  vertical-align: middle;
 }
-.sample-card:hover .monogram {
-  background: var(--amber);
-  color: var(--on-amber);
+.sample-db-icon {
+  margin: 0 2px;
 }
 
 /* Logical order: step numbers on boxes and in the list */
@@ -817,6 +815,69 @@ mark.ref-hit {
   height: 20px;
   padding: 0 6px;
 }
+/* "Rule-based · no AI": optimized SQL computed by Amber's rules, told apart from AI suggestions. */
+/* ER diagram: relationship lines rest in a quiet ink; the selection is amber. Line style (solid,
+   dashed, dotted) carries the confidence, so colour is never the only cue. */
+:root {
+  --er-line: color-mix(in srgb, var(--ink-muted) 78%, var(--canvas));
+}
+.er-card-selected {
+  border-color: var(--amber);
+  box-shadow: 0 0 0 2px var(--amber);
+}
+.er-card-match {
+  border-color: var(--amber-ink);
+  border-style: dashed;
+}
+.er-card-head {
+  background: color-mix(in srgb, var(--surface) 92%, var(--chrome));
+}
+.er-joined-dot {
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 999px;
+  border: 1.5px solid currentColor;
+}
+
+/* Scrolling tab rows: fade the edge that hides more tabs (labels are never dropped). */
+.tabs-fade-right {
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.tabs-fade-left {
+  mask-image: linear-gradient(to left, #000 calc(100% - 28px), transparent);
+}
+.tabs-fade-left.tabs-fade-right {
+  mask-image: linear-gradient(to right, transparent, #000 28px, #000 calc(100% - 28px), transparent);
+}
+
+.rule-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  white-space: nowrap;
+  border-radius: 3px;
+  background: var(--surface-2);
+  padding: 0 6px;
+  font-size: 11.5px;
+  line-height: 18px;
+  color: var(--ink-muted);
+}
+
+.rule-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+  border: 1px solid var(--line-strong);
+  border-radius: 3px;
+  padding: 0 6px;
+  font-size: 11.5px;
+  line-height: 18px;
+  color: var(--ink-muted);
+}
+
 .safety-badge {
   display: inline-flex;
   flex-shrink: 0;
@@ -873,4 +934,62 @@ mark.ref-hit {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Call linking: what a call reaches through a routine defined in the script */
+.via-badge {
+  display: inline-flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: 4px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 10px;
+  border: 1px dashed var(--line-strong);
+  color: var(--ink-muted);
+  font-size: 12px;
+  white-space: nowrap;
+}
+
+/* Lineage: variables and parameters of procedural code (validated blue; icons carry the kind too) */
+:root {
+  --var-accent: #2a78d6;
+}
+:root[data-dark='true'] {
+  --var-accent: #3987e5;
+}
+.var-card {
+  border-left: 3px solid var(--var-accent);
+}
+.var-swatch {
+  display: inline-block;
+  width: 3px;
+  height: 12px;
+  border-radius: 1px;
+  background: var(--var-accent);
+}
+.var-chip {
+  border: 1px solid color-mix(in srgb, var(--var-accent) 55%, transparent);
+  background: color-mix(in srgb, var(--var-accent) 8%, transparent);
+}
+
+/* React Flow attribution (MIT): kept, small and quiet, away from the zoom controls */
+.react-flow__attribution {
+  padding: 1px 6px;
+  border-radius: 4px 4px 0 0;
+  font-size: 10px;
+  line-height: 14px;
+  opacity: 0.55;
+}
+.react-flow__attribution a {
+  color: var(--ink-muted);
+  text-decoration: none;
+}
+.react-flow__attribution:hover {
+  opacity: 1;
+}
+
+/* Dialogs focus their own panel when they open; that focus needs no frame (controls keep theirs). */
+[role='dialog']:focus-visible {
+  outline: none;
 }

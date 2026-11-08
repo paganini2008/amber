@@ -45,8 +45,18 @@ public final class Main {
         }
     }
 
+    /**
+     * Longest string value a request may carry (a script sent inline as {@code text}). Jackson's default
+     * of 20 million characters would reject large dump scripts as "invalid JSON".
+     */
+    static final int MAX_STRING_CHARS = 512 * 1024 * 1024;
+
     static ObjectMapper mapper() {
-        return new ObjectMapper().configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
+        com.fasterxml.jackson.core.JsonFactory factory = com.fasterxml.jackson.core.JsonFactory.builder()
+                .streamReadConstraints(com.fasterxml.jackson.core.StreamReadConstraints.builder()
+                        .maxStringLength(MAX_STRING_CHARS).build())
+                .build();
+        return new ObjectMapper(factory).configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);
     }
 
     private static void serve() throws Exception {

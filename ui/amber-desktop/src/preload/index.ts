@@ -50,6 +50,8 @@ const api: AmberApi = {
     info: () => ipcRenderer.invoke('app:info'),
     checkForUpdates: (force) => ipcRenderer.invoke('app:checkForUpdates', force),
     openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
+    links: () => ipcRenderer.invoke('app:links'),
+    thirdPartyNotices: () => ipcRenderer.invoke('app:thirdPartyNotices'),
     onMenu: (listener) => subscribe<MenuCommand>('menu', listener)
   }
 }

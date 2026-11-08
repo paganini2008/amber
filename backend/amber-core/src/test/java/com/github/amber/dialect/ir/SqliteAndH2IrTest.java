@@ -51,7 +51,7 @@ class SqliteAndH2IrTest {
         Statement trigger = first(script.statements(), StatementKind.CREATE_TRIGGER);
         assertEquals("note_audit", trigger.name().toString());
         assertEquals(List.of("NOTE"), reads(trigger));
-        assertEquals(List.of("INSERT TABLE MAIN.NOTE_HISTORY"), writes(trigger.children().getFirst()));
+        assertEquals(List.of("INSERT TABLE MAIN.NOTE_HISTORY"), writes(trigger.children().get(0)));
 
         ObjectLifecycle tmp = lifecycle(Lifecycles.of(script), "TMP_ACTIVE");
         assertEquals(ObjectKind.TEMP_TABLE, tmp.kind());
@@ -81,6 +81,6 @@ class SqliteAndH2IrTest {
 
         ObjectLifecycle tmp = lifecycle(Lifecycles.of(script), "TMP_STOCK");
         assertEquals(ObjectLifecycle.Role.INTERMEDIATE, tmp.role());
-        assertEquals(List.of("DROP TEMP_TABLE TMP_STOCK"), writes(script.statements().getLast()));
+        assertEquals(List.of("DROP TEMP_TABLE TMP_STOCK"), writes(script.statements().get(script.statements().size() - 1)));
     }
 }

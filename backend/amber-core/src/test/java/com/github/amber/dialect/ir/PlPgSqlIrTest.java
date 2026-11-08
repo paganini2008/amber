@@ -51,24 +51,24 @@ class PlPgSqlIrTest {
 
     @Test
     void functionBodyStructure() {
-        Statement fn = script.statements().getFirst();
+        Statement fn = script.statements().get(0);
         assertEquals(StatementKind.CREATE_FUNCTION, fn.kind());
         Statement block = body(0);
         assertEquals(List.of(StatementKind.CURSOR, StatementKind.CREATE_TABLE, StatementKind.LOOP, StatementKind.SELECT,
                 StatementKind.UPDATE, StatementKind.SELECT, StatementKind.DYNAMIC_SQL, StatementKind.RETURN,
                 StatementKind.EXCEPTION_HANDLER), kinds(block.children()));
 
-        Statement cursor = block.children().getFirst();
+        Statement cursor = block.children().get(0);
         assertEquals(List.of("SHOP.MEMBER", "SHOP.PURCHASE"), reads(cursor));
 
         Statement loop = first(block.children(), StatementKind.LOOP);
         Statement ifStmt = first(loop.children(), StatementKind.IF);
         assertEquals(List.of(StatementKind.INSERT, StatementKind.INSERT, StatementKind.OTHER), kinds(ifStmt.children()));
-        assertEquals(List.of("INSERT TEMP_TABLE TMP_AWARD"), writes(ifStmt.children().getFirst()));
+        assertEquals(List.of("INSERT TEMP_TABLE TMP_AWARD"), writes(ifStmt.children().get(0)));
         assertTrue(kinds(loop.children()).contains(StatementKind.ASSIGNMENT));
 
         Statement handler = first(block.children(), StatementKind.EXCEPTION_HANDLER);
-        assertEquals(List.of("INSERT TABLE LOYALTY.ERROR_LOG"), writes(handler.children().getFirst()));
+        assertEquals(List.of("INSERT TABLE LOYALTY.ERROR_LOG"), writes(handler.children().get(0)));
     }
 
     @Test
@@ -93,7 +93,7 @@ class PlPgSqlIrTest {
         Statement loop = first(body(2).children(), StatementKind.LOOP);
         assertEquals(List.of(StatementKind.DELETE, StatementKind.OTHER, StatementKind.OTHER, StatementKind.TRANSACTION),
                 kinds(loop.children()));
-        assertEquals(List.of("DELETE TABLE LOYALTY.LEDGER"), writes(loop.children().getFirst()));
+        assertEquals(List.of("DELETE TABLE LOYALTY.LEDGER"), writes(loop.children().get(0)));
     }
 
     @Test
@@ -114,7 +114,7 @@ class PlPgSqlIrTest {
         List<ObjectLifecycle> lifecycles = Lifecycles.of(script);
         ObjectLifecycle award = lifecycle(lifecycles, "TMP_AWARD");
         assertEquals(ObjectKind.TEMP_TABLE, award.kind());
-        assertEquals(Access.CREATE, award.events().getFirst().access());
+        assertEquals(Access.CREATE, award.events().get(0).access());
         assertEquals(ObjectLifecycle.Role.INTERMEDIATE, award.role());
     }
 
@@ -130,8 +130,8 @@ class PlPgSqlIrTest {
                 $$;
                 """));
         Script s = ScriptIrBuilder.build(pg, parse);
-        Statement block = first(s.statements().getFirst().children(), StatementKind.BLOCK);
-        assertEquals(Confidence.PARTIAL, block.children().getFirst().confidence());
+        Statement block = first(s.statements().get(0).children(), StatementKind.BLOCK);
+        assertEquals(Confidence.PARTIAL, block.children().get(0).confidence());
         assertEquals(List.of("DELETE TABLE U"), writes(block.children().get(1)));
         assertTrue(s.diagnostics().stream().anyMatch(d -> d.severity() == Severity.WARNING
                 && d.range().start().line() == 3), s.diagnostics()::toString);

@@ -1,14 +1,15 @@
 import { sql } from '@codemirror/lang-sql'
 import { syntaxHighlighting } from '@codemirror/language'
-import { EditorState, type Extension } from '@codemirror/state'
+import { Compartment, EditorState, type Extension } from '@codemirror/state'
 import { EditorView, lineNumbers } from '@codemirror/view'
 import { classHighlighter } from '@lezer/highlight'
 import { useEffect, useRef } from 'react'
 import type { Range, StatementPair } from '@shared/protocol'
+import { t, useLanguage } from '@/i18n'
 import { codemirrorDialect } from './dialects'
 import { createLayer, type Mark } from './layers'
 
-function makeView(parent: HTMLElement, label: string, dialect: string, layer: Extension): EditorView {
+function makeView(parent: HTMLElement, label: Extension, dialect: string, layer: Extension): EditorView {
   return new EditorView({
     parent,
     state: EditorState.create({
@@ -19,12 +20,14 @@ function makeView(parent: HTMLElement, label: string, dialect: string, layer: Ex
         EditorView.editable.of(false),
         syntaxHighlighting(classHighlighter),
         sql({ dialect: codemirrorDialect(dialect) }),
-        EditorView.contentAttributes.of({ 'aria-label': label }),
+        label,
         layer
       ]
     })
   })
 }
+
+const ariaLabel = (label: string): Extension => EditorView.contentAttributes.of({ 'aria-label': label })
 
 function marksFor(side: 'before' | 'after', pair: StatementPair | null, focus: Range | null | undefined, length: number): Mark[] {
   const marks: Mark[] = []
@@ -36,7 +39,7 @@ function marksFor(side: 'before' | 'after', pair: StatementPair | null, focus: R
       const r = side === 'before' ? h.before : h.after
       const from = clamp(r.start.offset)
       const to = clamp(r.end.offset)
-      if (to > from) marks.push({ from, to, className: side === 'before' ? 'cm-diff-del' : 'cm-diff-add', title: side === 'before' ? 'removed' : 'added' })
+      if (to > from) marks.push({ from, to, className: side === 'before' ? 'cm-diff-del' : 'cm-diff-add', title: side === 'before' ? t('editor.diffRemoved') : t('editor.diffAdded') })
       else marks.push({ from, to: from, lineClass: 'cm-diff-gap', className: '' })
     }
   }
@@ -66,11 +69,13 @@ export function DiffPanes({
   const views = useRef<{ left: EditorView; right: EditorView } | null>(null)
   const layers = useRef({ left: createLayer(), right: createLayer() })
   const offsetRef = useRef(0)
+  const labels = useRef({ left: new Compartment(), right: new Compartment() })
+  const language = useLanguage()
 
   useEffect(() => {
     if (!leftHost.current || !rightHost.current) return
-    const left = makeView(leftHost.current, 'Old version', dialect, layers.current.left.extension)
-    const right = makeView(rightHost.current, 'New version', dialect, layers.current.right.extension)
+    const left = makeView(leftHost.current, labels.current.left.of(ariaLabel(t('editor.oldVersion'))), dialect, layers.current.left.extension)
+    const right = makeView(rightHost.current, labels.current.right.of(ariaLabel(t('editor.newVersion'))), dialect, layers.current.right.extension)
     views.current = { left, right }
     // Keep the pair's lines level: the right side follows the left with the line offset of the pair.
     let syncing = false
@@ -104,6 +109,13 @@ export function DiffPanes({
   useEffect(() => {
     const v = views.current
     if (!v) return
+    v.left.dispatch({ effects: labels.current.left.reconfigure(ariaLabel(t('editor.oldVersion'))) })
+    v.right.dispatch({ effects: labels.current.right.reconfigure(ariaLabel(t('editor.newVersion'))) })
+  }, [language])
+
+  useEffect(() => {
+    const v = views.current
+    if (!v) return
     v.left.dispatch({ changes: { from: 0, to: v.left.state.doc.length, insert: before } })
     v.right.dispatch({ changes: { from: 0, to: v.right.state.doc.length, insert: after } })
   }, [before, after])
@@ -125,7 +137,7 @@ export function DiffPanes({
     }
     scroll(v.left, b, a)
     scroll(v.right, a, b)
-  }, [pair, focus, before, after])
+  }, [pair, focus, before, after, language])
 
   return (
     <div className="grid min-h-0 flex-1 grid-cols-2 divide-x divide-line">

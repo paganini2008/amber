@@ -94,4 +94,16 @@ describe('LineSplitter', () => {
     splitter.push(':3}\n')
     expect(lines).toEqual(['{"a":"é"}', '{"b":2}', '{"c":3}'])
   })
+
+  it('handles a very long line in many chunks in linear time', () => {
+    // Regression: a 100 MB answer for a huge script was rescanned for every 64 KB chunk (minutes).
+    const lines: string[] = []
+    const splitter = new LineSplitter((l) => lines.push(l))
+    const chunk = Buffer.from('x'.repeat(64 * 1024))
+    const started = performance.now()
+    for (let i = 0; i < 640; i++) splitter.push(chunk)
+    splitter.push('\n{"next":1}\n')
+    expect(performance.now() - started).toBeLessThan(2000)
+    expect(lines.map((l) => l.length)).toEqual([640 * 64 * 1024, 10])
+  })
 })

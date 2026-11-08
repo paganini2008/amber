@@ -1,0 +1,1046 @@
+{
+ "model": {
+  "entities": [
+   {
+    "key": "SALES.CUSTOMERS",
+    "name": "sales.customers",
+    "kind": "TABLE",
+    "columns": [
+     {
+      "name": "id",
+      "type": "NUMBER",
+      "nullable": false,
+      "pk": true,
+      "unique": true,
+      "fk": false,
+      "joined": true,
+      "source": "DDL"
+     },
+     {
+      "name": "name",
+      "type": "VARCHAR2(100)",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     },
+     {
+      "name": "region_id",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": true,
+      "joined": true,
+      "source": "DDL"
+     }
+    ],
+    "createdInScript": true,
+    "definitionRange": {
+     "start": {
+      "offset": 0,
+      "line": 1,
+      "column": 1
+     },
+     "end": {
+      "offset": 90,
+      "line": 1,
+      "column": 91
+     }
+    },
+    "metadataSource": "script DDL"
+   },
+   {
+    "key": "SALES.REGIONS",
+    "name": "sales.regions",
+    "kind": "TABLE",
+    "columns": [
+     {
+      "name": "id",
+      "type": "NUMBER",
+      "nullable": false,
+      "pk": true,
+      "unique": true,
+      "fk": false,
+      "joined": true,
+      "source": "DDL"
+     },
+     {
+      "name": "name",
+      "type": "VARCHAR2(50)",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     }
+    ],
+    "createdInScript": true,
+    "definitionRange": {
+     "start": {
+      "offset": 92,
+      "line": 2,
+      "column": 1
+     },
+     "end": {
+      "offset": 161,
+      "line": 2,
+      "column": 70
+     }
+    },
+    "metadataSource": "script DDL"
+   },
+   {
+    "key": "SALES.ORDERS",
+    "name": "sales.orders",
+    "kind": "TABLE",
+    "columns": [
+     {
+      "name": "id",
+      "type": "NUMBER",
+      "nullable": false,
+      "pk": true,
+      "unique": true,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     },
+     {
+      "name": "customer_id",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": true,
+      "joined": true,
+      "source": "DDL"
+     },
+     {
+      "name": "status",
+      "type": "VARCHAR2(10)",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     },
+     {
+      "name": "amount",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     }
+    ],
+    "createdInScript": true,
+    "definitionRange": {
+     "start": {
+      "offset": 163,
+      "line": 3,
+      "column": 1
+     },
+     "end": {
+      "offset": 310,
+      "line": 8,
+      "column": 2
+     }
+    },
+    "metadataSource": "script DDL"
+   },
+   {
+    "key": "SALES.ORDER_LINES",
+    "name": "sales.order_lines",
+    "kind": "TABLE",
+    "columns": [
+     {
+      "name": "order_id",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": true,
+      "unique": false,
+      "fk": true,
+      "joined": false,
+      "source": "DDL"
+     },
+     {
+      "name": "line_no",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": true,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     },
+     {
+      "name": "product_id",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": true,
+      "joined": true,
+      "source": "DDL"
+     },
+     {
+      "name": "qty",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     }
+    ],
+    "createdInScript": true,
+    "definitionRange": {
+     "start": {
+      "offset": 312,
+      "line": 9,
+      "column": 1
+     },
+     "end": {
+      "offset": 537,
+      "line": 11,
+      "column": 78
+     }
+    },
+    "metadataSource": "script DDL"
+   },
+   {
+    "key": "CATALOG.PRODUCTS",
+    "name": "catalog.products",
+    "kind": "TABLE",
+    "columns": [
+     {
+      "name": "product_name",
+      "type": null,
+      "nullable": null,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "USAGE"
+     },
+     {
+      "name": "product_id",
+      "type": null,
+      "nullable": null,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": true,
+      "source": "USAGE"
+     }
+    ],
+    "createdInScript": false,
+    "definitionRange": null,
+    "metadataSource": null
+   },
+   {
+    "key": "DW.ORDER_FACTS",
+    "name": "dw.order_facts",
+    "kind": "TABLE",
+    "columns": [
+     {
+      "name": "order_id",
+      "type": null,
+      "nullable": null,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "USAGE"
+     },
+     {
+      "name": "customer_id",
+      "type": null,
+      "nullable": null,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "USAGE"
+     },
+     {
+      "name": "amount",
+      "type": null,
+      "nullable": null,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "USAGE"
+     }
+    ],
+    "createdInScript": false,
+    "definitionRange": null,
+    "metadataSource": null
+   },
+   {
+    "key": "AUDIT.EVENTS",
+    "name": "audit.events",
+    "kind": "TABLE",
+    "columns": [],
+    "createdInScript": false,
+    "definitionRange": null,
+    "metadataSource": null
+   }
+  ],
+  "relationships": [
+   {
+    "id": "R1",
+    "from": {
+     "entity": "SALES.ORDERS",
+     "columns": [
+      "customer_id"
+     ]
+    },
+    "to": {
+     "entity": "SALES.CUSTOMERS",
+     "columns": [
+      "id"
+     ]
+    },
+    "cardinality": "MANY_TO_ONE",
+    "evidence": "DECLARED_FK",
+    "confidence": "CERTAIN",
+    "occurrences": [
+     {
+      "statement": 4,
+      "range": {
+       "start": {
+        "offset": 627,
+        "line": 15,
+        "column": 29
+       },
+       "end": {
+        "offset": 647,
+        "line": 15,
+        "column": 49
+       }
+      }
+     },
+     {
+      "statement": 6,
+      "range": {
+       "start": {
+        "offset": 922,
+        "line": 24,
+        "column": 58
+       },
+       "end": {
+        "offset": 942,
+        "line": 24,
+        "column": 78
+       }
+      }
+     }
+    ],
+    "count": 2,
+    "note": "Declared foreign key; seen in 2 joins.",
+    "constraint": null
+   },
+   {
+    "id": "R2",
+    "from": {
+     "entity": "SALES.ORDER_LINES",
+     "columns": [
+      "order_id"
+     ]
+    },
+    "to": {
+     "entity": "SALES.ORDERS",
+     "columns": [
+      "id"
+     ]
+    },
+    "cardinality": "MANY_TO_ONE",
+    "evidence": "DECLARED_FK",
+    "confidence": "CERTAIN",
+    "occurrences": [],
+    "count": 0,
+    "note": "Declared foreign key (fk_ol_order); not joined in the script.",
+    "constraint": "fk_ol_order"
+   },
+   {
+    "id": "R3",
+    "from": {
+     "entity": "SALES.CUSTOMERS",
+     "columns": [
+      "region_id"
+     ]
+    },
+    "to": {
+     "entity": "SALES.REGIONS",
+     "columns": [
+      "id"
+     ]
+    },
+    "cardinality": "MANY_TO_ONE",
+    "evidence": "JOIN",
+    "confidence": "INFERRED",
+    "occurrences": [
+     {
+      "statement": 4,
+      "range": {
+       "start": {
+        "offset": 674,
+        "line": 16,
+        "column": 27
+       },
+       "end": {
+        "offset": 692,
+        "line": 16,
+        "column": 45
+       }
+      }
+     }
+    ],
+    "count": 1,
+    "note": "Seen in 1 join; sales.regions.id covers the primary key of sales.regions.",
+    "constraint": null
+   },
+   {
+    "id": "R4",
+    "from": {
+     "entity": "SALES.ORDER_LINES",
+     "columns": [
+      "product_id"
+     ]
+    },
+    "to": {
+     "entity": "CATALOG.PRODUCTS",
+     "columns": [
+      "product_id"
+     ]
+    },
+    "cardinality": "MANY_TO_ONE",
+    "evidence": "JOIN",
+    "confidence": "POSSIBLE",
+    "occurrences": [
+     {
+      "statement": 5,
+      "range": {
+       "start": {
+        "offset": 810,
+        "line": 21,
+        "column": 30
+       },
+       "end": {
+        "offset": 837,
+        "line": 21,
+        "column": 57
+       }
+      }
+     }
+    ],
+    "count": 1,
+    "note": "Seen in 1 join; no key metadata \u2014 direction guessed from the column names (sales.order_lines.product_id \u2192 catalog.products.product_id).",
+    "constraint": null
+   },
+   {
+    "id": "R5",
+    "from": {
+     "entity": "DW.ORDER_FACTS",
+     "columns": [
+      "customer_id"
+     ]
+    },
+    "to": {
+     "entity": "SALES.CUSTOMERS",
+     "columns": [
+      "id"
+     ]
+    },
+    "cardinality": "MANY_TO_ONE",
+    "evidence": "NAME_MATCH",
+    "confidence": "POSSIBLE",
+    "occurrences": [],
+    "count": 0,
+    "note": "Only the names suggest it: dw.order_facts.customer_id \u2192 sales.customers.id; the script never joins them.",
+    "constraint": null
+   },
+   {
+    "id": "R6",
+    "from": {
+     "entity": "DW.ORDER_FACTS",
+     "columns": [
+      "order_id"
+     ]
+    },
+    "to": {
+     "entity": "SALES.ORDERS",
+     "columns": [
+      "id"
+     ]
+    },
+    "cardinality": "MANY_TO_ONE",
+    "evidence": "NAME_MATCH",
+    "confidence": "POSSIBLE",
+    "occurrences": [],
+    "count": 0,
+    "note": "Only the names suggest it: dw.order_facts.order_id \u2192 sales.orders.id; the script never joins them.",
+    "constraint": null
+   }
+  ],
+  "mermaid": "erDiagram\n    sales_customers {\n        NUMBER id PK\n        NUMBER region_id FK\n        VARCHAR2_100 name\n    }\n    sales_regions {\n        NUMBER id PK\n        VARCHAR2_50 name\n    }\n    sales_orders {\n        NUMBER id PK\n        NUMBER customer_id FK\n        VARCHAR2_10 status\n        NUMBER amount\n    }\n    sales_order_lines {\n        NUMBER order_id PK, FK\n        NUMBER line_no PK\n        NUMBER product_id FK\n        NUMBER qty\n    }\n    catalog_products {\n        unknown product_id\n        unknown product_name\n    }\n    dw_order_facts {\n        unknown order_id\n        unknown customer_id\n        unknown amount\n    }\n    audit_events {\n        unknown columns_unknown\n    }\n    sales_orders }o--|| sales_customers : \"customer_id = id\"\n    sales_order_lines }o--|| sales_orders : \"order_id = id\"\n    sales_customers }o..|| sales_regions : \"region_id = id\"\n    sales_order_lines }o..|| catalog_products : \"product_id\"\n    dw_order_facts }o..|| sales_customers : \"customer_id = id (name match?)\"\n    dw_order_facts }o..|| sales_orders : \"order_id = id (name match?)\"\n",
+  "stats": {
+   "statements": 9,
+   "joinEqualities": 4,
+   "unresolved": 0,
+   "elapsedMs": 15
+  }
+ },
+ "withDataFlow": {
+  "entities": [
+   {
+    "key": "SALES.CUSTOMERS",
+    "name": "sales.customers",
+    "kind": "TABLE",
+    "columns": [
+     {
+      "name": "id",
+      "type": "NUMBER",
+      "nullable": false,
+      "pk": true,
+      "unique": true,
+      "fk": false,
+      "joined": true,
+      "source": "DDL"
+     },
+     {
+      "name": "name",
+      "type": "VARCHAR2(100)",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     },
+     {
+      "name": "region_id",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": true,
+      "joined": true,
+      "source": "DDL"
+     }
+    ],
+    "createdInScript": true,
+    "definitionRange": {
+     "start": {
+      "offset": 0,
+      "line": 1,
+      "column": 1
+     },
+     "end": {
+      "offset": 90,
+      "line": 1,
+      "column": 91
+     }
+    },
+    "metadataSource": "script DDL"
+   },
+   {
+    "key": "SALES.REGIONS",
+    "name": "sales.regions",
+    "kind": "TABLE",
+    "columns": [
+     {
+      "name": "id",
+      "type": "NUMBER",
+      "nullable": false,
+      "pk": true,
+      "unique": true,
+      "fk": false,
+      "joined": true,
+      "source": "DDL"
+     },
+     {
+      "name": "name",
+      "type": "VARCHAR2(50)",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     }
+    ],
+    "createdInScript": true,
+    "definitionRange": {
+     "start": {
+      "offset": 92,
+      "line": 2,
+      "column": 1
+     },
+     "end": {
+      "offset": 161,
+      "line": 2,
+      "column": 70
+     }
+    },
+    "metadataSource": "script DDL"
+   },
+   {
+    "key": "SALES.ORDERS",
+    "name": "sales.orders",
+    "kind": "TABLE",
+    "columns": [
+     {
+      "name": "id",
+      "type": "NUMBER",
+      "nullable": false,
+      "pk": true,
+      "unique": true,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     },
+     {
+      "name": "customer_id",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": true,
+      "joined": true,
+      "source": "DDL"
+     },
+     {
+      "name": "status",
+      "type": "VARCHAR2(10)",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     },
+     {
+      "name": "amount",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     }
+    ],
+    "createdInScript": true,
+    "definitionRange": {
+     "start": {
+      "offset": 163,
+      "line": 3,
+      "column": 1
+     },
+     "end": {
+      "offset": 310,
+      "line": 8,
+      "column": 2
+     }
+    },
+    "metadataSource": "script DDL"
+   },
+   {
+    "key": "SALES.ORDER_LINES",
+    "name": "sales.order_lines",
+    "kind": "TABLE",
+    "columns": [
+     {
+      "name": "order_id",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": true,
+      "unique": false,
+      "fk": true,
+      "joined": false,
+      "source": "DDL"
+     },
+     {
+      "name": "line_no",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": true,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     },
+     {
+      "name": "product_id",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": true,
+      "joined": true,
+      "source": "DDL"
+     },
+     {
+      "name": "qty",
+      "type": "NUMBER",
+      "nullable": true,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "DDL"
+     }
+    ],
+    "createdInScript": true,
+    "definitionRange": {
+     "start": {
+      "offset": 312,
+      "line": 9,
+      "column": 1
+     },
+     "end": {
+      "offset": 537,
+      "line": 11,
+      "column": 78
+     }
+    },
+    "metadataSource": "script DDL"
+   },
+   {
+    "key": "CATALOG.PRODUCTS",
+    "name": "catalog.products",
+    "kind": "TABLE",
+    "columns": [
+     {
+      "name": "product_name",
+      "type": null,
+      "nullable": null,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "USAGE"
+     },
+     {
+      "name": "product_id",
+      "type": null,
+      "nullable": null,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": true,
+      "source": "USAGE"
+     }
+    ],
+    "createdInScript": false,
+    "definitionRange": null,
+    "metadataSource": null
+   },
+   {
+    "key": "DW.ORDER_FACTS",
+    "name": "dw.order_facts",
+    "kind": "TABLE",
+    "columns": [
+     {
+      "name": "order_id",
+      "type": null,
+      "nullable": null,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "USAGE"
+     },
+     {
+      "name": "customer_id",
+      "type": null,
+      "nullable": null,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "USAGE"
+     },
+     {
+      "name": "amount",
+      "type": null,
+      "nullable": null,
+      "pk": false,
+      "unique": false,
+      "fk": false,
+      "joined": false,
+      "source": "USAGE"
+     }
+    ],
+    "createdInScript": false,
+    "definitionRange": null,
+    "metadataSource": null
+   },
+   {
+    "key": "AUDIT.EVENTS",
+    "name": "audit.events",
+    "kind": "TABLE",
+    "columns": [],
+    "createdInScript": false,
+    "definitionRange": null,
+    "metadataSource": null
+   }
+  ],
+  "relationships": [
+   {
+    "id": "R1",
+    "from": {
+     "entity": "SALES.ORDERS",
+     "columns": [
+      "customer_id"
+     ]
+    },
+    "to": {
+     "entity": "SALES.CUSTOMERS",
+     "columns": [
+      "id"
+     ]
+    },
+    "cardinality": "MANY_TO_ONE",
+    "evidence": "DECLARED_FK",
+    "confidence": "CERTAIN",
+    "occurrences": [
+     {
+      "statement": 4,
+      "range": {
+       "start": {
+        "offset": 627,
+        "line": 15,
+        "column": 29
+       },
+       "end": {
+        "offset": 647,
+        "line": 15,
+        "column": 49
+       }
+      }
+     },
+     {
+      "statement": 6,
+      "range": {
+       "start": {
+        "offset": 922,
+        "line": 24,
+        "column": 58
+       },
+       "end": {
+        "offset": 942,
+        "line": 24,
+        "column": 78
+       }
+      }
+     }
+    ],
+    "count": 2,
+    "note": "Declared foreign key; seen in 2 joins.",
+    "constraint": null
+   },
+   {
+    "id": "R2",
+    "from": {
+     "entity": "SALES.ORDER_LINES",
+     "columns": [
+      "order_id"
+     ]
+    },
+    "to": {
+     "entity": "SALES.ORDERS",
+     "columns": [
+      "id"
+     ]
+    },
+    "cardinality": "MANY_TO_ONE",
+    "evidence": "DECLARED_FK",
+    "confidence": "CERTAIN",
+    "occurrences": [],
+    "count": 0,
+    "note": "Declared foreign key (fk_ol_order); not joined in the script.",
+    "constraint": "fk_ol_order"
+   },
+   {
+    "id": "R3",
+    "from": {
+     "entity": "SALES.CUSTOMERS",
+     "columns": [
+      "region_id"
+     ]
+    },
+    "to": {
+     "entity": "SALES.REGIONS",
+     "columns": [
+      "id"
+     ]
+    },
+    "cardinality": "MANY_TO_ONE",
+    "evidence": "JOIN",
+    "confidence": "INFERRED",
+    "occurrences": [
+     {
+      "statement": 4,
+      "range": {
+       "start": {
+        "offset": 674,
+        "line": 16,
+        "column": 27
+       },
+       "end": {
+        "offset": 692,
+        "line": 16,
+        "column": 45
+       }
+      }
+     }
+    ],
+    "count": 1,
+    "note": "Seen in 1 join; sales.regions.id covers the primary key of sales.regions.",
+    "constraint": null
+   },
+   {
+    "id": "R4",
+    "from": {
+     "entity": "SALES.ORDER_LINES",
+     "columns": [
+      "product_id"
+     ]
+    },
+    "to": {
+     "entity": "CATALOG.PRODUCTS",
+     "columns": [
+      "product_id"
+     ]
+    },
+    "cardinality": "MANY_TO_ONE",
+    "evidence": "JOIN",
+    "confidence": "POSSIBLE",
+    "occurrences": [
+     {
+      "statement": 5,
+      "range": {
+       "start": {
+        "offset": 810,
+        "line": 21,
+        "column": 30
+       },
+       "end": {
+        "offset": 837,
+        "line": 21,
+        "column": 57
+       }
+      }
+     }
+    ],
+    "count": 1,
+    "note": "Seen in 1 join; no key metadata \u2014 direction guessed from the column names (sales.order_lines.product_id \u2192 catalog.products.product_id).",
+    "constraint": null
+   },
+   {
+    "id": "R5",
+    "from": {
+     "entity": "DW.ORDER_FACTS",
+     "columns": [
+      "customer_id"
+     ]
+    },
+    "to": {
+     "entity": "SALES.CUSTOMERS",
+     "columns": [
+      "id"
+     ]
+    },
+    "cardinality": "MANY_TO_ONE",
+    "evidence": "NAME_MATCH",
+    "confidence": "POSSIBLE",
+    "occurrences": [],
+    "count": 0,
+    "note": "Only the names suggest it: dw.order_facts.customer_id \u2192 sales.customers.id; the script never joins them.",
+    "constraint": null
+   },
+   {
+    "id": "R6",
+    "from": {
+     "entity": "DW.ORDER_FACTS",
+     "columns": [
+      "order_id"
+     ]
+    },
+    "to": {
+     "entity": "SALES.ORDERS",
+     "columns": [
+      "id"
+     ]
+    },
+    "cardinality": "MANY_TO_ONE",
+    "evidence": "NAME_MATCH",
+    "confidence": "POSSIBLE",
+    "occurrences": [],
+    "count": 0,
+    "note": "Only the names suggest it: dw.order_facts.order_id \u2192 sales.orders.id; the script never joins them.",
+    "constraint": null
+   },
+   {
+    "id": "R7",
+    "from": {
+     "entity": "SALES.ORDERS",
+     "columns": [
+      "id",
+      "customer_id",
+      "amount"
+     ]
+    },
+    "to": {
+     "entity": "DW.ORDER_FACTS",
+     "columns": [
+      "order_id",
+      "customer_id",
+      "amount"
+     ]
+    },
+    "cardinality": "UNKNOWN",
+    "evidence": "DATA_FLOW",
+    "confidence": "INFERRED",
+    "occurrences": [
+     {
+      "statement": 7,
+      "range": {
+       "start": {
+        "offset": 965,
+        "line": 26,
+        "column": 1
+       },
+       "end": {
+        "offset": 1080,
+        "line": 27,
+        "column": 57
+       }
+      }
+     }
+    ],
+    "count": 1,
+    "note": "Data flows from sales.orders into dw.order_facts (1 statement).",
+    "constraint": null
+   }
+  ],
+  "mermaid": "erDiagram\n    sales_customers {\n        NUMBER id PK\n        NUMBER region_id FK\n        VARCHAR2_100 name\n    }\n    sales_regions {\n        NUMBER id PK\n        VARCHAR2_50 name\n    }\n    sales_orders {\n        NUMBER id PK\n        NUMBER customer_id FK\n        VARCHAR2_10 status\n        NUMBER amount\n    }\n    sales_order_lines {\n        NUMBER order_id PK, FK\n        NUMBER line_no PK\n        NUMBER product_id FK\n        NUMBER qty\n    }\n    catalog_products {\n        unknown product_id\n        unknown product_name\n    }\n    dw_order_facts {\n        unknown order_id\n        unknown customer_id\n        unknown amount\n    }\n    audit_events {\n        unknown columns_unknown\n    }\n    sales_orders }o--|| sales_customers : \"customer_id = id\"\n    sales_order_lines }o--|| sales_orders : \"order_id = id\"\n    sales_customers }o..|| sales_regions : \"region_id = id\"\n    sales_order_lines }o..|| catalog_products : \"product_id\"\n    dw_order_facts }o..|| sales_customers : \"customer_id = id (name match?)\"\n    dw_order_facts }o..|| sales_orders : \"order_id = id (name match?)\"\n    sales_orders }o..o{ dw_order_facts : \"id, customer_id, amount = order_id, customer_id, amount (data flow)\"\n",
+  "stats": {
+   "statements": 9,
+   "joinEqualities": 4,
+   "unresolved": 0,
+   "elapsedMs": 15
+  }
+ }
+}

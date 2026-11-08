@@ -1,32 +1,31 @@
 import * as Tabs from '@radix-ui/react-tabs'
-import { Plus, Trash } from 'lucide-react'
+import { AlignLeft, Database, ListChecks, Plus, RefreshCw, ScanSearch, SlidersHorizontal, Sparkles, Trash, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { isOpenAiHost, MODEL_NAMES_HINT, modelOptions, OLLAMA_PRESETS, OPENAI_PRESETS } from '@shared/aiModels'
-import type { AiProviderId, ConnectionProfile, Settings, SettingsPatch, ThemeId } from '@shared/api'
+import { isOpenAiHost, modelOptions, OLLAMA_PRESETS, OPENAI_PRESETS } from '@shared/aiModels'
+import { LANGUAGES, type AiProviderId, type ConnectionProfile, type Settings, type SettingsPatch, type ThemeId } from '@shared/api'
 import type { ServerInfo } from '@shared/protocol'
+import { t, type MessageKey } from '@/i18n'
+import { CATALOGS } from '@/i18n/catalog'
+import { resolveLanguage } from '@/i18n/core'
 import { api, describeError } from '@/lib/api'
+import { dialectName } from '@/lib/kinds'
 import { useStore } from '@/store'
 import { ModelCombobox } from './ModelCombobox'
+import { RulesSettings } from './RulesSettings'
 import { Button, Dialog, Field, Select, Spinner, Switch, inputClass } from './ui'
+import { DbIcon } from './DbIcon'
 
-const DIALECTS = [
-  { value: 'oracle', label: 'Oracle' },
-  { value: 'sqlserver', label: 'SQL Server' },
-  { value: 'postgresql', label: 'PostgreSQL' },
-  { value: 'mysql', label: 'MySQL' },
-  { value: 'mariadb', label: 'MariaDB' },
-  { value: 'db2', label: 'Db2' },
-  { value: 'h2', label: 'H2' },
-  { value: 'sqlite', label: 'SQLite' }
-]
+const dialectOptions = (): { value: string; label: string }[] =>
+  ['oracle', 'sqlserver', 'postgresql', 'mysql', 'mariadb', 'db2', 'h2', 'sqlite'].map((d) => ({ value: d, label: dialectName(d), icon: <DbIcon dialect={d} size={14} /> }))
 
-const TABS = [
-  { id: 'general', label: 'General' },
-  { id: 'analysis', label: 'Analysis' },
-  { id: 'format', label: 'Formatting' },
-  { id: 'ai', label: 'AI' },
-  { id: 'connections', label: 'Connections' },
-  { id: 'updates', label: 'Updates' }
+const TABS: { id: string; label: MessageKey; icon: LucideIcon }[] = [
+  { id: 'general', label: 'settings.tabs.general', icon: SlidersHorizontal },
+  { id: 'analysis', label: 'settings.tabs.analysis', icon: ScanSearch },
+  { id: 'rules', label: 'rules.tab', icon: ListChecks },
+  { id: 'format', label: 'settings.tabs.format', icon: AlignLeft },
+  { id: 'ai', label: 'settings.tabs.ai', icon: Sparkles },
+  { id: 'connections', label: 'settings.tabs.connections', icon: Database },
+  { id: 'updates', label: 'settings.tabs.updates', icon: RefreshCw }
 ]
 
 export function SettingsDialog(): React.JSX.Element | null {
@@ -41,16 +40,17 @@ export function SettingsDialog(): React.JSX.Element | null {
   }
 
   return (
-    <Dialog open={open} onOpenChange={(o) => (o ? openDialog('settings') : closeDialog('settings'))} title="Settings" width={760}>
-      <Tabs.Root value={tab} onValueChange={(t) => openDialog('settings', t)} orientation="vertical" className="flex min-h-[460px]">
-        <Tabs.List className="flex w-40 shrink-0 flex-col gap-0.5 border-r border-line p-2" aria-label="Settings sections">
-          {TABS.map((t) => (
+    <Dialog open={open} onOpenChange={(o) => (o ? openDialog('settings') : closeDialog('settings'))} title={t('settings.title')} width={760}>
+      <Tabs.Root value={tab} onValueChange={(v) => openDialog('settings', v)} orientation="vertical" className="flex min-h-[460px]">
+        <Tabs.List className="flex w-40 shrink-0 flex-col gap-0.5 border-r border-line p-2" aria-label={t('settings.sections')}>
+          {TABS.map((tab) => (
             <Tabs.Trigger
-              key={t.id}
-              value={t.id}
-              className="h-8 rounded-[5px] px-2.5 text-left text-sm text-ink-muted hover:bg-surface-hover hover:text-ink data-[state=active]:bg-amber-wash data-[state=active]:text-ink data-[state=active]:shadow-[inset_2px_0_0_var(--amber)]"
+              key={tab.id}
+              value={tab.id}
+              className="group flex h-8 items-center gap-2 rounded-[5px] px-2.5 text-left text-sm text-ink-muted hover:bg-surface-hover hover:text-ink data-[state=active]:bg-amber-wash data-[state=active]:text-ink data-[state=active]:shadow-[inset_2px_0_0_var(--amber)]"
             >
-              {t.label}
+              <tab.icon size={16} strokeWidth={1.75} aria-hidden className="shrink-0 group-data-[state=active]:text-amber-ink" />
+              <span className="min-w-0 truncate">{t(tab.label)}</span>
             </Tabs.Trigger>
           ))}
         </Tabs.List>
@@ -59,43 +59,60 @@ export function SettingsDialog(): React.JSX.Element | null {
             <FormatSettings settings={settings} update={update} />
           </Tabs.Content>
           <Tabs.Content value="general">
-            <Field label="Theme">
+            <Field label={t('settings.general.language')} hint={t('settings.general.languageHint')}>
               <Select
-                label="Theme"
+                label={t('settings.general.language')}
+                value={settings.language}
+                onChange={(v) => update({ language: resolveLanguage(v) })}
+                options={LANGUAGES.map((l) => ({
+                  value: l,
+                  label: l === 'en' ? t('settings.general.languageDefault', { name: CATALOGS[l].meta.nativeName }) : CATALOGS[l].meta.nativeName
+                }))}
+                className="w-56"
+              />
+            </Field>
+            <Field label={t('settings.general.theme')}>
+              <Select
+                label={t('settings.general.theme')}
                 value={settings.theme}
                 onChange={(v) => update({ theme: v as ThemeId })}
                 options={[
-                  { value: 'system', label: 'System (follows your OS)' },
-                  { value: 'amber-light', label: 'Amber Light' },
-                  { value: 'amber-dark', label: 'Amber Dark' },
-                  { value: 'resin', label: 'Resin (warm dark)' },
-                  { value: 'high-contrast', label: 'High Contrast' }
+                  { value: 'system', label: t('settings.general.themeSystem') },
+                  { value: 'amber-light', label: t('app.themes.amberLight') },
+                  { value: 'amber-dark', label: t('app.themes.amberDark') },
+                  { value: 'resin', label: t('settings.general.themeResin') },
+                  { value: 'high-contrast', label: t('app.themes.highContrast') }
                 ]}
                 className="w-64"
               />
             </Field>
-            <Field label="Code font size" hint="Used by the SQL editor and code frames.">
+            <Field label={t('settings.general.fontSize')} hint={t('settings.general.fontSizeHint')}>
               <Select
-                label="Code font size"
+                label={t('settings.general.fontSize')}
                 value={String(settings.fontSize)}
                 onChange={(v) => update({ fontSize: Number(v) })}
-                options={[11, 12, 13, 14, 15, 16, 18].map((n) => ({ value: String(n), label: `${n} px` }))}
+                options={[11, 12, 13, 14, 15, 16, 18].map((n) => ({ value: String(n), label: t('settings.general.px', { n }) }))}
                 className="w-28"
               />
             </Field>
+            <div className="mt-4 border-t border-line pt-3">
+              <Button variant="ghost" onClick={() => openDialog('about')}>
+                {t('settings.general.about')}
+              </Button>
+            </div>
           </Tabs.Content>
 
           <Tabs.Content value="analysis">
-            <Field label="Default dialect" hint="Used for new scripts. Change the dialect of an open script from the title bar.">
-              <Select label="Default dialect" value={settings.defaultDialect} onChange={(v) => update({ defaultDialect: v })} options={DIALECTS} className="w-48" />
+            <Field label={t('settings.analysis.dialect')} hint={t('settings.analysis.dialectHint')}>
+              <Select label={t('settings.analysis.dialect')} value={settings.defaultDialect} onChange={(v) => update({ defaultDialect: v })} options={dialectOptions()} className="w-48" />
             </Field>
-            <Field label="File encoding" hint="Automatic detection reads a byte-order mark, then tries UTF-8, then GB18030.">
+            <Field label={t('settings.analysis.encoding')} hint={t('settings.analysis.encodingHint')}>
               <Select
-                label="File encoding"
+                label={t('settings.analysis.encoding')}
                 value={settings.encoding}
                 onChange={(v) => update({ encoding: v })}
                 options={[
-                  { value: 'auto', label: 'Detect automatically' },
+                  { value: 'auto', label: t('settings.analysis.encodingAuto') },
                   { value: 'UTF-8', label: 'UTF-8' },
                   { value: 'GB18030', label: 'GB18030' },
                   { value: 'GBK', label: 'GBK' },
@@ -109,10 +126,10 @@ export function SettingsDialog(): React.JSX.Element | null {
               />
             </Field>
             <Field
-              label="Allow fallback parsing"
-              hint="Off is strict: a script either parses completely or the analysis stops with precise errors. On keeps going and marks statements it could not fully parse."
+              label={t('settings.analysis.fallback')}
+              hint={t('settings.analysis.fallbackHint')}
             >
-              <Switch checked={settings.allowFallback} onChange={(v) => update({ allowFallback: v })} label="Allow fallback parsing" />
+              <Switch checked={settings.allowFallback} onChange={(v) => update({ allowFallback: v })} label={t('settings.analysis.fallback')} />
             </Field>
           </Tabs.Content>
 
@@ -122,6 +139,10 @@ export function SettingsDialog(): React.JSX.Element | null {
 
           <Tabs.Content value="connections">
             <ConnectionsSettings settings={settings} />
+          </Tabs.Content>
+
+          <Tabs.Content value="rules">
+            <RulesSettings settings={settings} update={update} />
           </Tabs.Content>
 
           <Tabs.Content value="updates">
@@ -135,7 +156,14 @@ export function SettingsDialog(): React.JSX.Element | null {
 
 function connectedMessage(info: ServerInfo): string {
   const server = [info.product, info.version].filter(Boolean).join(' ')
-  return `Connected${server ? ` to ${server}` : ''}${info.user ? ` as ${info.user}` : ''}.${info.readOnly ? ' Read-only.' : ' The account can write; Amber only reads metadata, but a read-only account is safer.'}`
+  const head = server && info.user
+    ? t('settings.connections.connectedToAs', { server, user: info.user })
+    : server
+      ? t('settings.connections.connectedTo', { server })
+      : info.user
+        ? t('settings.connections.connectedAs', { user: info.user })
+        : t('settings.connections.connected')
+  return `${head} ${info.readOnly ? t('settings.connections.readOnly') : t('settings.connections.canWrite')}`
 }
 
 function TestResult({ result }: { result: { ok: boolean; message: string } | null }): React.JSX.Element | null {
@@ -164,7 +192,7 @@ function AiSettings({ settings, update }: { settings: Settings; update: (p: Sett
     const r = await api().ai.listOllamaModels(url)
     setLoadingModels(false)
     if (r.ok) setModels(r.value)
-    else setModelsError(`Could not reach Ollama at ${url}: ${r.error.message}`)
+    else setModelsError(t('settings.ai.ollamaUnreachable', { url, reason: r.error.message }))
   }
 
   const loadApiModels = async (): Promise<void> => {
@@ -174,7 +202,7 @@ function AiSettings({ settings, update }: { settings: Settings; update: (p: Sett
     setLoadingApiModels(false)
     if (r.ok) {
       setApiModels(r.value)
-      if (!r.value.length) setApiModelsError('The provider did not return any chat model. Type the model name.')
+      if (!r.value.length) setApiModelsError(t('settings.ai.noChatModel'))
     } else setApiModelsError(r.error.message)
   }
 
@@ -199,18 +227,17 @@ function AiSettings({ settings, update }: { settings: Settings; update: (p: Sett
   return (
     <div className="space-y-5">
       <p className="text-sm text-ink-muted">
-        AI is optional. It only proposes optimizations from Amber's analysis; it never parses, and its SQL is never run. Requests go straight from this
-        app to the provider you choose.
+        {t('settings.ai.lead')}
       </p>
-      <Field label="Use">
+      <Field label={t('settings.ai.use')}>
         <Select
-          label="AI provider"
+          label={t('settings.ai.provider')}
           value={settings.activeAiProvider ?? 'off'}
           onChange={(v) => update({ activeAiProvider: v === 'off' ? null : (v as AiProviderId) })}
           options={[
-            { value: 'off', label: 'Off' },
-            { value: 'ollama', label: 'Ollama (local)' },
-            { value: 'openai', label: 'OpenAI-compatible API' }
+            { value: 'off', label: t('settings.ai.off') },
+            { value: 'ollama', label: t('settings.ai.ollamaLocal') },
+            { value: 'openai', label: t('settings.ai.openai') }
           ]}
           className="w-64"
         />
@@ -218,7 +245,7 @@ function AiSettings({ settings, update }: { settings: Settings; update: (p: Sett
 
       <fieldset className="rounded-[6px] border border-line px-4 py-2">
         <legend className="px-1 text-sm font-semibold">Ollama</legend>
-        <Field label="Base URL" htmlFor="ollama-url">
+        <Field label={t('settings.ai.baseUrl')} htmlFor="ollama-url">
           <input
             id="ollama-url"
             className={inputClass}
@@ -228,38 +255,38 @@ function AiSettings({ settings, update }: { settings: Settings; update: (p: Sett
           />
         </Field>
         <Field
-          label="Model"
+          label={t('settings.ai.model')}
           hint={
             modelsError ? (
               <span className="text-risk-high">{modelsError}</span>
             ) : models ? (
-              `${models.length} installed on this server. Pick one, or type any model name.`
+              t('settings.ai.installedCount', { count: models.length })
             ) : (
-              'Pick a suggestion or type any model name. Installed models load from the server.'
+              t('settings.ai.ollamaHint')
             )
           }
         >
           <ModelCombobox
-            label="Ollama model"
+            label={t('settings.ai.ollamaModel')}
             value={ollama.model}
             onCommit={(m) => update({ ai: { ollama: { model: m } } })}
             options={ollamaOptions}
-            availableWord="installed"
-            missingHint={(id) => `not installed: run ollama pull ${id}`}
+            availableWord={t('settings.ai.installed')}
+            missingHint={(id) => t('settings.ai.notInstalled', { id })}
             loading={loadingModels}
             onLoad={() => void loadModels()}
-            placeholder="e.g. qwen2.5-coder:7b"
+            placeholder={t('settings.ai.example', { model: 'qwen2.5-coder:7b' })}
           />
         </Field>
-        <Field label="API key" hint="Optional. Only for an Ollama behind a proxy that asks for a bearer token. Stored encrypted.">
+        <Field label={t('settings.ai.apiKey')} hint={t('settings.ai.ollamaKeyHint')}>
           <div className="flex gap-2">
             <input
               type="password"
               className={inputClass}
-              placeholder={ollama.hasApiKey ? 'A key is saved' : 'None'}
+              placeholder={ollama.hasApiKey ? t('settings.ai.keySaved') : t('common.none')}
               value={ollamaKey}
               autoComplete="off"
-              aria-label="Ollama API key"
+              aria-label={t('settings.ai.ollamaKey')}
               onChange={(e) => setOllamaKey(e.target.value)}
             />
             <Button
@@ -271,29 +298,29 @@ function AiSettings({ settings, update }: { settings: Settings; update: (p: Sett
                   .catch((e: Error) => setResults({ ...results, ollama: { ok: false, message: e.message } }))
               }
             >
-              Save key
+              {t('settings.ai.saveKey')}
             </Button>
             {ollama.hasApiKey ? (
               <Button variant="danger" onClick={() => void api().settings.setAiApiKey('ollama', null)}>
-                Remove
+                {t('common.remove')}
               </Button>
             ) : null}
           </div>
         </Field>
-        <Field label="Mask identifiers" hint="Replace table names, column names and literals with aliases before sending.">
-          <Switch checked={ollama.maskIdentifiers} onChange={(v) => update({ ai: { ollama: { maskIdentifiers: v } } })} label="Mask identifiers for Ollama" />
+        <Field label={t('settings.ai.mask')} hint={t('settings.ai.maskHint')}>
+          <Switch checked={ollama.maskIdentifiers} onChange={(v) => update({ ai: { ollama: { maskIdentifiers: v } } })} label={t('settings.ai.maskOllama')} />
         </Field>
         <div className="flex items-center gap-3 py-2">
           <Button onClick={() => void test('ollama')} disabled={testing !== null}>
-            {testing === 'ollama' ? <Spinner size={12} /> : null} Test connection
+            {testing === 'ollama' ? <Spinner size={12} /> : null} {t('settings.ai.test')}
           </Button>
           <TestResult result={results.ollama ?? null} />
         </div>
       </fieldset>
 
       <fieldset className="rounded-[6px] border border-line px-4 py-2">
-        <legend className="px-1 text-sm font-semibold">OpenAI-compatible API</legend>
-        <Field label="Base URL" htmlFor="openai-url">
+        <legend className="px-1 text-sm font-semibold">{t('settings.ai.openai')}</legend>
+        <Field label={t('settings.ai.baseUrl')} htmlFor="openai-url">
           <input
             id="openai-url"
             className={inputClass}
@@ -302,12 +329,12 @@ function AiSettings({ settings, update }: { settings: Settings; update: (p: Sett
             onBlur={() => update({ ai: { openai: { baseUrl: openaiUrl } } })}
           />
         </Field>
-        <Field label="API key" hint="Encrypted with your system keychain and kept in the app’s main process. It is never shown again.">
+        <Field label={t('settings.ai.apiKey')} hint={t('settings.ai.openaiKeyHint')}>
           <div className="flex gap-2">
             <input
               type="password"
               className={inputClass}
-              placeholder={openai.hasApiKey ? 'A key is saved' : 'Paste a key'}
+              placeholder={openai.hasApiKey ? t('settings.ai.keySaved') : t('settings.ai.pasteKey')}
               value={apiKey}
               autoComplete="off"
               onChange={(e) => setApiKey(e.target.value)}
@@ -321,45 +348,45 @@ function AiSettings({ settings, update }: { settings: Settings; update: (p: Sett
                   .catch((e: Error) => setResults({ ...results, openai: { ok: false, message: e.message } }))
               }
             >
-              Save key
+              {t('settings.ai.saveKey')}
             </Button>
             {openai.hasApiKey ? (
               <Button variant="danger" onClick={() => void api().settings.setAiApiKey('openai', null)}>
-                Remove
+                {t('common.remove')}
               </Button>
             ) : null}
           </div>
         </Field>
         <Field
-          label="Model"
+          label={t('settings.ai.model')}
           hint={
             apiModelsError ? (
               <span className="text-risk-high">{apiModelsError}</span>
             ) : apiModels ? (
-              `${apiModels.length} chat models offered by this provider. You can also type any name.`
+              t('settings.ai.offeredCount', { count: apiModels.length })
             ) : (
-              MODEL_NAMES_HINT
+              t('settings.ai.modelNamesHint')
             )
           }
         >
           <ModelCombobox
-            label="API model"
+            label={t('settings.ai.apiModel')}
             value={openai.model}
             onCommit={(m) => update({ ai: { openai: { model: m } } })}
             options={apiOptions}
-            availableWord="available"
-            missingHint={() => 'not offered by this provider'}
+            availableWord={t('settings.ai.available')}
+            missingHint={() => t('settings.ai.notOffered')}
             loading={loadingApiModels}
             onLoad={() => void loadApiModels()}
-            placeholder={isOpenAiHost(openaiUrl) ? 'e.g. gpt-4.1-mini' : 'the provider’s model name'}
+            placeholder={isOpenAiHost(openaiUrl) ? t('settings.ai.example', { model: 'gpt-4.1-mini' }) : t('settings.ai.providerModel')}
           />
         </Field>
-        <Field label="Mask identifiers" hint="On by default for external providers.">
-          <Switch checked={openai.maskIdentifiers} onChange={(v) => update({ ai: { openai: { maskIdentifiers: v } } })} label="Mask identifiers for the API" />
+        <Field label={t('settings.ai.mask')} hint={t('settings.ai.maskApiHint')}>
+          <Switch checked={openai.maskIdentifiers} onChange={(v) => update({ ai: { openai: { maskIdentifiers: v } } })} label={t('settings.ai.maskApi')} />
         </Field>
         <div className="flex items-center gap-3 py-2">
           <Button onClick={() => void test('openai')} disabled={testing !== null}>
-            {testing === 'openai' ? <Spinner size={12} /> : null} Test connection
+            {testing === 'openai' ? <Spinner size={12} /> : null} {t('settings.ai.test')}
           </Button>
           <TestResult result={results.openai ?? null} />
         </div>
@@ -413,27 +440,29 @@ function ConnectionsSettings({ settings }: { settings: Settings }): React.JSX.El
   return (
     <div className="space-y-4">
       <p className="text-sm text-ink-muted">
-        Online mode reads table structure, keys and row estimates through a read-only connection. Amber never sends your script to a database. Use a
-        read-only account.
+        {t('settings.connections.lead')}
       </p>
-      {settings.connections.length === 0 && !editing ? <p className="text-sm text-ink-muted">No connections yet.</p> : null}
+      {settings.connections.length === 0 && !editing ? <p className="text-sm text-ink-muted">{t('settings.connections.none')}</p> : null}
       <ul className="divide-y divide-line rounded-[6px] border border-line empty:hidden">
         {settings.connections.map((c) => (
           <li key={c.id} className="px-3 py-2">
             <div className="flex items-center gap-3">
               <div className="min-w-0 flex-1">
-                <div className="text-sm font-medium">{c.name}</div>
+                <div className="flex items-center gap-1.5 text-sm font-medium">
+                  <DbIcon dialect={c.dialect} size={16} />
+                  {c.name}
+                </div>
                 <div className="code truncate text-[12px] text-ink-muted">
-                  {c.dialect} · {c.url ? c.url : `${c.user}@${c.host}:${c.port}/${c.database}`} {c.hasPassword ? '· password saved' : ''}
+                  {dialectName(c.dialect)} · {c.url ? c.url : `${c.user}@${c.host}:${c.port}/${c.database}`} {c.hasPassword ? `· ${t('settings.connections.passwordSaved')}` : ''}
                 </div>
               </div>
               <Button size="sm" onClick={() => void test(c.id)} disabled={testing !== null}>
-                {testing === c.id ? <Spinner size={11} /> : null} Test
+                {testing === c.id ? <Spinner size={11} /> : null} {t('settings.connections.test')}
               </Button>
               <Button size="sm" onClick={() => setEditing({ id: c.id, name: c.name, dialect: c.dialect, host: c.host, port: c.port, database: c.database, user: c.user, url: c.url ?? '' })}>
-                Edit
+                {t('common.edit')}
               </Button>
-              <Button size="sm" variant="danger" aria-label={`Delete ${c.name}`} onClick={() => void api().settings.deleteConnection(c.id)}>
+              <Button size="sm" variant="danger" aria-label={t('settings.connections.deleteNamed', { name: c.name })} onClick={() => void api().settings.deleteConnection(c.id)}>
                 <Trash size={12} />
               </Button>
             </div>
@@ -447,17 +476,17 @@ function ConnectionsSettings({ settings }: { settings: Settings }): React.JSX.El
       </ul>
       {editing ? (
         <div className="rounded-[6px] border border-line px-4 py-2">
-          <Field label="Name" htmlFor="c-name">
-            <input id="c-name" className={inputClass} value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder="Warehouse (read-only)" />
+          <Field label={t('settings.connections.name')} htmlFor="c-name">
+            <input id="c-name" className={inputClass} value={editing.name} onChange={(e) => setEditing({ ...editing, name: e.target.value })} placeholder={t('settings.connections.namePlaceholder')} />
           </Field>
-          <Field label="Database type">
-            <Select label="Database type" value={editing.dialect} onChange={(v) => setEditing({ ...editing, dialect: v, port: DEFAULT_PORTS[v] ?? editing.port })} options={DIALECTS} className="w-48" />
+          <Field label={t('settings.connections.type')}>
+            <Select label={t('settings.connections.type')} value={editing.dialect} onChange={(v) => setEditing({ ...editing, dialect: v, port: DEFAULT_PORTS[v] ?? editing.port })} options={dialectOptions()} className="w-48" />
           </Field>
-          <Field label="Host and port" htmlFor="c-host">
+          <Field label={t('settings.connections.hostPort')} htmlFor="c-host">
             <div className="flex gap-2">
               <input id="c-host" className={inputClass} value={editing.host} onChange={(e) => setEditing({ ...editing, host: e.target.value })} />
               <input
-                aria-label="Port"
+                aria-label={t('settings.connections.port')}
                 className={`${inputClass} w-24`}
                 inputMode="numeric"
                 value={editing.port}
@@ -465,10 +494,10 @@ function ConnectionsSettings({ settings }: { settings: Settings }): React.JSX.El
               />
             </div>
           </Field>
-          <Field label="Database" htmlFor="c-db">
+          <Field label={t('settings.connections.database')} htmlFor="c-db">
             <input id="c-db" className={inputClass} value={editing.database} onChange={(e) => setEditing({ ...editing, database: e.target.value })} />
           </Field>
-          <Field label="JDBC URL" htmlFor="c-url" hint="Optional. When set, it is used instead of host, port and database, e.g. jdbc:sqlite:/path/to/file.db.">
+          <Field label={t('settings.connections.url')} htmlFor="c-url" hint={t('settings.connections.urlHint')}>
             <input
               id="c-url"
               className={inputClass}
@@ -479,25 +508,25 @@ function ConnectionsSettings({ settings }: { settings: Settings }): React.JSX.El
               onChange={(e) => setEditing({ ...editing, url: e.target.value })}
             />
           </Field>
-          <Field label="User" htmlFor="c-user">
+          <Field label={t('settings.connections.user')} htmlFor="c-user">
             <input id="c-user" className={inputClass} value={editing.user} autoComplete="off" onChange={(e) => setEditing({ ...editing, user: e.target.value })} />
           </Field>
-          <Field label="Password" htmlFor="c-pw" hint="Encrypted with your system keychain. Leave empty to keep the saved one.">
+          <Field label={t('settings.connections.password')} htmlFor="c-pw" hint={t('settings.connections.passwordHint')}>
             <input id="c-pw" type="password" className={inputClass} value={password} autoComplete="off" onChange={(e) => setPassword(e.target.value)} />
           </Field>
           {error ? <p className="py-1 text-sm text-risk-high">{error}</p> : null}
           <div className="flex justify-end gap-2 py-2">
             <Button variant="ghost" onClick={() => setEditing(null)}>
-              Cancel
+              {t('common.cancel')}
             </Button>
             <Button variant="primary" onClick={() => void save()}>
-              Save connection
+              {t('settings.connections.save')}
             </Button>
           </div>
         </div>
       ) : (
         <Button onClick={() => setEditing(EMPTY_PROFILE())}>
-          <Plus size={13} /> Add connection
+          <Plus size={13} /> {t('settings.connections.add')}
         </Button>
       )}
     </div>
@@ -510,27 +539,27 @@ function UpdateSettings({ settings, update }: { settings: Settings; update: (p: 
   const check = async (): Promise<void> => {
     setState({ checking: true, message: null })
     const r = await api().app.checkForUpdates(true)
-    if (!r.ok) setState({ checking: false, message: `Could not check: ${r.error.message}` })
-    else if (r.value?.newer) setState({ checking: false, message: `Amber ${r.value.latest} is available.`, url: r.value.url })
-    else setState({ checking: false, message: `You have the latest version (${r.value?.current ?? ''}).` })
+    if (!r.ok) setState({ checking: false, message: t('dialogs.about.checkFailed', { reason: r.error.message }) })
+    else if (r.value?.newer) setState({ checking: false, message: t('dialogs.about.available', { version: r.value.latest }), url: r.value.url })
+    else setState({ checking: false, message: r.value ? t('dialogs.about.latestVersion', { version: r.value.current }) : t('dialogs.about.latest') })
   }
   return (
     <div>
       <Field
-        label="Check on start-up"
-        hint="Asks GitHub for the latest release when Amber starts. Nothing else is sent. Turn this off on networks without internet access."
+        label={t('settings.updates.onStart')}
+        hint={t('settings.updates.onStartHint')}
       >
-        <Switch checked={settings.checkForUpdates} onChange={(v) => update({ checkForUpdates: v })} label="Check for updates on start-up" />
+        <Switch checked={settings.checkForUpdates} onChange={(v) => update({ checkForUpdates: v })} label={t('settings.updates.onStartLabel')} />
       </Field>
-      <Field label="Now">
+      <Field label={t('settings.updates.now')}>
         <div className="flex items-center gap-3">
           <Button onClick={() => void check()} disabled={state.checking}>
-            {state.checking ? <Spinner size={12} /> : null} Check for updates
+            {state.checking ? <Spinner size={12} /> : null} {t('dialogs.about.checkUpdates')}
           </Button>
           {state.message ? <span className="text-sm">{state.message}</span> : null}
           {state.url ? (
             <Button size="sm" variant="primary" onClick={() => void api().app.openExternal(state.url!)}>
-              Open download page
+              {t('dialogs.about.downloadPage')}
             </Button>
           ) : null}
         </div>
@@ -547,32 +576,31 @@ function FormatSettings({ settings, update }: { settings: Settings; update: (p: 
   return (
     <div>
       <p className="py-2 text-sm text-ink-muted">
-        Format script (Shift+Alt+F) and Format selection make a legacy script readable again. They change only whitespace and keyword case; a statement
-        whose tokens could not be kept exactly is left as written. The result goes into the editor as one undoable step; the file is saved only by you.
+        {t('settings.format.lead')}
       </p>
-      <Field label="Indent">
+      <Field label={t('settings.format.indent')}>
         <Select
-          label="Indent size"
+          label={t('settings.format.indentSize')}
           value={String(f.indentSize)}
           onChange={(v) => set({ indentSize: Number(v) })}
-          options={[2, 3, 4, 8].map((n) => ({ value: String(n), label: `${n} spaces` }))}
+          options={[2, 3, 4, 8].map((n) => ({ value: String(n), label: t('settings.format.spaces', { count: n }) }))}
           className="w-40"
         />
       </Field>
-      <Field label="Keywords">
+      <Field label={t('settings.format.keywords')}>
         <Select
-          label="Keyword case"
+          label={t('settings.format.keywordCase')}
           value={f.keywordCase}
           onChange={(v) => set({ keywordCase: v as Settings['format']['keywordCase'] })}
           options={[
-            { value: 'UPPER', label: 'UPPER CASE' },
-            { value: 'LOWER', label: 'lower case' },
-            { value: 'PRESERVE', label: 'As written' }
+            { value: 'UPPER', label: t('settings.format.upper') },
+            { value: 'LOWER', label: t('settings.format.lower') },
+            { value: 'PRESERVE', label: t('settings.format.asWritten') }
           ]}
           className="w-40"
         />
       </Field>
-      <Field label="Line width" htmlFor="fmt-width" hint="Longer lines are wrapped where the SQL allows it.">
+      <Field label={t('settings.format.width')} htmlFor="fmt-width" hint={t('settings.format.widthHint')}>
         <input
           id="fmt-width"
           className={`${inputClass.replace('w-full', '')} w-24`}
@@ -586,14 +614,14 @@ function FormatSettings({ settings, update }: { settings: Settings; update: (p: 
           }}
         />
       </Field>
-      <Field label="Commas" hint="Where the comma goes when a list is split over several lines.">
+      <Field label={t('settings.format.commas')} hint={t('settings.format.commasHint')}>
         <Select
-          label="Comma style"
+          label={t('settings.format.commaStyle')}
           value={f.commaStyle}
           onChange={(v) => set({ commaStyle: v as Settings['format']['commaStyle'] })}
           options={[
-            { value: 'TRAILING', label: 'At the end of the line' },
-            { value: 'LEADING', label: 'At the start of the next line' }
+            { value: 'TRAILING', label: t('settings.format.trailing') },
+            { value: 'LEADING', label: t('settings.format.leading') }
           ]}
           className="w-64"
         />

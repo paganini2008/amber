@@ -254,7 +254,20 @@ export function occurrenceRanges(result: ReferencesResult | null): { from: numbe
 }
 
 /** The snippet of an occurrence split around the name, for highlighting: "12: FROM [shop.orders] o". */
-export function snippetParts(o: Occurrence): { lineNo: number; before: string; match: string; after: string } {
+export function snippetParts(o: Occurrence, source?: string): { lineNo: number; before: string; match: string; after: string } {
+  // The engine's `line` has its indentation trimmed while `range` counts it, so cut the snippet from the
+  // script text when it is available (and matches); otherwise fall back to the engine's line.
+  if (source && o.range.start.offset <= source.length) {
+    const lineStart = source.lastIndexOf('\n', o.range.start.offset - 1) + 1
+    const nl = source.indexOf('\n', o.range.start.offset)
+    const lineEnd = nl < 0 ? source.length : nl
+    const raw = source.slice(lineStart, lineEnd).replace(/\r$/, '')
+    const indent = raw.length - raw.trimStart().length
+    const text = raw.slice(indent)
+    const start = Math.max(0, Math.min(text.length, o.range.start.offset - lineStart - indent))
+    const end = Math.max(start, Math.min(text.length, Math.min(o.range.end.offset, lineEnd) - lineStart - indent))
+    return { lineNo: o.range.start.line, before: text.slice(0, start), match: text.slice(start, end), after: text.slice(end) }
+  }
   const m = /^(\d+):\s?(.*)$/s.exec(o.line)
   const lineNo = m ? Number(m[1]) : o.range.start.line
   const text = m ? m[2]! : o.line

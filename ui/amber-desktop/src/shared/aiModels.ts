@@ -31,8 +31,6 @@ export const OLLAMA_PRESETS: ModelPreset[] = [
   { id: 'codellama:13b', note: 'older code model' }
 ]
 
-export const MODEL_NAMES_HINT = 'Model names change often. Use Load models to see what your account offers.'
-
 /** Model ids that cannot hold a chat: embeddings, speech, images, moderation, legacy completions. */
 const NOT_CHAT = /(embed|^bge-|[-:/]bge|rerank|tts|whisper|transcribe|dall-e|gpt-image|moderation|davinci|babbage|realtime|audio|search-preview|computer-use)/i
 
@@ -55,12 +53,6 @@ export interface ModelOption {
   group: 'recommended' | 'available' | 'more'
   /** Whether the provider lists it: true / false once loaded, null before. */
   available: boolean | null
-}
-
-export const GROUP_LABEL: Record<ModelOption['group'], string> = {
-  recommended: 'Recommended for SQL review',
-  available: 'From the provider',
-  more: 'More suggestions'
 }
 
 /**

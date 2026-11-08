@@ -6,6 +6,7 @@ import * as TooltipPrimitive from '@radix-ui/react-tooltip'
 import clsx from 'clsx'
 import { Check, ChevronDown, ChevronRight, X } from 'lucide-react'
 import { forwardRef, type ButtonHTMLAttributes, type ReactNode } from 'react'
+import { t } from '@/i18n'
 
 type Variant = 'primary' | 'default' | 'ghost' | 'danger'
 
@@ -129,7 +130,7 @@ export function Dialog({
               )}
             </div>
             <DialogPrimitive.Close asChild>
-              <IconButton label="Close">
+              <IconButton label={t('common.close')}>
                 <X size={16} />
               </IconButton>
             </DialogPrimitive.Close>
@@ -145,6 +146,8 @@ export function Dialog({
 export interface SelectOption {
   value: string
   label: string
+  /** Shown before the label, in the list and in the closed control (e.g. a database mark). */
+  icon?: React.ReactNode
 }
 
 export function Select({
@@ -174,8 +177,11 @@ export function Select({
           className
         )}
       >
-        <SelectPrimitive.Value placeholder={placeholder} />
-        <SelectPrimitive.Icon>
+        {/* One line: longer labels in other languages truncate instead of growing the control. */}
+        <span className="min-w-0 truncate whitespace-nowrap text-left">
+          <SelectPrimitive.Value placeholder={placeholder} />
+        </span>
+        <SelectPrimitive.Icon className="shrink-0">
           <ChevronDown size={14} className="text-ink-muted" />
         </SelectPrimitive.Icon>
       </SelectPrimitive.Trigger>
@@ -195,7 +201,16 @@ export function Select({
                 <SelectPrimitive.ItemIndicator className="absolute left-2 text-amber-ink">
                   <Check size={13} />
                 </SelectPrimitive.ItemIndicator>
-                <SelectPrimitive.ItemText>{o.label}</SelectPrimitive.ItemText>
+                <SelectPrimitive.ItemText>
+                  {o.icon ? (
+                    <span className="inline-flex items-center gap-1.5 align-middle">
+                      {o.icon}
+                      {o.label}
+                    </span>
+                  ) : (
+                    o.label
+                  )}
+                </SelectPrimitive.ItemText>
               </SelectPrimitive.Item>
             ))}
           </SelectPrimitive.Viewport>

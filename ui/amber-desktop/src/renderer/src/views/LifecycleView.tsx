@@ -5,11 +5,13 @@ import { ownerKeyForObject } from '@/lib/lineage'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { usePlaybackView, useTrace } from '@/hooks'
 import { kindLabel, roleLabel } from '@/lib/dataflow'
-import { kindText } from '@/lib/kinds'
+import { kindText, objectKindText } from '@/lib/kinds'
 import { ACCESS_MARK, buildMatrix, cellKey, markFor, type LifecycleSort } from '@/lib/lifecycle'
+import { getLanguage, t, tOr, useLanguage } from '@/i18n'
 import { useStore } from '@/store'
 import { Select, Switch, inputClass } from '@/components/ui'
 import { onReferenceContextMenu } from '@/components/References'
+import { eventLabel, onlyViaCalls } from '@/lib/via'
 
 export const MATRIX = { NAME_W: 260, HEAD_H: 34, ROW_H: 28, COL_W: 30 }
 
@@ -41,7 +43,9 @@ export function LifecycleView(): React.JSX.Element {
     lifecycleOptions.current = options
   }, [options])
 
-  const matrix = useMemo(() => buildMatrix(index, options), [index, options])
+  // Group headers are labelled in the UI language, so the matrix is rebuilt when it changes.
+  const language = useLanguage()
+  const matrix = useMemo(() => buildMatrix(index, options), [index, options, language]) // eslint-disable-line react-hooks/exhaustive-deps
   const rowV = useVirtualizer({
     count: matrix.rows.length,
     getScrollElement: () => parent.current,
@@ -84,39 +88,39 @@ export function LifecycleView(): React.JSX.Element {
           <Search size={13} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-ink-faint" />
           <input
             className={clsx(inputClass, 'w-52 pl-7')}
-            placeholder="Filter objects"
-            aria-label="Filter objects"
+            placeholder={t('lifecycle.filter')}
+            aria-label={t('lifecycle.filter')}
             value={options.filter}
             onChange={(e) => setOptions({ ...options, filter: e.target.value })}
           />
         </div>
         <label className="flex items-center gap-2 text-sm text-ink-muted">
-          Group by
+          {t('lifecycle.groupBy')}
           <Select
-            label="Group or sort objects"
+            label={t('lifecycle.groupByLabel')}
             value={options.sort}
             onChange={(v) => setOptions({ ...options, sort: v as LifecycleSort })}
             options={[
-              { value: 'role', label: 'Role' },
-              { value: 'kind', label: 'Kind' },
-              { value: 'first-use', label: 'First use (no groups)' },
-              { value: 'name', label: 'Name (no groups)' }
+              { value: 'role', label: t('lifecycle.sort.role') },
+              { value: 'kind', label: t('lifecycle.sort.kind') },
+              { value: 'first-use', label: t('lifecycle.sort.firstUse') },
+              { value: 'name', label: t('lifecycle.sort.name') }
             ]}
             className="w-44"
           />
         </label>
         <label className="flex items-center gap-2 text-sm text-ink-muted">
-          <Switch checked={options.allSteps} onChange={(v) => setOptions({ ...options, allSteps: v })} label="Show every step" />
-          Every step
+          <Switch checked={options.allSteps} onChange={(v) => setOptions({ ...options, allSteps: v })} label={t('lifecycle.allStepsLabel')} />
+          {t('lifecycle.allSteps')}
         </label>
         <Legend />
       </div>
       {matrix.rows.length === 0 ? (
         <p className="px-5 py-6 text-sm text-ink-muted">
-          {options.filter ? 'No object matches the filter.' : 'This script does not touch any table or view.'}
+          {options.filter ? t('lifecycle.empty.filtered') : t('lifecycle.empty.none')}
         </p>
       ) : (
-        <div ref={parent} className="relative min-h-0 flex-1 overflow-auto" role="grid" aria-label="Object lifecycle matrix" aria-rowcount={matrix.rows.length}>
+        <div ref={parent} className="relative min-h-0 flex-1 overflow-auto" role="grid" aria-label={t('lifecycle.matrixLabel')} aria-rowcount={matrix.rows.length}>
           <div style={{ width: totalW, height: totalH, position: 'relative' }}>
             {/* Column headers */}
             <div className="sticky top-0 z-20 border-b border-line bg-surface" style={{ height: MATRIX.HEAD_H, width: totalW }}>
@@ -134,7 +138,7 @@ export function LifecycleView(): React.JSX.Element {
                   <button
                     key={c.key}
                     type="button"
-                    title={s ? `Step ${step + 1} · line ${s.range.start.line}\n${kindText(s.kind)}: ${s.summary}` : `Step ${step + 1}`}
+                    title={s ? `${t('common.stepLine', { step: step + 1, line: s.range.start.line })}\n${kindText(s.kind)}: ${s.summary}` : t('common.step', { step: step + 1 })}
                     onClick={() => selectStatement(step, 'view')}
                     className={clsx(
                       'code absolute top-0 flex h-full items-end justify-center pb-1.5 text-[11px] tabular-nums',
@@ -196,7 +200,7 @@ export function LifecycleView(): React.JSX.Element {
                       type="button"
                       onClick={() => select({ type: 'object', key: l.key }, 'view')}
                       onContextMenu={onReferenceContextMenu({ object: l.name })}
-                      title={`${l.name}\n${kindLabel(l)} · ${roleLabel(l.role)}${l.createdInScript ? ' · created here' : ''}${l.droppedInScript ? ' · dropped here' : ''}`}
+                      title={[`${l.name}\n${kindLabel(l)}`, roleLabel(l.role), l.createdInScript ? t('lifecycle.createdHere') : '', l.droppedInScript ? t('lifecycle.droppedHere') : ''].filter(Boolean).join(' · ')}
                       className="flex h-full min-w-0 flex-1 items-center gap-2 pl-3 text-left"
                     >
                       <span className="code min-w-0 flex-1 truncate text-[12px]">{l.name}</span>
@@ -205,8 +209,8 @@ export function LifecycleView(): React.JSX.Element {
                     {lineage && ownerKeyForObject(lineage, l.key) ? (
                       <button
                         type="button"
-                        aria-label={`Column lineage of ${l.name}`}
-                        title="Column lineage"
+                        aria-label={t('lifecycle.columnLineageOf', { name: l.name })}
+                        title={t('lifecycle.columnLineage')}
                         onClick={() => showOwnerColumns(ownerKeyForObject(lineage, l.key)!)}
                         className="flex h-full w-8 shrink-0 items-center justify-center text-ink-faint hover:text-amber-ink"
                       >
@@ -220,6 +224,9 @@ export function LifecycleView(): React.JSX.Element {
                     const step = matrix.columns[c.index]!
                     const accesses = matrix.cells.get(cellKey(l.key, step))
                     if (!accesses) return null
+                    const events = matrix.events.get(cellKey(l.key, step)) ?? []
+                    // Reached only through a call to a routine defined in the script: a dashed ring marks it.
+                    const viaOnly = onlyViaCalls(events)
                     const lit = trace ? trace.objects.has(l.key) && trace.statements.has(step) : false
                     const isCurrent = playback.active && step === playback.current
                     const future = playback.active && !playback.played.has(step)
@@ -230,7 +237,7 @@ export function LifecycleView(): React.JSX.Element {
                         type="button"
                         role="gridcell"
                         onClick={() => selectStatement(step, 'view')}
-                        title={`${l.name} · step ${step + 1}: ${accesses.map((a) => markFor(a).label.toLowerCase()).join(', ')}`}
+                        title={`${t('lifecycle.cellTitle', { name: l.name, step: step + 1 })}\n${events.map(eventLabel).join('\n')}`}
                         className={clsx(
                           'absolute top-0 flex h-full items-center justify-center gap-px',
                           (lit || isCurrent) && 'lit',
@@ -241,7 +248,7 @@ export function LifecycleView(): React.JSX.Element {
                         {accesses.slice(0, 2).map((a) => {
                           const m = markFor(a)
                           return (
-                            <span key={a} className={`mark mark-${m.cls}`} style={accesses.length > 1 ? { minWidth: 12, fontSize: 10 } : undefined}>
+                            <span key={a} className={clsx(`mark mark-${m.cls}`, viaOnly && 'mark-via')} style={accesses.length > 1 ? { minWidth: 12, fontSize: 10 } : undefined}>
                               {m.letter}
                             </span>
                           )
@@ -260,31 +267,29 @@ export function LifecycleView(): React.JSX.Element {
 }
 
 function shortKind(kind: string): string {
-  switch (kind) {
-    case 'TEMP_TABLE':
-      return 'temp'
-    case 'TABLE_VARIABLE':
-      return 'var'
-    case 'MATERIALIZED_VIEW':
-      return 'mview'
-    default:
-      return kind.toLowerCase()
-  }
+  return tOr(`lifecycle.shortKind.${kind}`, objectKindText(kind, true))
 }
 
 function Legend(): React.JSX.Element {
+  const hasVia = useStore((s) => (s.analysis?.lifecycles ?? []).some((l) => l.events.some((e) => e.via)))
   const order = ['CREATE', 'INSERT', 'UPDATE', 'DELETE', 'MERGE', 'READ', 'TRUNCATE', 'ALTER', 'DROP']
   return (
-    <div className="ml-auto flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ink-muted" aria-label="Legend">
+    <div className="ml-auto flex flex-wrap items-center gap-x-2.5 gap-y-1 text-xs text-ink-muted" aria-label={t('lifecycle.legend')}>
       {order.map((a) => {
         const m = ACCESS_MARK[a]!
         return (
           <span key={a} className="flex items-center gap-1">
             <span className={`mark mark-${m.cls}`}>{m.letter}</span>
-            {m.label.toLowerCase()}
+            {m.label.toLocaleLowerCase(getLanguage())}
           </span>
         )
       })}
+      {hasVia ? (
+        <span className="flex items-center gap-1" title={t('lifecycle.viaHint')}>
+          <span className="mark mark-write mark-via">I</span>
+          {t('lifecycle.via')}
+        </span>
+      ) : null}
     </div>
   )
 }

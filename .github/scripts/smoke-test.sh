@@ -45,7 +45,8 @@ if [[ "$OUT" != *" $EXPECTED" && "$OUT" != "$EXPECTED" ]]; then
 fi
 
 CDS_LOG=$("$JAVA_BIN" -XX:SharedArchiveFile="$JSA" -Xlog:cds=info -jar "$JAR" version 2>&1 | tr -d '\r')
-if ! grep -q 'Mapped dynamic region' <<< "$CDS_LOG"; then
+# "Mapped dynamic region" is logged before validation; a rejected archive also logs "Unable to use".
+if ! grep -q 'Mapped dynamic region' <<< "$CDS_LOG" || grep -qiE 'Unable to use shared archive|timestamp has changed|shared class paths mismatch' <<< "$CDS_LOG"; then
   echo "error: the AppCDS archive was not used:" >&2
   grep -i 'cds' <<< "$CDS_LOG" | tail -n 20 >&2 || true
   exit 1

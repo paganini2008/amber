@@ -19,7 +19,58 @@ final class DdlText {
     private static final Pattern TABLE_PK = Pattern.compile("(?i)PRIMARY\\s+KEY\\s*(?:CLUSTERED|NONCLUSTERED)?\\s*\\(([^)]*)\\)");
     private static final Pattern TABLE_UK = Pattern.compile("(?i)UNIQUE\\s*(?:KEY|INDEX)?\\s*(?:\\w+\\s*)?\\(([^)]*)\\)");
 
+    // ----- foreign keys (inline REFERENCES, table-level and ALTER TABLE … FOREIGN KEY) -------------------
+    private static final String NAME_PART = "(?:\"[^\"]+\"|\\[[^\\]]+\\]|`[^`]+`|[\\w$#@]+)";
+    private static final String NAME = NAME_PART + "(?:\\s*\\.\\s*" + NAME_PART + ")*";
+    private static final Pattern TABLE_FK = Pattern.compile("(?i)(?:\\bCONSTRAINT\\s+(" + NAME_PART + ")\\s+)?"
+            + "\\bFOREIGN\\s+KEY\\s*(?:" + NAME_PART + "\\s*)?\\(([^)]*)\\)\\s*REFERENCES\\s+(" + NAME + ")\\s*(?:\\(([^)]*)\\))?");
+    private static final Pattern INLINE_FK = Pattern.compile("(?i)(?:\\bCONSTRAINT\\s+(" + NAME_PART + ")\\s+)?"
+            + "(?:\\bFOREIGN\\s+KEY\\s+)?\\bREFERENCES\\s+(" + NAME + ")\\s*(?:\\(([^)]*)\\))?");
+
     private DdlText() {
+    }
+
+    /**
+     * Table-level foreign keys in CREATE TABLE or ALTER TABLE text:
+     * {@code [CONSTRAINT n] FOREIGN KEY [n] (a, b) REFERENCES t [(x, y)]}.
+     */
+    static List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> tableForeignKeys(String text,
+                                                                                    com.github.amber.core.Dialect d) {
+        List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> out = new ArrayList<>();
+        Matcher m = TABLE_FK.matcher(text);
+        while (m.find()) {
+            var fk = foreignKey(d, m.group(1), columns(m.group(2)), m.group(3), m.group(4));
+            if (fk != null && !fk.columns().isEmpty()) {
+                out.add(fk);
+            }
+        }
+        return out;
+    }
+
+    /** A column definition's own {@code REFERENCES t [(x)]} (also T-SQL {@code FOREIGN KEY REFERENCES}), or null. */
+    static com.github.amber.core.meta.TableMeta.ForeignKeyMeta inlineForeignKey(String definition, String column,
+                                                                              com.github.amber.core.Dialect d) {
+        if (TABLE_FK.matcher(definition).find()) {
+            return null;                              // a table constraint read as a column definition
+        }
+        Matcher m = INLINE_FK.matcher(definition);
+        return m.find() ? foreignKey(d, m.group(1), List.of(column), m.group(2), m.group(3)) : null;
+    }
+
+    private static com.github.amber.core.meta.TableMeta.ForeignKeyMeta foreignKey(com.github.amber.core.Dialect d,
+                                                                                String constraint, List<String> cols,
+                                                                                String refName, String refCols) {
+        var name = com.github.amber.core.ir.ObjectName.parse(d, refName);
+        if (name == null) {
+            return null;
+        }
+        List<String> parts = name.parts().stream().map(com.github.amber.core.ir.ObjectName.Part::text).toList();
+        String table = parts.get(parts.size() - 1);
+        String schema = parts.size() >= 2 ? parts.get(parts.size() - 2) : null;
+        String catalog = parts.size() >= 3 ? parts.get(parts.size() - 3) : null;
+        String cname = constraint == null ? null : constraint.replaceAll("^[\"`\\[]|[\"`\\]]$", "");
+        return new com.github.amber.core.meta.TableMeta.ForeignKeyMeta(cname, cols, catalog, schema, table,
+                refCols == null ? List.of() : columns(refCols));
     }
 
     /** The data type of a column definition, e.g. {@code NUMBER(18,2)}. */

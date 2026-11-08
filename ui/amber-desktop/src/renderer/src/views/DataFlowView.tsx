@@ -17,6 +17,7 @@ import { usePlaybackView, useReducedMotion, useTrace } from '@/hooks'
 import { buildFlowView, type FlowNode, type FlowView } from '@/lib/dataflow'
 import { KindIcon } from '@/lib/kinds'
 import { layoutFlow, type LayoutResult } from '@/lib/layout'
+import { t, useLanguage } from '@/i18n'
 import { useStore } from '@/store'
 import { Button, IconButton, Spinner } from '@/components/ui'
 import { onReferenceContextMenu } from '@/components/References'
@@ -79,8 +80,9 @@ const StatementNode = memo(function StatementNode({ data }: NodeProps<Node<NodeD
 
 const GroupNode = memo(function GroupNode({ data }: NodeProps<Node<NodeData>>) {
   const { node, state } = data
+  useLanguage()
   return (
-    <div className="relative" style={{ width: node.width }} title="Double-click to open this group">
+    <div className="relative" style={{ width: node.width }} title={t('dataflow.group.openHint')}>
       <div className="absolute inset-0 translate-x-[4px] translate-y-[4px] rounded-[3px] border border-line bg-surface-2" aria-hidden />
       <div
         className={clsx(
@@ -126,7 +128,9 @@ function DataFlowCanvas(): React.JSX.Element {
   const [layout, setLayout] = useState<{ view: FlowView; result: LayoutResult } | null>(null)
   const [error, setError] = useState<string | null>(null)
 
-  const view = useMemo(() => buildFlowView(index, graph, expanded), [index, graph, expanded])
+  // Node labels and widths depend on the UI language.
+  const language = useLanguage()
+  const view = useMemo(() => buildFlowView(index, graph, expanded), [index, graph, expanded, language]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
     let cancelled = false
@@ -210,6 +214,16 @@ function DataFlowCanvas(): React.JSX.Element {
         type: 'default',
         className: flowing ? 'edge-flowing' : undefined,
         style: { stroke, strokeWidth: width, opacity, strokeDasharray: dash },
+        // Reached only through a call: a small text label (dashes already mean partial confidence).
+        ...(e.via
+          ? {
+              label: t('dataflow.edge.via', { routine: shortRoutine(e.via) }),
+              labelStyle: { fill: 'var(--ink-muted)', fontSize: 11, fontFamily: 'var(--font-code)' },
+              labelBgStyle: { fill: 'var(--surface)', fillOpacity: 0.92 },
+              labelBgPadding: [4, 2] as [number, number],
+              labelBgBorderRadius: 3
+            }
+          : {}),
         focusable: false,
         selectable: false
       }
@@ -250,24 +264,24 @@ function DataFlowCanvas(): React.JSX.Element {
     <div className="flex h-full min-h-0 flex-col">
       <div className="flex h-10 shrink-0 items-center gap-2 border-b border-line px-4 text-sm text-ink-muted">
         <span className="shrink-0 whitespace-nowrap">
-          {graph.objects.length} objects · {graph.statements.length} statements that move data
+          {t('dataflow.summary', { objects: graph.objects.length, statements: graph.statements.length })}
         </span>
         {view.grouped ? (
           <span className="ml-2 flex min-w-0 items-center gap-2">
             {/* One line at any width; the whole sentence is in the tooltip. */}
-            <span className="min-w-0 truncate" title={`Grouped into ${groupCount} groups because the graph has more than 300 nodes. Double-click a group to open it.`}>
-              {groupCount} groups (over 300 nodes): double-click a group to open it
+            <span className="min-w-0 truncate" title={t('dataflow.grouped.hint', { count: groupCount })}>
+              {t('dataflow.grouped.label', { count: groupCount })}
             </span>
             {expanded.size ? (
               <Button size="sm" variant="ghost" onClick={() => setExpanded(new Set())}>
-                <Shrink size={13} /> Regroup
+                <Shrink size={13} /> {t('dataflow.regroup')}
               </Button>
             ) : null}
           </span>
         ) : null}
         <div className="ml-auto flex items-center gap-0.5">
           <IconButton
-            label="Focus selection"
+            label={t('dataflow.focus')}
             disabled={!focusId}
             onClick={() => {
               const pos = focusId ? laidOut?.result.positions.get(focusId) : undefined
@@ -276,22 +290,22 @@ function DataFlowCanvas(): React.JSX.Element {
           >
             <Focus size={15} />
           </IconButton>
-          <IconButton label="Fit graph" onClick={() => void flow.fitView({ padding: 0.12, duration: reducedMotion ? 0 : 200 })}>
+          <IconButton label={t('dataflow.fit')} onClick={() => void flow.fitView({ padding: 0.12, duration: reducedMotion ? 0 : 200 })}>
             <Maximize2 size={15} />
           </IconButton>
         </div>
       </div>
-      <div className="relative min-h-0 flex-1" aria-label="Data flow graph">
+      <div className="relative min-h-0 flex-1 overflow-hidden" aria-label={t('dataflow.graphLabel')}>
         {graph.statements.length === 0 ? (
-          <p className="px-5 py-6 text-sm text-ink-muted">No statement in this script moves data between tables.</p>
+          <p className="px-5 py-6 text-sm text-ink-muted">{t('dataflow.empty')}</p>
         ) : (
           <>
             {!laidOut && !error ? (
               <div className="absolute inset-0 z-10 flex items-center justify-center gap-2 text-sm text-ink-muted">
-                <Spinner /> Laying out {view.nodes.length} nodes
+                <Spinner /> {t('dataflow.layingOut', { count: view.nodes.length })}
               </div>
             ) : null}
-            {error ? <p className="px-5 py-6 text-sm text-risk-high">Could not lay out the graph: {error}</p> : null}
+            {error ? <p className="px-5 py-6 text-sm text-risk-high">{t('dataflow.layoutFailed', { error })}</p> : null}
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -301,7 +315,7 @@ function DataFlowCanvas(): React.JSX.Element {
               nodesDraggable={false}
               nodesConnectable={false}
               onlyRenderVisibleElements={view.nodes.length > 150}
-              proOptions={{ hideAttribution: true }}
+              attributionPosition="bottom-left"
               onNodeClick={(_e, node) => {
                 const n = (node.data as NodeData).node
                 if (n.type === 'object') select({ type: 'object', key: n.objectKey! }, 'view')
@@ -334,3 +348,8 @@ function nodeFor(view: FlowView, statementId: number): string | null {
   return view.nodes.some((n) => n.id === id) ? id : null
 }
 
+
+/** "dw.p_load" → "p_load": the edge label stays short; the full name is in the statement node. */
+function shortRoutine(name: string): string {
+  return name.split('.').pop() || name
+}

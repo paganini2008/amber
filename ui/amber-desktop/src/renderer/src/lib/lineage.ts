@@ -1,4 +1,5 @@
 import { ROWS_COLUMN, type Lineage, type LineageEdge, type LineageNode } from '@shared/protocol'
+import { t, tOr } from '../i18n'
 
 /**
  * Column lineage (L3). The engine sends the whole script's graph; the UI only ever renders the
@@ -7,8 +8,11 @@ import { ROWS_COLUMN, type Lineage, type LineageEdge, type LineageNode } from '@
 
 export interface LineageOwner {
   key: string
+  /** Table or CTE name; for a VARIABLE / PARAMETER the scope it lives in (routine, block@L25, session). */
   name: string
   kind: string
+  /** VARIABLE / PARAMETER: the variable's name as written (each variable is an owner of its own). */
+  variable?: string
   nodeIds: number[]
   /** Statement ids whose edges touch this owner (for labels and playback). */
   statements: Set<number>
@@ -34,8 +38,21 @@ const KIND_RANK: Record<string, number> = {
   CTE: 2,
   SUBQUERY: 2,
   RESULT: 2,
+  VARIABLE: 2,
+  PARAMETER: 2,
   TABLE: 3,
   UNKNOWN: 4
+}
+
+/** Values in procedural code: variables and parameters (owner = scope, column = name). */
+export function isVariableKind(kind: string): boolean {
+  return kind === 'VARIABLE' || kind === 'PARAMETER'
+}
+
+/** "dw.p_load", "block (line 25)", "batch (line 1)", "session". */
+export function scopeLabel(scope: string): string {
+  const m = /^(block|batch)@L(\d+)$/i.exec(scope)
+  return m ? t(m[1]!.toLowerCase() === 'block' ? 'lineage.scope.block' : 'lineage.scope.batch', { line: Number(m[2]) }) : scope
 }
 
 export function isRows(node: LineageNode): boolean {
@@ -57,6 +74,7 @@ export function indexLineage(lineage: Lineage): LineageIndex {
     }
     owner.nodeIds.push(n.id)
     if (isRows(n)) rowsOf.set(n.ownerKey, n.id)
+    else if (isVariableKind(n.ownerKind) && !owner.variable) owner.variable = n.column
   }
   const incoming = new Map<number, number[]>()
   const outgoing = new Map<number, number[]>()
@@ -265,45 +283,27 @@ export function statementLineage(index: LineageIndex, statementId: number, maxPa
 }
 
 export function transformLabel(edge: LineageEdge): string {
-  if (edge.kind !== 'DIRECT') return (edge.role ?? 'indirect').toLowerCase()
-  switch (edge.transform) {
-    case 'PASS_THROUGH':
-      return 'copy'
-    case null:
-    case undefined:
-      return ''
-    default:
-      return edge.transform.toLowerCase().replace(/_/g, ' ')
-  }
+  if (edge.kind !== 'DIRECT') return tOr(`lineage.role.${edge.role ?? 'INDIRECT'}`, (edge.role ?? 'indirect').toLowerCase())
+  if (!edge.transform) return ''
+  return tOr(`lineage.transform.${edge.transform}`, edge.transform.toLowerCase().replace(/_/g, ' '))
+}
+
+/** A plain copy of the value: views show no transform label for it. */
+export function isCopy(edge: LineageEdge): boolean {
+  return edge.kind === 'DIRECT' && edge.transform === 'PASS_THROUGH'
 }
 
 export function ownerKindLabel(kind: string): string {
-  switch (kind) {
-    case 'TEMP_TABLE':
-      return 'temp table'
-    case 'TABLE_VARIABLE':
-      return 'table variable'
-    case 'MATERIALIZED_VIEW':
-      return 'materialized view'
-    case 'CTE':
-      return 'CTE'
-    case 'SUBQUERY':
-      return 'subquery'
-    case 'RESULT':
-      return 'query result'
-    case 'UNKNOWN':
-      return 'unresolved'
-    default:
-      return kind.toLowerCase().replace(/_/g, ' ')
-  }
+  return tOr(`lineage.ownerKind.${kind}`, kind.toLowerCase().replace(/_/g, ' '))
 }
 
 /** Owner display name: results and subqueries get their statement context. */
 export function ownerTitle(owner: LineageOwner): string {
-  if (owner.kind === 'UNKNOWN') return 'Unresolved table'
+  if (owner.kind === 'UNKNOWN') return t('lineage.owner.unresolvedTitle')
+  if (isVariableKind(owner.kind)) return owner.variable ?? owner.name
   if (owner.kind === 'RESULT') {
     const step = [...owner.statements][0]
-    return step !== undefined ? `Result of step ${step + 1}` : 'Query result'
+    return step !== undefined ? t('lineage.owner.resultOfStep', { step: step + 1 }) : t('lineage.owner.queryResult')
   }
   return owner.name
 }
@@ -330,8 +330,15 @@ export function lineageToMermaid(index: LineageIndex, trace: LineageTrace): stri
   const lines = ['flowchart LR']
   for (const key of owners) {
     const o = index.owners.get(key)!
-    const label = `${ownerTitle(o)}<br/>${ownerKindLabel(o.kind)}`.replace(/"/g, '#quot;')
-    const shape = o.kind === 'CTE' || o.kind === 'SUBQUERY' ? `(["${label}"])` : o.kind === 'RESULT' ? `[["${label}"]]` : `["${label}"]`
+    const label = `${ownerTitle(o)}<br/>${ownerSubtitle(o)}`.replace(/"/g, '#quot;')
+    const shape =
+      o.kind === 'CTE' || o.kind === 'SUBQUERY'
+        ? `(["${label}"])`
+        : o.kind === 'RESULT'
+          ? `[["${label}"]]`
+          : isVariableKind(o.kind)
+            ? `{{"${label}"}}`
+            : `["${label}"]`
     lines.push(`  ${idFor(key)}${shape}`)
   }
   const agg = new Map<string, { labels: Set<string>; indirect: boolean }>()
@@ -352,4 +359,19 @@ export function lineageToMermaid(index: LineageIndex, trace: LineageTrace): stri
     lines.push(`  ${idFor(a)} ${v.indirect ? '-.->' : '-->'}${label ? `|"${label}"|` : ''} ${idFor(b)}`)
   }
   return lines.join('\n') + '\n'
+}
+
+/** Second line of an owner: its kind, or for a variable where it lives ("variable in dw.p_load"). */
+export function ownerSubtitle(owner: Pick<LineageOwner, 'kind' | 'name'>): string {
+  if (owner.kind === 'VARIABLE') return t('lineage.owner.variableIn', { scope: scopeLabel(owner.name) })
+  if (owner.kind === 'PARAMETER') return t('lineage.owner.parameterOf', { scope: scopeLabel(owner.name) })
+  if (owner.kind === 'UNKNOWN') return t('lineage.owner.unresolvedSubtitle')
+  return ownerKindLabel(owner.kind)
+}
+
+/** A column for lists and chips: "orders.amount", or "@v_max" with its scope given separately. */
+export function columnText(node: Pick<LineageNode, 'owner' | 'column'>, kind: string): string {
+  if (kind === 'RESULT' || isVariableKind(kind)) return node.column
+  if (kind === 'UNKNOWN') return `?.${node.column}`
+  return `${node.owner}.${node.column}`
 }

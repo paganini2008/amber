@@ -143,33 +143,38 @@ public final class SqlScanner {
         return i;
     }
 
-    /** True when only whitespace precedes {@code token} on its line. */
+    /**
+     * True when only whitespace precedes {@code token} on its line. Walks back over the blanks only, so
+     * it costs nothing on very long lines.
+     */
     public boolean startsLine(ScanToken token) {
-        return isBlank(lineStart(token.start()), token.start());
+        int i = Math.min(token.start(), s.length());
+        while (i > 0) {
+            char c = s.charAt(i - 1);
+            if (c == '\n' || c == '\r') {
+                return true;
+            }
+            if (!Character.isWhitespace(c)) {
+                return false;
+            }
+            i--;
+        }
+        return true;
     }
 
     /** True when only whitespace or a line comment follows {@code offset} on its line. */
     public boolean restOfLineEmpty(int offset) {
-        int end = lineEnd(offset);
         int i = offset;
-        while (i < end && Character.isWhitespace(s.charAt(i))) {
+        while (i < s.length() && s.charAt(i) != '\n' && s.charAt(i) != '\r' && Character.isWhitespace(s.charAt(i))) {
             i++;
         }
-        return i == end || (s.startsWith("--", i) && isDashComment(i)) || (options.hashComments() && s.charAt(i) == '#');
+        return i >= s.length() || s.charAt(i) == '\n' || s.charAt(i) == '\r'
+                || (s.startsWith("--", i) && isDashComment(i)) || (options.hashComments() && s.charAt(i) == '#');
     }
 
     /** True when {@code token} is the only significant token on its line. */
     public boolean aloneOnLine(ScanToken token) {
         return startsLine(token) && restOfLineEmpty(token.end());
-    }
-
-    private boolean isBlank(int from, int to) {
-        for (int i = from; i < to; i++) {
-            if (!Character.isWhitespace(s.charAt(i))) {
-                return false;
-            }
-        }
-        return true;
     }
 
     // ----- lexing -------------------------------------------------------------------------

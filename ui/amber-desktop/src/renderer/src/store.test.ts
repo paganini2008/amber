@@ -38,3 +38,16 @@ describe('analysis and editing', () => {
     expect(useStore.getState().doc?.edited).toBe(false)
   })
 })
+
+describe('rule settings', () => {
+  it('go with every analyze-style call', async () => {
+    const { analyzeParams } = await import('./store')
+    const rules = { disabled: ['AMB-S009'], severity: { 'AMB-S008': 'HIGH' as const } }
+    const settings = { encoding: 'auto', rules } as unknown as Parameters<typeof analyzeParams>[2]
+    const doc = { path: null, name: 'a.sql', text: 'select 1;', edited: false, modified: true } as unknown as Parameters<typeof analyzeParams>[0]
+    expect(analyzeParams(doc, 'oracle', settings, false).rules).toEqual(rules)
+    expect(analyzeParams(doc, 'oracle', null, false).rules).toBeUndefined()
+    const file = { ...doc, path: '/x/a.sql', modified: false } as typeof doc
+    expect(analyzeParams(file, 'oracle', settings, false)).toMatchObject({ path: '/x/a.sql', rules })
+  })
+})

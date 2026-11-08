@@ -22,6 +22,10 @@ public final class Catalog {
     private final Map<String, List<String>> bySimpleKey = new ConcurrentHashMap<>();
     private final Map<String, com.github.amber.core.meta.TableMeta> metaByKey = new ConcurrentHashMap<>();
     private final Map<String, com.github.amber.core.meta.TableMeta> metaBySimpleKey = new ConcurrentHashMap<>();
+    /** Upper-case simple names of routines the analyzed script may define (calls of them are followed). */
+    private final java.util.Set<String> routines = ConcurrentHashMap.newKeySet();
+    /** Columns the analyzed script shows its tables to have; null until a script is built with this catalog. */
+    private volatile ColumnEvidence evidence;
 
     /** A catalog pre-filled with imported metadata (DDL files, packs, online reads). */
     public static Catalog of(java.util.Collection<com.github.amber.core.meta.TableMeta> tables) {
@@ -66,7 +70,41 @@ public final class Catalog {
         c.bySimpleKey.putAll(bySimpleKey);
         c.metaByKey.putAll(metaByKey);
         c.metaBySimpleKey.putAll(metaBySimpleKey);
+        c.routines.addAll(routines);
+        c.evidence = evidence;
         return c;
+    }
+
+    /**
+     * The script's own column evidence (see {@link ColumnEvidence}): set when a script is built with this
+     * catalog, null before. It never adds columns to a table; it only places unqualified columns that no
+     * metadata can.
+     */
+    public ColumnEvidence evidence() {
+        return evidence;
+    }
+
+    /** Sets the script's column evidence (the IR builder does, once per script). */
+    public void setEvidence(ColumnEvidence evidence) {
+        this.evidence = evidence;
+    }
+
+    /**
+     * Notes that the script may define a routine with this simple name, so lineage follows the arguments
+     * of its calls (see {@code CallLineage}); the call is linked or dropped once the whole script is read.
+     */
+    public void addRoutine(String simpleName) {
+        routines.add(simpleName.toUpperCase(Locale.ROOT));
+    }
+
+    /** Whether {@link #addRoutine} named {@code simpleName}. */
+    public boolean isRoutine(String simpleName) {
+        return !routines.isEmpty() && routines.contains(simpleName.toUpperCase(Locale.ROOT));
+    }
+
+    /** Whether any routine name is known. */
+    public boolean hasRoutines() {
+        return !routines.isEmpty();
     }
 
     /** Records the columns of a table; {@code key} and {@code simpleKey} as in {@link com.github.amber.core.ir.ObjectName}. */

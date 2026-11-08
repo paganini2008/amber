@@ -35,7 +35,7 @@ final class AiService {
     record ContextRequest(String dialect, String text, String path, String encoding, String name,
                           Boolean allowFallback, List<String> metadataPacks, List<String> ddlFiles,
                           List<TableMeta> metadata, List<Integer> statements, Integer tokenBudget, Boolean mask,
-                          String notes) {
+                          String notes, Dtos.RulesDto rules) {
     }
 
     record ContextResult(String system, String user, int tokenEstimate, List<Integer> statements,
@@ -82,14 +82,14 @@ final class AiService {
         }
         List<Statement> steps = Lifecycles.steps(a.script());
         List<Integer> ids = req.statements() == null ? List.of() : req.statements();
-        for (int id : ids) {
-            if (id < 0 || id >= steps.size()) {
+        for (Integer id : ids) {
+            if (id == null || id < 0 || id >= steps.size()) {
                 throw new IllegalArgumentException("No statement " + id);
             }
         }
         List<Finding> findings;
         try {
-            findings = Findings.of(a.script(), a.catalog());
+            findings = Findings.of(a.script(), a.catalog(), Dtos.RulesDto.config(req.rules()));
         } catch (RuntimeException e) {
             findings = List.of();
         }

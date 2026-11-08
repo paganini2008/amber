@@ -2,8 +2,31 @@ import clsx from 'clsx'
 import { Check, ChevronDown, RefreshCw } from 'lucide-react'
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { GROUP_LABEL, type ModelOption } from '@shared/aiModels'
+import type { ModelOption } from '@shared/aiModels'
+import { t, type MessageKey } from '@/i18n'
 import { Button, Spinner, inputClass } from './ui'
+
+const GROUP_KEY: Record<ModelOption['group'], MessageKey> = {
+  recommended: 'settings.models.recommended',
+  available: 'settings.models.fromProvider',
+  more: 'settings.models.more'
+}
+
+/** The preset notes (shared/aiModels.ts, English) in the UI language. */
+const NOTE_KEY: Record<string, MessageKey> = {
+  'reads long scripts well': 'settings.models.notes.longScripts',
+  'faster and cheaper': 'settings.models.notes.faster',
+  'reasoning model': 'settings.models.notes.reasoning',
+  'general purpose': 'settings.models.notes.general',
+  'small and fast': 'settings.models.notes.small',
+  'code model, runs on a laptop': 'settings.models.notes.codeLaptop',
+  'code model, more accurate': 'settings.models.notes.codeAccurate',
+  'general model with reasoning': 'settings.models.notes.generalReasoning',
+  'code model': 'settings.models.notes.code',
+  'older code model': 'settings.models.notes.olderCode'
+}
+
+const noteText = (note: string): string => (NOTE_KEY[note] ? t(NOTE_KEY[note]) : note)
 
 /**
  * A model picker that also takes any typed name: suggestions grouped (recommended, from the
@@ -133,7 +156,7 @@ export function ModelCombobox({
         <button
           type="button"
           tabIndex={-1}
-          aria-label={open ? 'Hide suggestions' : 'Show suggestions'}
+          aria-label={open ? t('settings.models.hide') : t('settings.models.show')}
           className="absolute top-0 right-0 flex h-7 w-7 items-center justify-center text-ink-muted hover:text-ink"
           onMouseDown={(e) => {
             e.preventDefault()
@@ -148,12 +171,12 @@ export function ModelCombobox({
           <ul
             id={listId}
             role="listbox"
-            aria-label={`${label} suggestions`}
+            aria-label={t('settings.models.suggestions', { label })}
             style={{ left: place.left, top: place.top, bottom: place.bottom, width: place.width, maxHeight: place.maxHeight }}
             className="absolute z-50 overflow-auto rounded-[6px] border border-line bg-surface py-1 shadow-[0_8px_28px_rgba(0,0,0,0.18)]"
           >
             {shown.map((o, i) => {
-              const header = o.group !== lastGroup ? GROUP_LABEL[o.group] : null
+              const header = o.group !== lastGroup ? t(GROUP_KEY[o.group]) : null
               lastGroup = o.group
               return (
                 <li key={o.id} role="presentation">
@@ -174,7 +197,7 @@ export function ModelCombobox({
                       <span className="code block truncate text-[13px] text-ink">{o.id}</span>
                       {o.note || o.available === false ? (
                         <span className="block truncate text-xs text-ink-muted">
-                          {[o.note, o.available === false ? missingHint(o.id) : null].filter(Boolean).join(' · ')}
+                          {[o.note ? noteText(o.note) : null, o.available === false ? missingHint(o.id) : null].filter(Boolean).join(' · ')}
                         </span>
                       ) : null}
                     </span>
@@ -189,7 +212,7 @@ export function ModelCombobox({
           : null}
       </div>
       <Button onClick={onLoad} disabled={loading}>
-        {loading ? <Spinner size={12} /> : <RefreshCw size={13} />} Load models
+        {loading ? <Spinner size={12} /> : <RefreshCw size={13} />} {t('settings.models.load')}
       </Button>
     </div>
   )

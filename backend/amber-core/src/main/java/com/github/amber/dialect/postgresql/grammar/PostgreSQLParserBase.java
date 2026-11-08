@@ -97,7 +97,10 @@ public abstract class PostgreSQLParserBase extends Parser {
     }
 
     public String GetRoutineBodyString(PostgreSQLParser.SconstContext rule) {
-        PostgreSQLParser.AnysconstContext anysconst = rule.anysconst();
+        PostgreSQLParser.AnysconstContext anysconst = rule == null ? null : rule.anysconst();
+        if (anysconst == null) {
+            return "";      // Amber: error recovery may leave the constant out (broken scripts must not throw)
+        }
         org.antlr.v4.runtime.tree.TerminalNode StringConstant = anysconst.StringConstant();
         if (null != StringConstant) return unquote(TrimQuotes(StringConstant.getText()));
         org.antlr.v4.runtime.tree.TerminalNode UnicodeEscapeStringConstant = anysconst.UnicodeEscapeStringConstant();

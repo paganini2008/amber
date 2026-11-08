@@ -92,9 +92,12 @@ public final class MetadataService {
         if (req == null || req.dataSource() == null) {
             throw new IllegalArgumentException("'dataSource' is required");
         }
-        try (MetadataReader r = MetadataReader.open(req.dataSource())) {
-            return r.test();
-        }
+        var ds = req.dataSource();
+        return com.github.amber.jdbc.Deadline.within(ds.id() == null ? ds.describe() : ds.id(), () -> {
+            try (MetadataReader r = MetadataReader.open(ds)) {
+                return r.test();
+            }
+        });
     }
 
     public LoadResult load(LoadRequest req) throws IOException {

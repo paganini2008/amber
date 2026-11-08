@@ -81,12 +81,13 @@ describe('readConfig', () => {
       AMBER_ENGINE_MAX_RESTARTS: '2',
       AMBER_ENGINE_RESTART_WINDOW_SEC: '30',
       AMBER_MAX_FILE_MB: '128',
-      AMBER_DB_TIMEOUT_SEC: '20'
+      AMBER_DB_TIMEOUT_SEC: '20',
+      AMBER_DEV_USER_DATA: '/tmp/amber-clean'
     }
     const dev = readConfig(env, false)
-    expect(dev).toMatchObject({ engineJar: '/b/engine.jar', java: '/j/java', devCdpPort: 9334, defaultAiTimeoutSec: 300, updateRepo: 'me/amber-fork', logLevel: 'debug', maxFileMb: 128, dbTimeoutSec: 20 })
+    expect(dev).toMatchObject({ engineJar: '/b/engine.jar', java: '/j/java', devCdpPort: 9334, devUserData: '/tmp/amber-clean', defaultAiTimeoutSec: 300, updateRepo: 'me/amber-fork', logLevel: 'debug', maxFileMb: 128, dbTimeoutSec: 20 })
     const packaged = readConfig(env, true)
-    expect(packaged).toMatchObject({ engineJar: null, java: null, devCdpPort: null, defaultOllamaUrl: 'http://gpu-box:11434' })
+    expect(packaged).toMatchObject({ engineJar: null, java: null, devCdpPort: null, devUserData: null, defaultOllamaUrl: 'http://gpu-box:11434' })
     expect(logs(dev, 'debug')).toBe(true)
     expect(logs({ ...dev, logLevel: 'error' }, 'info')).toBe(false)
     expect(logs({ ...dev, logLevel: 'off' }, 'error')).toBe(false)
@@ -115,10 +116,25 @@ describe('defaults reach the app, user settings win', () => {
     })
     const cmd = resolveEngineCommand({ packaged: false, resourcesPath: '/r', appRoot: '/a/ui/amber-desktop', platform: 'darwin', env: { AMBER_JAVA: '/j/java', AMBER_ENGINE_JAR: '/b/engine.jar' }, exists: () => true })
     expect(cmd.command).toBe('/j/java')
-    expect(cmd.args).toEqual(['-jar', '/b/engine.jar', 'serve'])
+    expect(cmd.args).toEqual(['-XX:MaxRAMPercentage=50', '-jar', '/b/engine.jar', 'serve'])
     const relative = resolveEngineCommand({ packaged: false, resourcesPath: '/r', appRoot: '/a/ui/amber-desktop', platform: 'darwin', env: { AMBER_ENGINE_JAR: '../../backend/x/engine.jar' }, exists: () => false })
     expect(relative.jar).toBe('/a/backend/x/engine.jar')
     const packaged = resolveEngineCommand({ packaged: true, resourcesPath: '/r', appRoot: '/a', platform: 'darwin', env: { AMBER_JAVA: '/j/java' }, exists: () => false })
     expect(packaged.command).toBe('/r/runtime/bin/java')
+  })
+})
+
+describe('About links', () => {
+  it('derives every link from the configured repository, with no e-mail', async () => {
+    const { projectLinks } = await import('./updates/check')
+    expect(projectLinks()).toEqual({
+      project: 'https://github.com/paganini2008/amber',
+      website: 'https://paganini2008.github.io/amber/',
+      releases: 'https://github.com/paganini2008/amber/releases/latest',
+      issue: 'https://github.com/paganini2008/amber/issues/new',
+      author: { name: 'Fred Feng', url: 'https://github.com/paganini2008' }
+    })
+    expect(projectLinks('Me/amber-fork').website).toBe('https://me.github.io/amber-fork/')
+    expect(JSON.stringify(projectLinks())).not.toMatch(/@|mailto/)
   })
 })

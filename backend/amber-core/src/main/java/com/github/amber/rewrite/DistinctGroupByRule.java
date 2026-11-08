@@ -1,5 +1,6 @@
 package com.github.amber.rewrite;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.dialect.split.ScanToken;
 
 import java.util.ArrayList;
@@ -44,7 +45,7 @@ final class DistinctGroupByRule implements RewriteRule {
                 continue;
             }
             List<Source> sources = b.sources();
-            String single = sources.size() == 1 ? sources.getFirst().exposed(sql) : null;
+            String single = sources.size() == 1 ? sources.get(0).exposed(sql) : null;
             List<int[]> items = b.items();
             Set<String> selected = new HashSet<>();
             boolean star = false;
@@ -67,12 +68,10 @@ final class DistinctGroupByRule implements RewriteRule {
             if (!all) {
                 continue;
             }
-            out.add(new Candidate(id(), "Remove DISTINCT (GROUP BY already returns distinct rows)",
-                    "Every GROUP BY expression is in the select list, so each row is a different group and DISTINCT "
-                    + "cannot remove anything; it only costs an extra sort or hash.",
+            out.add(new Candidate(id(), Messages.t("rewrite.distinctGroupBy.title"),
+                    Messages.t("rewrite.distinctGroupBy.explanation"),
                     List.of(ctx.deleteWord(b.distinct)), Safety.EQUIVALENT,
-                    "The grouping columns are all selected, so the rows are distinct for any data. The structural "
-                    + "check lists DISTINCT under ordering and row limits because the keyword is gone.",
+                    Messages.t("rewrite.distinctGroupBy.safety"),
                     List.of("Ordering and row limits:")));
         }
         return out;

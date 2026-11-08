@@ -82,4 +82,15 @@ class FallbackScannerTest {
         assertTrue(broken.summary().startsWith("Insert into T2") || broken.summary().startsWith("Insert into t2"), broken.summary());
         assertEquals(ObjectKind.TABLE, read.kind());
     }
+
+    @Test
+    void keywordsInBrokenStatementsAreNotObjects() {
+        assertEquals(List.of(), scan(Dialect.POSTGRESQL, "update set where;"));
+        assertEquals(List.of(), scan(Dialect.ORACLE, "delete from where x = 1"));
+        assertEquals(List.of(), scan(Dialect.SQLSERVER, "insert into values (1)"));
+        assertEquals(List.of("READ TABLE B"), scan(Dialect.MYSQL, "select a from join b"), "JOIN is not a table; b after it is");
+        // a quoted keyword is a real name; a normal name after the keyword-check still counts
+        assertEquals(1, scan(Dialect.POSTGRESQL, "update \"set\" set x = ;").size());
+        assertEquals(1, scan(Dialect.ORACLE, "delete from sales.orders where ???").size());
+    }
 }

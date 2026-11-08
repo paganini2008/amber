@@ -19,7 +19,7 @@ import java.util.function.Consumer;
 public final class Statement {
 
     private final StatementKind kind;
-    private final TextRange range;
+    private TextRange range;
     private final Confidence confidence;
     private final List<ObjectRef> refs = new ArrayList<>();
     private final List<String> ctes = new ArrayList<>();
@@ -42,6 +42,17 @@ public final class Statement {
 
     public TextRange range() {
         return range;
+    }
+
+    /**
+     * Widens the range once a parser knows where a container ends (e.g. a PL/pgSQL {@code IF} read
+     * keyword by keyword): it must start where it did and cover all of its children.
+     */
+    public void extendTo(TextRange wider) {
+        if (wider.start().offset() != range.start().offset() || wider.end().offset() < range.end().offset()) {
+            throw new IllegalArgumentException("Not a widening of " + range + ": " + wider);
+        }
+        this.range = wider;
     }
 
     public Confidence confidence() {

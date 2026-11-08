@@ -1,9 +1,21 @@
-import type { AnalysisResult, AnalyzeParams, EngineInfo, EngineMethod, LoadMetadataResult, RpcErrorObject, ServerInfo } from './protocol'
+import type { AnalysisResult, AnalyzeParams, EngineInfo, EngineMethod, LoadMetadataResult, RpcErrorObject, RuleSettings, ServerInfo } from './protocol'
 
 /** Results cross the IPC boundary as values so error codes survive (thrown errors lose them). */
 export type Result<T> = { ok: true; value: T } | { ok: false; error: RpcErrorObject }
 
+/**
+ * How engine answers cross IPC: the value as JSON text. Electron clones plain objects field by
+ * field (twice: main → preload, preload → page), which took over a minute for the 115 MB analysis
+ * of a 100k-line script; one string is copied in milliseconds and parsed in the page.
+ * `lib/api.ts` turns it back into a Result, so callers only ever see Result<T>.
+ */
+export type WireResult = { ok: true; json: string } | { ok: false; error: RpcErrorObject }
+
 export type ThemeId = 'system' | 'amber-light' | 'amber-dark' | 'resin' | 'high-contrast'
+
+/** UI languages. English is the default; Amber never follows the OS locale on its own. */
+export const LANGUAGES = ['en', 'zh-CN', 'es'] as const
+export type LanguageId = (typeof LANGUAGES)[number]
 
 export interface OllamaProviderSettings {
   enabled: boolean
@@ -74,6 +86,8 @@ export interface FormatSettings {
 
 export interface Settings {
   theme: ThemeId
+  /** UI language; 'en' unless the user picks another one in Settings → General. */
+  language: LanguageId
   fontSize: number
   defaultDialect: string
   encoding: string
@@ -88,6 +102,8 @@ export interface Settings {
   connections: ConnectionProfile[]
   online: OnlineSettings
   format: FormatSettings
+  /** Settings → Rules: disabled rule ids and severity overrides, passed with every engine call that computes findings. */
+  rules: RuleSettings
   recentFiles: string[]
 }
 
@@ -210,6 +226,10 @@ export interface AmberApi {
     info(): Promise<AppInfo>
     checkForUpdates(force?: boolean): Promise<Result<UpdateInfo | null>>
     openExternal(url: string): Promise<void>
+    /** Project, website, releases and issue links, and the author's profile (from the configured repo). */
+    links(): Promise<{ project: string; website: string; releases: string; issue: string; author: { name: string; url: string } }>
+    /** THIRD-PARTY-NOTICES.md bundled with the app (read from the repository in development). */
+    thirdPartyNotices(): Promise<Result<string>>
     onMenu(listener: (command: MenuCommand) => void): () => void
   }
 }

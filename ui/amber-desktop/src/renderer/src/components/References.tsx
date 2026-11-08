@@ -2,7 +2,8 @@ import clsx from 'clsx'
 import { Crosshair, ExternalLink, Search, X } from 'lucide-react'
 import { useMemo } from 'react'
 import type { Occurrence, ReferenceQuery } from '@shared/protocol'
-import { KindIcon, kindText } from '@/lib/kinds'
+import { t } from '@/i18n'
+import { KindIcon, kindText, objectKindText } from '@/lib/kinds'
 import { markFor } from '@/lib/lifecycle'
 import { groupOccurrences, queryLabel, snippetParts, WRITE_LIKE } from '@/lib/references'
 import { useStore, type ContextMenuItem } from '@/store'
@@ -15,8 +16,8 @@ export function referenceMenuItems(query: ReferenceQuery): ContextMenuItem[] {
   const st = useStore.getState()
   const label = queryLabel(query)
   return [
-    { label: `Go to definition of ${label}`, hint: 'F12', onSelect: () => void st.findReferences(query, { goToDefinition: true }) },
-    { label: `Find references to ${label}`, hint: '⇧F12', onSelect: () => void st.findReferences(query) }
+    { label: t('references.goToDefinition', { name: label }), hint: 'F12', onSelect: () => void st.findReferences(query, { goToDefinition: true }) },
+    { label: t('references.findReferences', { name: label }), hint: '⇧F12', onSelect: () => void st.findReferences(query) }
   ]
 }
 
@@ -34,7 +35,7 @@ export function FindReferencesButton({ query, className }: { query: ReferenceQue
   const findReferences = useStore((s) => s.findReferences)
   return (
     <IconButton
-      label={`Find references to ${queryLabel(query)} (${isMac ? '⇧F12' : 'Shift+F12'})`}
+      label={t('references.findButton', { name: queryLabel(query), shortcut: isMac ? '⇧F12' : 'Shift+F12' })}
       className={clsx('h-6 w-6', className)}
       onClick={(e) => {
         e.stopPropagation()
@@ -59,27 +60,34 @@ function OccurrenceRow({ o, definition }: { o: Occurrence; definition?: boolean 
   const markRange = useStore((s) => s.markRange)
   const selectStatement = useStore((s) => s.selectStatement)
   const index = useStore((s) => s.index)
-  const p = snippetParts(o)
+  const source = useStore((s) => (s.doc && !s.doc.edited ? s.doc.text : undefined))
+  const p = snippetParts(o, source)
   return (
-    <button
-      type="button"
-      role="listitem"
-      onClick={() => {
-        if (index?.byId.has(o.statement)) selectStatement(o.statement, 'view', false)
-        markRange({ from: o.range.start.offset, to: o.range.end.offset })
-      }}
-      className="flex w-full items-center gap-2.5 py-1 pr-3 pl-6 text-left hover:bg-surface-hover"
-      title={`${markFor(o.access).label} · line ${p.lineNo}`}
-    >
-      <AccessBadge access={o.access} />
-      <span className="code w-10 shrink-0 text-right text-[12px] text-ink-faint tabular-nums">{p.lineNo}</span>
-      <span className="code min-w-0 flex-1 truncate text-[12.5px] text-ink-muted">
-        {p.before.trimStart()}
-        <mark className="ref-hit">{p.match}</mark>
-        {p.after}
-      </span>
-      {definition ? <span className="shrink-0 text-xs font-medium text-amber-ink">definition</span> : null}
-    </button>
+    <div role="listitem" className="flex items-center gap-2 pr-3 hover:bg-surface-hover">
+      <button
+        type="button"
+        onClick={() => {
+          if (index?.byId.has(o.statement)) selectStatement(o.statement, 'view', false)
+          markRange({ from: o.range.start.offset, to: o.range.end.offset })
+        }}
+        className="flex min-w-0 flex-1 items-center gap-2.5 py-1 pl-6 text-left"
+        title={o.via ? t('references.rowTitleVia', { access: markFor(o.access).label, via: o.via, line: p.lineNo }) : t('references.rowTitle', { access: markFor(o.access).label, line: p.lineNo })}
+      >
+        <AccessBadge access={o.access} />
+        <span className="code w-10 shrink-0 text-right text-[12px] text-ink-faint tabular-nums">{p.lineNo}</span>
+        <span className="code min-w-0 flex-1 truncate text-[12.5px] text-ink-muted">
+          {p.before.trimStart()}
+          <mark className="ref-hit">{p.match}</mark>
+          {p.after}
+        </span>
+        {definition ? <span className="shrink-0 text-xs font-medium text-amber-ink">{t('references.definition')}</span> : null}
+      </button>
+      {o.via ? (
+        <span className="via-badge" title={t('references.viaTitle', { via: o.via })}>
+          {t('references.via')} <RoutineLink name={o.via} className="text-[12px]" />
+        </span>
+      ) : null}
+    </div>
   )
 }
 
@@ -96,40 +104,37 @@ export function ReferencesPanel(): React.JSX.Element {
     <div className="text-sm">
       <div className="sticky top-0 z-[1] flex items-center gap-2 border-b border-line bg-surface px-3 py-1.5">
         <Crosshair size={13} className="text-ink-muted" />
-        <span className="text-ink">References to</span>
+        <span className="text-ink">{t('references.header')}</span>
         <span className="code text-[13px] font-medium text-ink">{refs.result?.name ?? label}</span>
-        {refs.result?.kind ? <span className="text-xs text-ink-muted">{kindText(refs.result.kind)}</span> : null}
+        {refs.result?.kind ? (
+          <span className="text-xs text-ink-muted">{refs.result.kind === 'COLUMN' ? t('references.column') : objectKindText(refs.result.kind)}</span>
+        ) : null}
         {grouped ? (
-          <span className="text-xs text-ink-muted">
-            {grouped.total} {grouped.total === 1 ? 'place' : 'places'}
-            {grouped.groups.length ? ` in ${grouped.groups.length} ${grouped.groups.length === 1 ? 'statement' : 'statements'}` : ''}
-          </span>
+          <span className="text-xs text-ink-muted">{t('references.count', { places: grouped.total, statements: grouped.groups.length })}</span>
         ) : null}
         <span className="flex-1" />
-        <span className="text-xs text-ink-faint">F12 go to definition · ⇧F12 find references</span>
-        <IconButton label="Close references" className="h-6 w-6" onClick={close}>
+        <span className="text-xs text-ink-faint">{t('references.shortcuts')}</span>
+        <IconButton label={t('references.close')} className="h-6 w-6" onClick={close}>
           <X size={13} />
         </IconButton>
       </div>
       {refs.status === 'loading' ? (
         <p className="flex items-center gap-2 px-3 py-2 text-ink-muted">
-          <Spinner size={12} /> Looking for {label}
+          <Spinner size={12} /> {t('references.looking', { name: label })}
         </p>
       ) : refs.status === 'error' ? (
         <p className="px-3 py-2 text-risk-high">{refs.error}</p>
       ) : refs.status === 'idle' || !grouped ? (
-        <p className="px-3 py-2 text-ink-muted">
-          Before you change a table or column, see everywhere it is used: put the cursor on a name and press F12 or Shift+F12, or right-click it.
-        </p>
+        <p className="px-3 py-2 text-ink-muted">{t('references.idle')}</p>
       ) : grouped.total === 0 ? (
-        <p className="px-3 py-2 text-ink-muted">Nothing named {label} was found in this script.</p>
+        <p className="px-3 py-2 text-ink-muted">{t('references.nothing', { name: label })}</p>
       ) : (
-        <div role="list" aria-label={`References to ${label}`} className="pb-1">
+        <div role="list" aria-label={t('references.listAria', { name: label })} className="pb-1">
           {grouped.definition ? (
             <OccurrenceRow o={grouped.definition} definition />
           ) : (
             <p className="flex items-center gap-2 py-1.5 pr-3 pl-6 text-xs text-ink-muted">
-              <ExternalLink size={12} /> Defined outside this script: no CREATE or WITH for it here.
+              <ExternalLink size={12} /> {t('references.external')}
             </p>
           )}
           {grouped.groups.map((g) => {
@@ -142,8 +147,8 @@ export function ReferencesPanel(): React.JSX.Element {
                   className="flex w-full items-center gap-2 px-3 pt-1.5 pb-0.5 text-left text-xs text-ink-muted hover:text-ink"
                 >
                   {s ? <KindIcon kind={s.kind} size={12} /> : null}
-                  <span className="truncate font-medium text-ink">{s?.summary || (s ? kindText(s.kind) : `Statement ${g.statement + 1}`)}</span>
-                  {s ? <span className="shrink-0">line {s.range.start.line}</span> : null}
+                  <span className="truncate font-medium text-ink">{s?.summary || (s ? kindText(s.kind) : t('references.statement', { number: g.statement + 1 }))}</span>
+                  {s ? <span className="shrink-0">{t('common.line', { line: s.range.start.line })}</span> : null}
                 </button>
                 {g.items.map((o) => (
                   <OccurrenceRow key={o.range.start.offset} o={o} />
@@ -154,5 +159,26 @@ export function ReferencesPanel(): React.JSX.Element {
         </div>
       )}
     </div>
+  )
+}
+
+/**
+ * The name of a routine defined in the script (a `via`), as a link to its definition (like F12).
+ */
+export function RoutineLink({ name, className }: { name: string; className?: string }): React.JSX.Element {
+  const findReferences = useStore((s) => s.findReferences)
+  return (
+    <button
+      type="button"
+      className={clsx('code text-[12.5px] text-amber-ink hover:underline', className)}
+      title={t('references.routineTitle', { name })}
+      onClick={(e) => {
+        e.stopPropagation()
+        void findReferences({ object: name }, { goToDefinition: true })
+      }}
+      onContextMenu={onReferenceContextMenu({ object: name })}
+    >
+      {name}
+    </button>
   )
 }

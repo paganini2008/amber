@@ -63,6 +63,8 @@ export interface AppConfig {
   java: string | null
   /** Dev: Chrome DevTools Protocol port for the renderer, or null. */
   devCdpPort: number | null
+  /** Dev: a separate settings folder (Electron userData), e.g. a clean profile for recordings, or null. */
+  devUserData: string | null
   /** Defaults for new settings; a value saved in Settings always wins. */
   defaultOllamaUrl: string
   defaultOpenAiUrl: string
@@ -85,6 +87,7 @@ export const DEFAULT_CONFIG: AppConfig = {
   engineJar: null,
   java: null,
   devCdpPort: null,
+  devUserData: null,
   defaultOllamaUrl: 'http://localhost:11434',
   defaultOpenAiUrl: 'https://api.openai.com/v1',
   defaultAiTimeoutSec: 120,
@@ -123,6 +126,7 @@ export function readConfig(env: NodeJS.ProcessEnv, packaged: boolean): AppConfig
     engineJar: packaged ? null : env.AMBER_ENGINE_JAR || null,
     java: packaged ? null : env.AMBER_JAVA || null,
     devCdpPort: packaged ? null : int(env.AMBER_DEV_CDP_PORT, 1024, 65535, 0) || null,
+    devUserData: packaged ? null : env.AMBER_DEV_USER_DATA || null,
     defaultOllamaUrl: url(env.AMBER_DEFAULT_OLLAMA_URL, d.defaultOllamaUrl),
     defaultOpenAiUrl: url(env.AMBER_DEFAULT_OPENAI_URL, d.defaultOpenAiUrl),
     defaultAiTimeoutSec: int(env.AMBER_DEFAULT_AI_TIMEOUT_SEC, 5, 3600, d.defaultAiTimeoutSec),

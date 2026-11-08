@@ -41,6 +41,12 @@ final class PostgreSqlLineageRules {
                 public VariableRules variables() {
                     return VariableRules.NONE;
                 }
+
+                /** {@code RETURNING …}: a result (in PL/pgSQL, its blanked {@code INTO} targets take it). */
+                @Override
+                public Set<String> returningClauses() {
+                    return Set.of("returning_clause");
+                }
             });
 
     private PostgreSqlLineageRules() {

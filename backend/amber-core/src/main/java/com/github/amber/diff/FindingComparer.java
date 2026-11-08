@@ -1,12 +1,16 @@
 package com.github.amber.diff;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.dialect.findings.Finding;
 import com.github.amber.diff.DiffResult.FindingChange;
 import com.github.amber.diff.DiffResult.Risk;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
-import java.util.function.BiPredicate;
+import java.util.Map;
+import java.util.function.IntFunction;
 
 /**
  * Findings introduced or resolved by the change. A finding of the old version and one of the new
@@ -30,14 +34,20 @@ final class FindingComparer {
         boolean[] ma = new boolean[fa.size()];
         long[] hb = fb.stream().mapToLong(f -> textHash(ctx.before, f)).toArray();
         long[] ha = fa.stream().mapToLong(f -> textHash(ctx.after, f)).toArray();
-        BiPredicate<Integer, Integer> paired = (i, j) -> {
+        // the statement of the new version each finding's statement is aligned with (null when none)
+        Integer[] targetB = new Integer[fb.size()];
+        Integer[] stmtA = new Integer[fa.size()];
+        for (int i = 0; i < targetB.length; i++) {
             Integer sb = ctx.before.id(fb.get(i).statement());
-            Integer sa = ctx.after.id(fa.get(j).statement());
-            return sb != null && sa != null && sa.equals(ctx.beforeToAfter.get(sb));
-        };
-        pass(fb, fa, mb, ma, (i, j) -> paired.test(i, j) && hb[i] == ha[j]);
-        pass(fb, fa, mb, ma, paired);
-        pass(fb, fa, mb, ma, (i, j) -> hb[i] == ha[j]);
+            targetB[i] = sb == null ? null : ctx.beforeToAfter.get(sb);
+        }
+        for (int j = 0; j < stmtA.length; j++) {
+            stmtA[j] = ctx.after.id(fa.get(j).statement());
+        }
+        pass(fb, fa, mb, ma, i -> targetB[i] == null ? null : List.of(targetB[i], hb[i]),
+                j -> stmtA[j] == null ? null : List.of(stmtA[j], ha[j]));
+        pass(fb, fa, mb, ma, i -> targetB[i], j -> stmtA[j]);
+        pass(fb, fa, mb, ma, i -> hb[i], j -> ha[j]);
         List<FindingChange> out = new ArrayList<>();
         for (int j = 0; j < fa.size(); j++) {
             if (!ma[j]) {
@@ -47,7 +57,7 @@ final class FindingComparer {
                 out.add(new FindingChange("NEW", f.rule(), f.severity().name(), f.title(), f.message(), sb, sa, null,
                         f.range()));
                 Risk level = f.severity() == Finding.Severity.HIGH ? Risk.MEDIUM : Risk.LOW;
-                ctx.reason(level, "NEW_FINDING", "New " + f.severity() + " finding " + f.rule() + " (" + f.title() + ")",
+                ctx.reason(level, "NEW_FINDING", Messages.t("diff.finding.new", Messages.t("diff.severity." + f.severity().name()), f.rule(), f.title()),
                         sb, sa, null, f.range());
             }
         }
@@ -63,18 +73,27 @@ final class FindingComparer {
         return out;
     }
 
+    /**
+     * Pairs each unmatched old finding, in order, with the first unmatched new finding of the same rule and
+     * the same key (null keys never match). Buckets by key keep this linear: a script with thousands of
+     * findings on both sides used to take tens of seconds when nothing matched.
+     */
     private static void pass(List<Finding> fb, List<Finding> fa, boolean[] mb, boolean[] ma,
-                             BiPredicate<Integer, Integer> same) {
-        for (int i = 0; i < fb.size(); i++) {
-            if (mb[i]) {
-                continue;
+                             IntFunction<Object> keyBefore, IntFunction<Object> keyAfter) {
+        Map<List<Object>, ArrayDeque<Integer>> free = new HashMap<>();
+        for (int j = 0; j < fa.size(); j++) {
+            Object k = ma[j] ? null : keyAfter.apply(j);
+            if (k != null) {
+                free.computeIfAbsent(List.of(fa.get(j).rule(), k), x -> new ArrayDeque<>()).add(j);
             }
-            for (int j = 0; j < fa.size(); j++) {
-                if (!ma[j] && fb.get(i).rule().equals(fa.get(j).rule()) && same.test(i, j)) {
-                    mb[i] = true;
-                    ma[j] = true;
-                    break;
-                }
+        }
+        for (int i = 0; i < fb.size(); i++) {
+            Object k = mb[i] ? null : keyBefore.apply(i);
+            ArrayDeque<Integer> q = k == null ? null : free.get(List.of(fb.get(i).rule(), k));
+            if (q != null && !q.isEmpty()) {
+                int j = q.poll();
+                mb[i] = true;
+                ma[j] = true;
             }
         }
     }

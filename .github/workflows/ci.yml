@@ -13,7 +13,9 @@ concurrency:
 
 jobs:
   backend:
-    name: Backend (Maven verify)
+    # The release runs on JDK 25 (bundled runtime). The code is compiled with --release 17
+    # (maven.compiler.release), so any API newer than Java 17 still fails the build here.
+    name: Backend (Maven verify, JDK 25)
     runs-on: ubuntu-latest
     timeout-minutes: 60
     steps:
@@ -35,7 +37,7 @@ jobs:
         uses: actions/upload-artifact@v7
         with:
           name: corpus-report
-          path: backend/amber-test/target/corpus-report.md
+          path: backend/amber-core/target/corpus-report.md
           if-no-files-found: warn
 
       - name: Upload JaCoCo report

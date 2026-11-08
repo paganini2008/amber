@@ -35,7 +35,7 @@ class ParseModesTest {
         assertEquals(UnitStatus.FAILED, parse.units().get(2).status());
         assertEquals(UnitStatus.PARSED, parse.units().get(3).status());
 
-        Diagnostic first = parse.diagnostics().getFirst();
+        Diagnostic first = parse.diagnostics().get(0);
         assertEquals(3, first.range().start().line());
         assertTrue(first.range().start().column() > 1);
     }

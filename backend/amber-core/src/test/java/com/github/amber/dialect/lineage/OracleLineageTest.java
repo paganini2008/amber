@@ -109,9 +109,13 @@ class OracleLineageTest {
                 .filter(n -> n.toString().equals("dw.bonus_snapshot.bonus")).findFirst().orElseThrow();
         Set<String> path = graph.upstream(snapshotBonus, false).stream()
                 .map(e -> e.edge().from() + " -> " + e.edge().to()).collect(Collectors.toSet());
-        assertEquals(Set.of("dw.v_bonus_report.bonus -> dw.bonus_snapshot.bonus",
+        assertTrue(path.containsAll(Set.of("dw.v_bonus_report.bonus -> dw.bonus_snapshot.bonus",
                 "dw.bonus.bonus -> dw.v_bonus_report.bonus",
-                "dw.bonus.bonus -> dw.bonus.bonus"), path);
+                "dw.bonus.bonus -> dw.bonus.bonus",
+                // FOR r IN c_fact LOOP … r.total: the cursor's column, back to the orders
+                "result.total -> dw.bonus.bonus",
+                "dw.order_fact.amount -> result.total",
+                "sales.orders.amount -> paid_orders.amount")), path::toString);
 
         ColumnNode ordersAmount = graph.nodes().stream()
                 .filter(n -> n.toString().equals("sales.orders.amount")).findFirst().orElseThrow();

@@ -76,7 +76,7 @@ final class Cli {
         }
         try {
             var r = new ToolsService(new AnalysisService()).document(new ToolsService.DocRequest(dialect, null, file,
-                    null, null, fallback, null, null, null, html ? "html" : "markdown", outPath));
+                    null, null, fallback, null, null, null, html ? "html" : "markdown", outPath, null));
             if (r.saved() == null) {
                 out.print(r.text());
             } else {

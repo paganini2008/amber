@@ -90,6 +90,14 @@ public record LineageRules(Set<String> queryBlocks, Set<String> queryRoots, Stri
             return java.util.List.of();
         }
 
+        /**
+         * Rules of a DML {@code RETURNING exprs [INTO targets]} clause (first child the RETURNING keyword):
+         * its expressions flow into the {@code INTO} variables, or into the statement's result columns.
+         */
+        default Set<String> returningClauses() {
+            return Set.of();
+        }
+
         /** Procedural rules for variable lineage, or {@code null} when the dialect has no variables. */
         default VariableRules variables() {
             return null;

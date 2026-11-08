@@ -116,7 +116,7 @@ test corpus first; the other five follow the same quality bar.
 │                update check                                                   │
 │          │  JSON-RPC 2.0 over stdin/stdout, one message per line             │
 │          ▼                                                                    │
-│  Engine (Java 25, bundled jlink runtime)                                      │
+│  Engine (Java 17+, bundled jlink runtime)                                    │
 │    preprocess · ANTLR parsers (8 dialects) · IR · analyzers · rules           │
 │    rewrites · metadata packs · JDBC metadata reader · AI context + checks     │
 └───────────────────────────────────────────────────────────────────────────────┘
@@ -161,22 +161,21 @@ Long operations report progress through JSON-RPC notifications (`$/progress`) an
 
 ```
 amber/
-├─ backend/                                 Maven, Java 25
+├─ backend/                                 Maven, Java 17+
 │  ├─ pom.xml                               com.github.paganini2008:amber-all (parent, 1.0.0-SNAPSHOT)
-│  ├─ amber-core/                           the whole engine, one project
-│  │  └─ src/main/
-│  │     ├─ antlr4/com/github/amber/dialect/<db>/grammar/   .g4 files + UPSTREAM.md
-│  │     └─ java/com/github/amber/
-│  │        ├─ core/                        source text, ranges, diagnostics, IR, analyzers, rules
-│  │        ├─ dialect/                     DialectFrontend SPI, shared ANTLR driver, splitter, fallback scanner
-│  │        │  ├─ oracle/  sqlserver/  postgresql/  mysql/
-│  │        │  └─ mariadb/  db2/  h2/  sqlite/
-│  │        ├─ meta/                        metadata model, packs, DDL/CSV/Excel import
-│  │        ├─ jdbc/                        drivers, read-only catalog readers
-│  │        ├─ ai/                          AI context builder, response parser, SQL check
-│  │        ├─ export/                      SVG, Mermaid, DOT, HTML, Markdown, JSON, CSV
-│  │        └─ server/                      JSON-RPC entry point and CLI
-│  └─ amber-test/                           integration tests (*IT): corpus parse rate, end-to-end, online mode
+│  └─ amber-core/                           the whole engine, one project
+│     └─ src/main/
+│        ├─ antlr4/com/github/amber/dialect/<db>/grammar/   .g4 files + UPSTREAM.md
+│        └─ java/com/github/amber/
+│           ├─ core/                        source text, ranges, diagnostics, IR, analyzers, rules
+│           ├─ dialect/                     DialectFrontend SPI, shared ANTLR driver, splitter, fallback scanner
+│           │  ├─ oracle/  sqlserver/  postgresql/  mysql/
+│           │  └─ mariadb/  db2/  h2/  sqlite/
+│           ├─ meta/                        metadata model, packs, DDL/CSV/Excel import
+│           ├─ jdbc/                        drivers, read-only catalog readers
+│           ├─ ai/                          AI context builder, response parser, SQL check
+│           ├─ export/                      SVG, Mermaid, DOT, HTML, Markdown, JSON, CSV
+│           └─ server/                      JSON-RPC entry point and CLI
 ├─ ui/
 │  ├─ .gitignore
 │  └─ amber-desktop/                        Electron + React + TypeScript, the desktop app
@@ -188,14 +187,14 @@ amber/
 │        └─ renderer/                       React app
 ├─ docs/                                    GitHub Pages site (this document lives here)
 │  └─ assets/                               images, screenshots, fonts used by the site and docs
-├─ .github/workflows/                       ci.yml, release.yml, pages.yml
+├─ .github/workflows/                       ci.yml, release.yml
 ├─ LICENSE                                  Apache-2.0
 └─ THIRD-PARTY-NOTICES.md
 ```
 
 All backend code lives in the single `amber-core` project and is organized by package under
 `com.github.amber`. `amber-core` produces `engine.jar`. Heavier tests (corpus, parse rate,
-end-to-end, online mode against real databases) live in `amber-test`, run by failsafe as `*IT` classes; `amber-core` holds the fast unit tests.
+end-to-end, online mode against real databases, a real-model AI round trip) live in `amber-core` as `*IT` classes (package `com.github.amber.it`), run by failsafe in `mvn verify`; the fast unit tests are the `*Test` classes run by surefire.
 
 ---
 
@@ -208,7 +207,7 @@ end-to-end, online mode against real databases) live in `amber-test`, run by fai
 | Graphs | React Flow (`@xyflow/react`) with custom nodes; ELK (`elkjs`) layout in a Web Worker |
 | Editor | CodeMirror 6 with per-dialect highlighting |
 | State | Zustand; analysis results cached by script hash |
-| Engine | Java 25 (LTS), Maven multi-module |
+| Engine | Java 17+ (compiled for 17; installers bundle a Java 25 runtime), Maven |
 | Parsing | ANTLR 4 (Java runtime), `antlr4-maven-plugin` |
 | JSON | Jackson |
 | Database access | JDBC, read-only |
@@ -265,14 +264,14 @@ The switch is a global setting and can also be toggled per analysis from the err
 
 - Grammars are copied into `backend/amber-core/src/main/antlr4/com/github/amber/dialect/<db>/grammar/`; `UPSTREAM.md`
   records the source commit **and the license of each grammar file**.
-- Every grammar change adds a SQL case to that dialect's corpus in `amber-test` that reproduces the problem.
+- Every grammar change adds a SQL case to that dialect's corpus (`amber-core/src/test/resources/corpus/<dialect>/`) that reproduces the problem.
 - Upstream is reviewed periodically and merged as needed; the full corpus re-runs after a merge.
 - H2 is written from the official grammar productions; DB2 SQL PL is completed from the DB2 SQL
   Reference; MariaDB extends the MySQL grammar through imported grammar fragments.
 
 ### 7.5 Corpus and tests
 
-`amber-test` holds real-world-shaped scripts per dialect (procedures, packages, thousand-line
+`amber-core/src/test/resources/corpus/` holds real-world-shaped scripts per dialect (procedures, packages, thousand-line
 batch jobs). CI reports the parse-success rate per dialect, runs IR snapshot tests, and runs fuzz
 tests that mutate scripts to catch crashes and hangs.
 
@@ -750,7 +749,7 @@ how to open an unsigned app on macOS (Gatekeeper) and Windows (SmartScreen).
 |---|---|---|
 | `ci.yml` | push, pull request | `mvn verify` (unit, corpus, snapshot tests), UI type-check, lint, unit tests |
 | `release.yml` | push of a tag `v*` | Set version from the tag → build `engine.jar` once → matrix: jlink + AppCDS + electron-builder per target → smoke test (app starts, engine answers `analyze`) → GitHub Release with all artifacts and `SHA256SUMS` |
-| `pages.yml` | push to `main` touching `docs/` | Build and publish the GitHub Pages site |
+| (GitHub Pages) | push to `main` | Published by GitHub from `main` → `/docs` ("Deploy from a branch"); no workflow of its own |
 
 - Maven and `package.json` stay at `1.0.0-SNAPSHOT` in the repository. The release workflow sets
   the version from the tag (`v1.0.0` → `1.0.0`).

@@ -40,7 +40,7 @@ final class ToolsService {
     /** {@code format}: {@code markdown} (default) or {@code html}; {@code save}: optional file path to write. */
     record DocRequest(String dialect, String text, String path, String encoding, String name, Boolean allowFallback,
                       List<String> metadataPacks, List<String> ddlFiles, List<TableMeta> metadata, String format,
-                      String save) {
+                      String save, Dtos.RulesDto rules) {
     }
 
     record DocResult(String format, String text, String saved) {
@@ -51,13 +51,36 @@ final class ToolsService {
     }
 
     record DiffRequest(String dialect, DiffSide before, DiffSide after, List<String> metadataPacks,
-                       List<String> ddlFiles, List<TableMeta> metadata) {
+                       List<String> ddlFiles, List<TableMeta> metadata, Dtos.RulesDto rules) {
     }
 
     /** {@code statements}: step ids to look at; empty or absent means the whole script. */
     record RewriteRequest(String dialect, String text, String path, String encoding, String name, Boolean allowFallback,
                           List<String> metadataPacks, List<String> ddlFiles, List<TableMeta> metadata,
-                          List<Integer> statements) {
+                          List<Integer> statements, Dtos.RulesDto rules) {
+    }
+
+    /** {@code rewrite.optimize}: apply every safe rewrite per statement (edge-case ones with includeEdgeCases). */
+    record OptimizeRequest(String dialect, String text, String path, String encoding, String name,
+                           Boolean allowFallback, List<String> metadataPacks, List<String> ddlFiles,
+                           List<TableMeta> metadata, List<Integer> statements, Boolean includeEdgeCases,
+                           Dtos.RulesDto rules) {
+    }
+
+    record AppliedDto(String id, String rule, String title, String safety) {
+    }
+
+    record SkippedDto(String id, String rule, String title, String reason) {
+    }
+
+    record CheckDto(String label, List<String> differences) {
+    }
+
+    record OptimizedStatementDto(int statement, String original, String optimized, List<AppliedDto> applied,
+                                 List<SkippedDto> skipped, String safety, CheckDto check, List<String> additionalDdl) {
+    }
+
+    record OptimizeResult(List<OptimizedStatementDto> statements, String optimizedText) {
     }
 
     record EditDto(Dtos.Range range, String replacement) {
@@ -89,10 +112,38 @@ final class ToolsService {
     record FormatResultDto(String text, boolean changed, List<String> warnings, List<Dtos.Range> skipped) {
     }
 
+    /**
+     * {@code er.model}: the inferred entity-relationship model of the script. {@code includeDataFlow} (default
+     * false) adds DATA_FLOW relationships; {@code includeNameMatch} (default true) adds NAME_MATCH ones.
+     */
+    record ErModelRequest(String dialect, String text, String path, String encoding, String name,
+                          Boolean allowFallback, List<String> metadataPacks, List<String> ddlFiles,
+                          List<TableMeta> metadata, Boolean includeDataFlow, Boolean includeNameMatch) {
+    }
+
     private final AnalysisService analysis;
 
     ToolsService(AnalysisService analysis) {
         this.analysis = analysis;
+    }
+
+    com.github.amber.er.ErModel erModel(ErModelRequest req) throws IOException {
+        if (req == null || req.dialect() == null) {
+            throw new IllegalArgumentException("'dialect' is required");
+        }
+        var frontend = com.github.amber.dialect.DialectFrontends.get(com.github.amber.core.Dialect.fromId(req.dialect()));
+        var source = AnalysisService.source(new AnalysisService.Request(req.dialect(), req.text(), req.path(),
+                req.encoding(), req.name(), req.allowFallback()));
+        var parse = frontend.parse(source, Boolean.TRUE.equals(req.allowFallback())
+                ? com.github.amber.dialect.ParseOptions.FALLBACK : com.github.amber.dialect.ParseOptions.STRICT);
+        if (parse.status() == com.github.amber.dialect.ScriptStatus.FAILED) {
+            throw new IllegalArgumentException("The script does not parse; fix the syntax errors or allow fallback");
+        }
+        var catalog = MetadataService.catalog(req.dialect(), req.metadataPacks(), req.ddlFiles(), req.metadata());
+        var options = new com.github.amber.er.ErModelBuilder.Options(Boolean.TRUE.equals(req.includeDataFlow()),
+                !Boolean.FALSE.equals(req.includeNameMatch()),
+                com.github.amber.er.ErModelBuilder.Options.DEFAULTS.maxOccurrences());
+        return com.github.amber.er.ErModelBuilder.build(frontend, parse, catalog, options);
     }
 
     ReferencesResult references(ReferencesRequest req) throws IOException {
@@ -119,7 +170,8 @@ final class ToolsService {
         }
         var catalog = MetadataService.catalog(req.dialect(), req.metadataPacks(), req.ddlFiles(), req.metadata());
         return com.github.amber.diff.ScriptDiff.compare(com.github.amber.core.Dialect.fromId(req.dialect()),
-                side(req.dialect(), req.before(), "before.sql"), side(req.dialect(), req.after(), "after.sql"), catalog);
+                side(req.dialect(), req.before(), "before.sql"), side(req.dialect(), req.after(), "after.sql"), catalog,
+                Dtos.RulesDto.config(req.rules()));
     }
 
     private static com.github.amber.core.source.SourceText side(String dialect, DiffSide s, String fallbackName)
@@ -135,12 +187,51 @@ final class ToolsService {
         var source = AnalysisService.source(new AnalysisService.Request(req.dialect(), req.text(), req.path(),
                 req.encoding(), req.name(), req.allowFallback()));
         var catalog = MetadataService.catalog(req.dialect(), req.metadataPacks(), req.ddlFiles(), req.metadata());
+        var rules = Dtos.RulesDto.config(req.rules());
         var list = com.github.amber.rewrite.RewriteSuggester.suggest(com.github.amber.core.Dialect.fromId(req.dialect()),
-                source.text(), catalog, req.statements(), Boolean.TRUE.equals(req.allowFallback()));
+                source.text(), catalog, req.statements(), Boolean.TRUE.equals(req.allowFallback()), rules::enabled);
         return new RewriteResult(list.stream().map(r -> new RewriteDto(r.id(), r.rule(), r.title(), r.explanation(),
                 r.statement(), r.edits().stream().map(e -> new EditDto(Dtos.Range.of(e.range()), e.replacement())).toList(),
                 r.rewrittenStatement(), r.safety().name(), r.safetyNote(), r.check(), r.checkDifferences(),
                 r.conflictsWith())).toList());
+    }
+
+    OptimizeResult optimize(OptimizeRequest req) throws IOException {
+        if (req == null || req.dialect() == null) {
+            throw new IllegalArgumentException("'dialect' is required");
+        }
+        var rules = Dtos.RulesDto.config(req.rules());
+        boolean fallback = Boolean.TRUE.equals(req.allowFallback());
+        var a = analysis.run(new AnalysisService.Request(req.dialect(), req.text(), req.path(), req.encoding(),
+                req.name(), req.allowFallback(), req.metadataPacks(), req.ddlFiles(), req.metadata()));
+        java.util.Map<Integer, List<String>> ddl = new java.util.TreeMap<>();
+        if (a.script() != null) {
+            var steps = a.script().flatten();
+            java.util.Map<com.github.amber.core.ir.Statement, Integer> ids = new java.util.IdentityHashMap<>();
+            for (int i = 0; i < steps.size(); i++) {
+                ids.put(steps.get(i), i);
+            }
+            try {
+                for (var f : Findings.of(a.script(), a.catalog(), rules)) {
+                    var x = f.suggested();
+                    if (x != null && x.kind() == com.github.amber.dialect.findings.Finding.SqlKind.ADDITIONAL_DDL
+                            && ids.containsKey(f.statement())) {
+                        ddl.computeIfAbsent(ids.get(f.statement()), k -> new java.util.ArrayList<>()).add(x.sql());
+                    }
+                }
+            } catch (RuntimeException e) {
+                ddl.clear();                         // hints only
+            }
+        }
+        var r = com.github.amber.rewrite.Optimizer.optimize(a.frontend().dialect(), a.parse().source().text(),
+                a.catalog(), req.statements(), Boolean.TRUE.equals(req.includeEdgeCases()), rules::enabled, fallback, ddl);
+        return new OptimizeResult(r.statements().stream().map(s -> new OptimizedStatementDto(s.statement(),
+                s.original(), s.optimized(),
+                s.applied().stream().map(x -> new AppliedDto(x.id(), x.rule(), x.title(), x.safety().name())).toList(),
+                s.skipped().stream().map(x -> new SkippedDto(x.id(), x.rule(), x.title(), x.reason())).toList(),
+                s.safety() == null ? null : s.safety().name(),
+                s.check() == null ? null : new CheckDto(s.check().label(), s.check().differences()),
+                s.additionalDdl())).toList(), r.optimizedText());
     }
 
     ApplyResult apply(ApplyRequest req) {
@@ -148,6 +239,12 @@ final class ToolsService {
             throw new IllegalArgumentException("'text' and 'edits' are required");
         }
         var src = new com.github.amber.core.source.SourceText("edit.sql", req.text());
+        for (ApplyEdit e : req.edits()) {
+            if (e == null || e.start() < 0 || e.end() < e.start() || e.end() > req.text().length()) {
+                throw new IllegalArgumentException("Edit " + (e == null ? "null" : "[" + e.start() + ", " + e.end() + ")")
+                        + " is outside the text (length " + req.text().length() + ")");
+            }
+        }
         var edits = req.edits().stream().map(e -> new com.github.amber.rewrite.Edit(src.range(e.start(), e.end()),
                 e.replacement() == null ? "" : e.replacement())).toList();
         return new ApplyResult(com.github.amber.rewrite.RewriteSuggester.apply(req.text(), edits));
@@ -188,9 +285,10 @@ final class ToolsService {
         if (a.script() == null) {
             throw new IllegalArgumentException("The script does not parse; fix the syntax errors or allow fallback");
         }
+        var rules = Dtos.RulesDto.config(req.rules());
         List<com.github.amber.dialect.findings.Finding> findings;
         try {
-            findings = Findings.of(a.script(), a.catalog());
+            findings = Findings.of(a.script(), a.catalog(), rules);
         } catch (RuntimeException e) {
             findings = List.of();
         }
@@ -198,7 +296,7 @@ final class ToolsService {
         diagnostics.addAll(a.script().diagnostics());
         String md = HandoverDoc.markdown(a.script(), findings, diagnostics);
         boolean html = "html".equalsIgnoreCase(req.format());
-        String text = html ? HandoverDoc.toHtml(a.script().source().name() + " — handover notes", md) : md;
+        String text = html ? HandoverDoc.toHtml(HandoverDoc.title(a.script().source().name()), md) : md;
         String saved = null;
         if (req.save() != null && !req.save().isBlank()) {
             Files.writeString(Path.of(req.save()), text, StandardCharsets.UTF_8);

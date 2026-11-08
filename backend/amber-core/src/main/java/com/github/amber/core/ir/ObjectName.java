@@ -120,7 +120,7 @@ public final class ObjectName {
 
     /** The last part: the object's own name without schema or database. */
     public String simpleName() {
-        return parts.getLast().text();
+        return parts.get(parts.size() - 1).text();
     }
 
     /** Normalized comparison key, e.g. {@code SALES.ORDERS} for Oracle. */

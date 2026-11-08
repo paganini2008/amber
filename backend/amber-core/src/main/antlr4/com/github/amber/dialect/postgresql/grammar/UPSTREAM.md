@@ -16,7 +16,10 @@ Files taken from upstream:
 - `sql/postgresql/Java/PostgreSQLLexerBase.java`
 - `sql/postgresql/Java/PostgreSQLParserBase.java`
 
-Local changes: the Java support classes got a `package` declaration. Every further change to
+Local changes: the Java support classes got a `package` declaration, and
+`PostgreSQLParserBase.GetRoutineBodyString` returns `""` when error recovery left the routine body's
+string constant out (it threw a `NullPointerException` on broken `CREATE FUNCTION … AS` text, found by
+the robustness fuzzer). Every further change to
 the grammar must add a reproducing case to `amber-corpus`.
 
 ## Local coverage changes

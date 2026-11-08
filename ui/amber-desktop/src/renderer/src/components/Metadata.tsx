@@ -2,24 +2,26 @@ import clsx from 'clsx'
 import { ChevronDown, Database, FileCode2, Package, RefreshCw, Save, X } from 'lucide-react'
 import { useMemo } from 'react'
 import type { MetadataImportResult, MetadataPack } from '@shared/protocol'
+import { fmt, t } from '@/i18n'
 import { api, describeError, newRequestId } from '@/lib/api'
 import { fileName, mergePacks, summarizeLoad, type MetadataFiles } from '@/lib/metadata'
 import { useStore } from '@/store'
 import { Button, Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Spinner } from './ui'
+import { DbIcon } from './DbIcon'
 
-const DDL_FILTERS = [
-  { name: 'SQL / DDL files', extensions: ['sql', 'ddl', 'txt'] },
-  { name: 'All files', extensions: ['*'] }
+const ddlFilters = (): { name: string; extensions: string[] }[] => [
+  { name: t('online.files.ddl'), extensions: ['sql', 'ddl', 'txt'] },
+  { name: t('online.files.all'), extensions: ['*'] }
 ]
-const PACK_FILTERS = [
-  { name: 'Metadata packs', extensions: ['json'] },
-  { name: 'All files', extensions: ['*'] }
+const packFilters = (): { name: string; extensions: string[] }[] => [
+  { name: t('online.files.packs'), extensions: ['json'] },
+  { name: t('online.files.all'), extensions: ['*'] }
 ]
 
 export async function addMetadataFiles(kind: keyof MetadataFiles): Promise<void> {
   const paths = await api().files.pickFiles({
-    title: kind === 'ddlFiles' ? 'Add DDL files' : 'Add metadata packs',
-    filters: kind === 'ddlFiles' ? DDL_FILTERS : PACK_FILTERS,
+    title: kind === 'ddlFiles' ? t('online.files.addDdlTitle') : t('online.files.addPacksTitle'),
+    filters: kind === 'ddlFiles' ? ddlFilters() : packFilters(),
     multiple: true
   })
   if (paths.length) useStore.getState().addMetadataFiles(kind, paths)
@@ -37,7 +39,7 @@ export async function saveMetadataPack(): Promise<void> {
       newRequestId('metadata')
     )
     if (!r.ok) {
-      st.toast(`Could not read the metadata files: ${describeError(r.error)}`, 'error')
+      st.toast(t('online.toast.readFailed', { reason: describeError(r.error) }), 'error')
       return
     }
     packs.push(r.value.pack)
@@ -45,16 +47,16 @@ export async function saveMetadataPack(): Promise<void> {
   if (settings?.online.enabled && online.result?.pack) packs.push(online.result.pack)
   const pack = mergePacks(dialect, packs, new Date().toISOString())
   if (pack.tables.length === 0) {
-    st.toast('There is no metadata to save yet.', 'error')
+    st.toast(t('online.toast.nothingToSave'), 'error')
     return
   }
   const base = (st.doc?.name ?? 'script').replace(/\.[^.]+$/, '') || 'script'
   const path = await api().files.save({
     defaultName: `${base}-metadata.json`,
-    filters: [{ name: 'Metadata pack', extensions: ['json'] }],
+    filters: [{ name: t('online.files.pack'), extensions: ['json'] }],
     data: JSON.stringify(pack, null, 2)
   })
-  if (path) st.toast(`Saved ${pack.tables.length} tables to ${fileName(path)}`)
+  if (path) st.toast(t('online.toast.saved', { count: pack.tables.length, file: fileName(path) }))
 }
 
 /** Title-bar control: Offline (default) or Online with the connections to look tables up in. */
@@ -83,39 +85,39 @@ export function OnlineMenu(): React.JSX.Element {
       <MenuTrigger asChild>
         <button
           type="button"
-          className={clsx('no-drag flex h-7 items-center gap-1.5 rounded-[5px] px-2 text-sm hover:bg-surface-hover', enabled ? 'text-ink' : 'text-ink-muted')}
-          aria-label="Connection mode"
+          className={clsx('no-drag flex h-7 shrink-0 items-center gap-1.5 rounded-[5px] px-2 text-sm whitespace-nowrap hover:bg-surface-hover', enabled ? 'text-ink' : 'text-ink-muted')}
+          aria-label={t('online.menu.mode')}
         >
           {online.status === 'loading' ? (
             <Spinner size={10} />
           ) : (
             <span className={clsx('h-2 w-2 rounded-full border', enabled ? 'border-amber bg-amber' : 'border-ink-muted')} aria-hidden />
           )}
-          {enabled ? `Online${used.length ? ` · ${used.length}` : ''}` : 'Offline'}
+          {enabled ? `${t('online.menu.online')}${used.length ? ` · ${used.length}` : ''}` : t('online.menu.offline')}
           <ChevronDown size={13} />
         </button>
       </MenuTrigger>
       <MenuContent>
         <div className="max-w-80 px-2 py-1.5 text-xs text-ink-muted">
-          Every feature works offline. Online mode only reads catalog metadata (columns, keys, indexes, row estimates) of the tables the script references;
-          Amber never runs your SQL.
+          {t('online.menu.lead')}
         </div>
         <MenuSeparator />
         <MenuItem checked={!enabled} onSelect={() => void setOnline(false)}>
-          Offline
+          {t('online.menu.offline')}
         </MenuItem>
         <MenuItem checked={enabled} onSelect={() => void setOnline(true)} disabled={connections.length === 0}>
-          Online
-          {connections.length === 0 ? <span className="ml-auto text-xs text-ink-muted">add a connection first</span> : null}
+          {t('online.menu.online')}
+          {connections.length === 0 ? <span className="ml-auto text-xs text-ink-muted">{t('online.menu.addFirst')}</span> : null}
         </MenuItem>
         {connections.length ? (
           <>
             <MenuSeparator />
-            <MenuLabel>Look tables up in (in this order)</MenuLabel>
+            <MenuLabel>{t('online.menu.lookUp')}</MenuLabel>
             {connections.map((c) => {
               const order = selected.indexOf(c.id)
               return (
                 <MenuItem key={c.id} checked={order >= 0} keepOpen onSelect={() => toggleConnection(c.id)} hint={order >= 0 && used.length > 1 ? `${order + 1}` : c.dialect}>
+                  <DbIcon dialect={c.dialect} size={14} />
                   <span className="truncate">{c.name}</span>
                 </MenuItem>
               )
@@ -124,23 +126,23 @@ export function OnlineMenu(): React.JSX.Element {
         ) : null}
         {enabled ? (
           <MenuItem onSelect={refreshMetadata} disabled={!hasDoc || used.length === 0}>
-            <RefreshCw size={13} className="text-ink-muted" /> Refresh metadata
+            <RefreshCw size={13} className="text-ink-muted" /> {t('online.menu.refresh')}
           </MenuItem>
         ) : null}
         <MenuItem onSelect={() => openDialog('settings', 'connections')}>
-          <Database size={13} className="text-ink-muted" /> Manage connections…
+          <Database size={13} className="text-ink-muted" /> {t('online.menu.manage')}
         </MenuItem>
         <MenuSeparator />
-        <MenuLabel>Offline metadata{offlineCount ? ` (${offlineCount})` : ''}</MenuLabel>
+        <MenuLabel>{t('online.offline.title')}{offlineCount ? ` (${fmt.number(offlineCount)})` : ''}</MenuLabel>
         <MenuItem onSelect={() => void addMetadataFiles('ddlFiles')}>
-          <FileCode2 size={13} className="text-ink-muted" /> Add DDL files…
+          <FileCode2 size={13} className="text-ink-muted" /> {t('online.menu.addDdl')}
         </MenuItem>
         <MenuItem onSelect={() => void addMetadataFiles('metadataPacks')}>
-          <Package size={13} className="text-ink-muted" /> Add metadata packs…
+          <Package size={13} className="text-ink-muted" /> {t('online.menu.addPacks')}
         </MenuItem>
         {offlineCount || enabled ? (
           <MenuItem onSelect={() => setBottomPanel('metadata')} disabled={!hasDoc}>
-            <span className="pl-[21px]">Show metadata details</span>
+            <span className="pl-[21px]">{t('online.menu.details')}</span>
           </MenuItem>
         ) : null}
       </MenuContent>
@@ -163,46 +165,50 @@ export function MetadataPanel(): React.JSX.Element {
     [online.result, ids, settings?.connections]
   )
   const names = useMemo(() => new Map((settings?.connections ?? []).map((c) => [c.id, c.name])), [settings?.connections])
+  const dialects = useMemo(() => new Map((settings?.connections ?? []).map((c) => [c.id, c.dialect])), [settings?.connections])
   const r = online.result
 
   return (
     <div className="grid grid-cols-[1fr_1fr] gap-6 px-3 py-2 text-sm">
       <section className="min-w-0 space-y-2">
         <div className="flex items-center gap-2">
-          <h3 className="font-semibold">Online</h3>
+          <h3 className="font-semibold">{t('online.menu.online')}</h3>
           {!enabled ? (
-            <span className="text-xs text-ink-muted">Off. Turn it on from the Offline control in the title bar.</span>
+            <span className="text-xs text-ink-muted">{t('online.panel.off')}</span>
           ) : online.status === 'loading' ? (
             <span className="flex items-center gap-1.5 text-xs text-ink-muted">
-              <Spinner size={11} /> Reading metadata
+              <Spinner size={11} /> {t('online.panel.reading')}
               <button type="button" className="underline" onClick={cancelMetadata}>
-                Cancel
+                {t('common.cancel')}
               </button>
             </span>
           ) : (
             <Button size="sm" variant="ghost" onClick={refreshMetadata}>
-              <RefreshCw size={12} /> Refresh
+              <RefreshCw size={12} /> {t('online.panel.refresh')}
             </Button>
           )}
         </div>
-        {enabled && ids.length === 0 ? <p className="text-xs text-ink-muted">Choose at least one connection in the title-bar menu.</p> : null}
+        {enabled && ids.length === 0 ? <p className="text-xs text-ink-muted">{t('online.panel.choose')}</p> : null}
         {enabled && online.status === 'error' ? <p className="text-xs text-risk-high">{online.error}</p> : null}
         {enabled && r ? (
           <>
             <p className="text-xs text-ink-muted">
-              {r.tables} {r.tables === 1 ? 'table' : 'tables'} loaded and used by every view.
+              {t('online.panel.loaded', { count: r.tables })}
             </p>
             <ul className="space-y-0.5 text-xs">
               {sources.map((s) => (
-                <li key={s.id} className="flex items-baseline gap-2">
-                  <span className="font-medium text-ink">{s.name}</span>
+                <li key={s.id} className="flex items-center gap-2">
+                  <span className="flex items-center gap-1.5 font-medium text-ink">
+                    <DbIcon dialect={dialects.get(s.id)} size={14} />
+                    {s.name}
+                  </span>
                   {s.error ? (
                     <span className="min-w-0 text-risk-high" title={s.error}>
                       {s.error}
                     </span>
                   ) : (
                     <span className="text-ink-muted">
-                      {s.tables} {s.tables === 1 ? 'table' : 'tables'}
+                      {t('common.tables', { count: s.tables })}
                       {s.server ? ` · ${s.server}` : ''}
                     </span>
                   )}
@@ -211,15 +217,19 @@ export function MetadataPanel(): React.JSX.Element {
             </ul>
             {r.ambiguous?.length ? (
               <div className="text-xs">
-                <div className="text-ink">Found in several connections</div>
-                <p className="text-ink-muted">Amber used the table that fits the script best: same database family first, then the one with the columns the script uses, then your list order.</p>
+                <div className="text-ink">{t('online.panel.ambiguous')}</div>
+                <p className="text-ink-muted">{t('online.panel.ambiguousHint')}</p>
                 <ul className="mt-0.5 space-y-0.5">
                   {r.ambiguous.map((a) => (
                     <li key={a.name}>
                       <span className="code text-[12px] text-ink">{a.name}</span>
                       <span className="text-ink-muted">
                         {' '}
-                        in {a.dataSources.map((id, i) => `${names.get(id) ?? id}${(a.chosen ? id === a.chosen : i === 0) ? ' (used)' : ''}`).join(', ')}
+                        {t('online.panel.foundIn', {
+                          sources: a.dataSources
+                            .map((id, i) => ((a.chosen ? id === a.chosen : i === 0) ? t('online.panel.used', { name: names.get(id) ?? id }) : (names.get(id) ?? id)))
+                            .join(t('common.listSeparator'))
+                        })}
                       </span>
                     </li>
                   ))}
@@ -228,7 +238,7 @@ export function MetadataPanel(): React.JSX.Element {
             ) : null}
             {r.missing?.length ? (
               <div className="text-xs">
-                <div className="text-ink">Not found ({r.missing.length})</div>
+                <div className="text-ink">{t('online.panel.missing', { count: r.missing.length })}</div>
                 <p className="code text-[12px] break-words text-ink-muted">{r.missing.join(', ')}</p>
               </div>
             ) : null}
@@ -237,19 +247,19 @@ export function MetadataPanel(): React.JSX.Element {
       </section>
       <section className="min-w-0 space-y-2">
         <div className="flex items-center gap-2">
-          <h3 className="font-semibold">Offline metadata</h3>
+          <h3 className="font-semibold">{t('online.offline.title')}</h3>
           <Button size="sm" variant="ghost" onClick={() => void addMetadataFiles('ddlFiles')}>
-            <FileCode2 size={12} /> Add DDL
+            <FileCode2 size={12} /> {t('online.offline.addDdl')}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => void addMetadataFiles('metadataPacks')}>
-            <Package size={12} /> Add pack
+            <Package size={12} /> {t('online.offline.addPack')}
           </Button>
           <Button size="sm" variant="ghost" onClick={() => void saveMetadataPack()} disabled={!files.ddlFiles.length && !files.metadataPacks.length && !(enabled && r)}>
-            <Save size={12} /> Save as pack…
+            <Save size={12} /> {t('online.offline.save')}
           </Button>
         </div>
         {files.ddlFiles.length + files.metadataPacks.length === 0 ? (
-          <p className="text-xs text-ink-muted">No DDL files or metadata packs. They describe tables without a connection and stay for this session.</p>
+          <p className="text-xs text-ink-muted">{t('online.offline.none')}</p>
         ) : (
           <ul className="space-y-0.5 text-xs">
             {(['ddlFiles', 'metadataPacks'] as const).flatMap((kind) =>
@@ -259,8 +269,8 @@ export function MetadataPanel(): React.JSX.Element {
                   <span className="code min-w-0 truncate text-[12px] text-ink" title={p}>
                     {fileName(p)}
                   </span>
-                  <span className="text-ink-muted">{kind === 'ddlFiles' ? 'DDL' : 'pack'}</span>
-                  <button type="button" aria-label={`Remove ${fileName(p)}`} className="ml-auto text-ink-muted hover:text-ink" onClick={() => remove(kind, p)}>
+                  <span className="text-ink-muted">{kind === 'ddlFiles' ? t('online.offline.ddl') : t('online.offline.pack')}</span>
+                  <button type="button" aria-label={t('online.offline.remove', { name: fileName(p) })} className="ml-auto text-ink-muted hover:text-ink" onClick={() => remove(kind, p)}>
                     <X size={12} />
                   </button>
                 </li>

@@ -1,5 +1,6 @@
 package com.github.amber.diff;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.Dialect;
 import com.github.amber.core.analysis.ObjectLifecycle;
 import com.github.amber.core.ir.StatementKind;
@@ -70,10 +71,17 @@ public final class ScriptDiff {
      * @param catalog imported metadata (packs, DDL files, online); never modified, may be empty
      */
     public static DiffResult compare(Dialect dialect, SourceText before, SourceText after, Catalog catalog) {
+        return compare(dialect, before, after, catalog, null);
+    }
+
+    /** As {@link #compare(Dialect, SourceText, SourceText, Catalog)}, with the user's rule settings for findings. */
+    public static DiffResult compare(Dialect dialect, SourceText before, SourceText after, Catalog catalog,
+                                     com.github.amber.dialect.findings.RuleConfig rules) {
         long started = System.nanoTime();
         Catalog cat = catalog == null ? Catalog.of(List.of()) : catalog;
-        CompletableFuture<Version> vb = CompletableFuture.supplyAsync(() -> Version.analyze(dialect, before, cat));
-        Version va = Version.analyze(dialect, after, cat);
+        CompletableFuture<Version> vb = CompletableFuture.supplyAsync(com.github.amber.core.i18n.Messages.bind(
+                () -> Version.analyze(dialect, before, cat, rules)));      // in the request's language
+        Version va = Version.analyze(dialect, after, cat, rules);
         Version vbv;
         try {
             vbv = vb.join();
@@ -118,12 +126,12 @@ public final class ScriptDiff {
                 case ADDED -> addedRules(ctx, p.b);
                 case REMOVED -> {
                     if (!p.a.container() && WRITING.contains(p.a.st.kind().category())) {
-                        ctx.reason(Risk.MEDIUM, "STATEMENT_REMOVED", p.a.label() + " was removed", p.a.id, null);
+                        ctx.reason(Risk.MEDIUM, "STATEMENT_REMOVED", Messages.t("diff.reason.statementRemoved", p.a.label()), p.a.id, null);
                     }
                 }
                 case MOVED -> {
                     if (!p.crossLevel && WRITING.contains(p.b.st.kind().category())) {
-                        ctx.reason(Risk.MEDIUM, "ORDER_CHANGED", p.b.label() + " now runs at another point of the script",
+                        ctx.reason(Risk.MEDIUM, "ORDER_CHANGED", Messages.t("diff.reason.orderChanged", p.b.label()),
                                 p.a.id, p.b.id);
                     }
                 }
@@ -133,7 +141,7 @@ public final class ScriptDiff {
             if (p.status != Status.UNCHANGED && p.status != Status.FORMAT_ONLY
                     && ((p.a != null && p.a.st.kind() == StatementKind.UNPARSED)
                     || (p.b != null && p.b.st.kind() == StatementKind.UNPARSED))) {
-                ctx.reason(Risk.MEDIUM, "UNPARSED_CHANGE", "A changed statement could not be parsed; its impact is unknown",
+                ctx.reason(Risk.MEDIUM, "UNPARSED_CHANGE", Messages.t("diff.reason.unparsedChange"),
                         p.a == null ? null : p.a.id, p.b == null ? null : p.b.id);
             }
         }
@@ -151,11 +159,10 @@ public final class ScriptDiff {
         Set<String> lost = new TreeSet<>(fb);
         lost.removeAll(fa);
         if (whereB > 0 && whereA == 0) {
-            ctx.reason(Risk.HIGH, "FILTER_REMOVED", p.b.label() + " lost its WHERE clause"
-                    + (fb.isEmpty() ? "" : " (filtered on " + String.join(", ", fb) + ")")
-                    + ": it now affects every row", p.a.id, p.b.id);
+            ctx.reason(Risk.HIGH, "FILTER_REMOVED", fb.isEmpty() ? Messages.t("diff.reason.whereLost", p.b.label())
+                    : Messages.t("diff.reason.whereLostFiltered", p.b.label(), String.join(", ", fb)), p.a.id, p.b.id);
         } else if (!lost.isEmpty()) {
-            ctx.reason(Risk.HIGH, "FILTER_REMOVED", p.b.label() + " no longer filters on " + String.join(", ", lost),
+            ctx.reason(Risk.HIGH, "FILTER_REMOVED", Messages.t("diff.reason.filterLost", p.b.label(), String.join(", ", lost)),
                     p.a.id, p.b.id);
         }
     }
@@ -178,15 +185,15 @@ public final class ScriptDiff {
         boolean whereless = SqlTokens.countWord(n.tokens(), "WHERE") == 0;
         switch (k) {
             case DROP -> ctx.reason(createdIn(ctx.after, n.target) ? Risk.MEDIUM : Risk.HIGH, "DROP_ADDED",
-                    "New " + n.label() + (createdIn(ctx.after, n.target) ? "" : ", an object the script does not create"),
+                    Messages.t(createdIn(ctx.after, n.target) ? "diff.reason.added" : "diff.reason.dropAddedForeign", n.label()),
                     null, n.id);
             case TRUNCATE -> ctx.reason(createdIn(ctx.after, n.target) ? Risk.MEDIUM : Risk.HIGH, "TRUNCATE_ADDED",
-                    "New " + n.label(), null, n.id);
+                    Messages.t("diff.reason.added", n.label()), null, n.id);
             case DELETE, UPDATE -> ctx.reason(whereless && !createdIn(ctx.after, n.target) ? Risk.HIGH : Risk.MEDIUM,
-                    k + "_ADDED", "New " + n.label() + (whereless ? " without WHERE" : ""), null, n.id);
+                    k + "_ADDED", Messages.t(whereless ? "diff.reason.addedWithoutWhere" : "diff.reason.added", n.label()), null, n.id);
             default -> {
                 if (WRITING.contains(k.category())) {
-                    ctx.reason(Risk.MEDIUM, "STATEMENT_ADDED", "New " + n.label(), null, n.id);
+                    ctx.reason(Risk.MEDIUM, "STATEMENT_ADDED", Messages.t("diff.reason.added", n.label()), null, n.id);
                 }
             }
         }
@@ -216,12 +223,13 @@ public final class ScriptDiff {
             String what = p.b.label();
             String msg;
             if (as.size() > bs.size() && as.subList(0, bs.size()).equals(bs)) {
-                msg = what + " moved into " + String.join(" > ", ap.subList(bs.size(), ap.size()));
+                msg = Messages.t("diff.control.movedInto", what, String.join(" > ", ap.subList(bs.size(), ap.size())));
             } else if (bs.size() > as.size() && bs.subList(0, as.size()).equals(as)) {
-                msg = what + " moved out of " + String.join(" > ", bp.subList(as.size(), bp.size()));
+                msg = Messages.t("diff.control.movedOutOf", what, String.join(" > ", bp.subList(as.size(), bp.size())));
             } else {
-                msg = what + " moved from " + (bp.isEmpty() ? "top level" : String.join(" > ", bp)) + " to "
-                        + (ap.isEmpty() ? "top level" : String.join(" > ", ap));
+                String top = Messages.t("diff.control.topLevel");
+                msg = Messages.t("diff.control.movedFrom", what, bp.isEmpty() ? top : String.join(" > ", bp),
+                        ap.isEmpty() ? top : String.join(" > ", ap));
             }
             out.add(new ControlFlowChange(p.b.st.kind().name(), p.b.targetDisplay, bp, ap, msg, p.a.id, p.b.id,
                     p.a.st.range(), p.b.st.range()));
@@ -310,7 +318,7 @@ public final class ScriptDiff {
         if (from < to) {
             return src.range(t.get(from).start(), t.get(to - 1).end());
         }
-        int at = from < t.size() ? t.get(from).start() : (t.isEmpty() ? 0 : t.getLast().end());
+        int at = from < t.size() ? t.get(from).start() : (t.isEmpty() ? 0 : t.get(t.size() - 1).end());
         return src.range(Math.min(at, textEnd), Math.min(at, textEnd));
     }
 
@@ -333,14 +341,12 @@ public final class ScriptDiff {
     private static List<String> notes(Version before, Version after) {
         List<String> notes = new ArrayList<>();
         for (Version v : List.of(before, after)) {
-            String which = v == before ? "The old version" : "The new version";
+            String which = v == before ? "old" : "new";
             if (v.fallback) {
-                notes.add(which + " has syntax errors and was compared with fallback parsing; " + v.unparsed()
-                        + " statement(s) were only scanned, so their impact is approximate.");
+                notes.add(Messages.t("diff.note.fallback." + which, v.unparsed()));
             }
             if (v.findingsError != null) {
-                notes.add("Findings of " + which.toLowerCase(Locale.ROOT).substring(4) + " could not be computed: "
-                        + v.findingsError);
+                notes.add(Messages.t("diff.note.findingsError." + which, v.findingsError));
             }
         }
         return notes;
@@ -349,12 +355,10 @@ public final class ScriptDiff {
     private static List<Reason> reasons(DiffContext ctx, Counts counts) {
         List<Reason> all = new ArrayList<>(ctx.reasons);
         if (counts.formatOnly() > 0) {
-            all.add(new Reason(Risk.LOW, "FORMAT_ONLY", counts.formatOnly()
-                    + " statement(s) differ only in whitespace, comments or keyword case", null, null, null, null));
+            all.add(new Reason(Risk.LOW, "FORMAT_ONLY", Messages.t("diff.reason.formatOnly", counts.formatOnly()), null, null, null, null));
         }
         if (counts.modified() > 0 && all.stream().noneMatch(r -> r.level() != Risk.LOW)) {
-            all.add(new Reason(Risk.LOW, "MODIFIED", counts.modified()
-                    + " statement(s) modified without a structural impact Amber can see", null, null, null, null));
+            all.add(new Reason(Risk.LOW, "MODIFIED", Messages.t("diff.reason.modified", counts.modified()), null, null, null, null));
         }
         Set<String> seen = new LinkedHashSet<>();
         List<Reason> unique = new ArrayList<>();
@@ -371,23 +375,25 @@ public final class ScriptDiff {
     private static String headline(Counts c, Risk risk, List<Reason> reasons) {
         int changed = c.modified() + c.added() + c.removed() + c.moved();
         if (changed == 0) {
-            return c.formatOnly() > 0 ? "Formatting only: " + c.formatOnly() + " statement(s) reformatted; risk LOW"
-                    : "No changes";
+            return c.formatOnly() > 0 ? Messages.t("diff.headline.formatOnly", c.formatOnly())
+                    : Messages.t("diff.headline.none");
         }
         List<String> parts = new ArrayList<>();
         if (c.modified() > 0) {
-            parts.add(c.modified() + " modified");
+            parts.add(Messages.t("diff.headline.modified", c.modified()));
         }
         if (c.added() > 0) {
-            parts.add(c.added() + " added");
+            parts.add(Messages.t("diff.headline.added", c.added()));
         }
         if (c.removed() > 0) {
-            parts.add(c.removed() + " removed");
+            parts.add(Messages.t("diff.headline.removed", c.removed()));
         }
         if (c.moved() > 0) {
-            parts.add(c.moved() + " moved");
+            parts.add(Messages.t("diff.headline.moved", c.moved()));
         }
-        String top = reasons.isEmpty() ? "" : ": " + reasons.getFirst().message();
-        return changed + " statement(s) changed (" + String.join(", ", parts) + "); risk " + risk + top;
+        String counts = String.join(Messages.t("diff.headline.separator"), parts);
+        String level = Messages.t("diff.risk." + risk.name());
+        return reasons.isEmpty() ? Messages.t("diff.headline.changed", changed, counts, level)
+                : Messages.t("diff.headline.changedBecause", changed, counts, level, reasons.get(0).message());
     }
 }

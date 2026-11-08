@@ -77,6 +77,25 @@
         <!-- Overridable so parallel builds of the same tree do not share target/ (-Damber.buildDir=target-x) -->
         <directory>${amber.buildDir}</directory>
         <plugins>
+            <!-- Integration tests (*IT in com.github.amber.it): corpus parse rate, online mode, real-model AI.
+                 They run in `mvn verify`; the online and AI tests skip themselves without their configuration. -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-failsafe-plugin</artifactId>
+                <configuration>
+                    <argLine>-Xss16m -Xmx2g</argLine>
+                    <!-- one JVM per IT class: ScaleIT measures heap and must not inherit the parser caches of the fuzzers -->
+                    <reuseForks>false</reuseForks>
+                </configuration>
+                <executions>
+                    <execution>
+                        <goals>
+                            <goal>integration-test</goal>
+                            <goal>verify</goal>
+                        </goals>
+                    </execution>
+                </executions>
+            </plugin>
             <plugin>
                 <groupId>org.antlr</groupId>
                 <artifactId>antlr4-maven-plugin</artifactId>
@@ -189,4 +208,52 @@
             </plugin>
         </plugins>
     </build>
+
+    <profiles>
+        <!--
+            The Tutorial video (docs/assets/amber-tutorial.mp4), recorded from the real desktop app on macOS:
+              mvn -f backend/pom.xml -pl amber-core -Ptutorial package -DskipTests
+            Dry run (drives the app without the real mouse, records nothing):
+              mvn -f backend/pom.xml -pl amber-core -Ptutorial package -DskipTests -Dtutorial.dry=true
+            Needs Node, ffmpeg, the desktop app's npm dependencies, OPENAI_API_KEY and the mysql.* entries of the
+            git-ignored online-it.properties. See ui/amber-desktop/scripts/tutorial/README.md.
+        -->
+        <profile>
+            <id>tutorial</id>
+            <properties>
+                <tutorial.dry>false</tutorial.dry>
+            </properties>
+            <build>
+                <plugins>
+                    <plugin>
+                        <groupId>org.apache.maven.plugins</groupId>
+                        <artifactId>maven-antrun-plugin</artifactId>
+                        <executions>
+                            <execution>
+                                <id>tutorial-video</id>
+                                <phase>package</phase>
+                                <goals>
+                                    <goal>run</goal>
+                                </goals>
+                                <configuration>
+                                    <target>
+                                        <exec executable="node" dir="${project.basedir}/../../ui/amber-desktop" failonerror="true">
+                                            <arg value="scripts/tutorial/run.mjs"/>
+                                            <arg value="--engine"/>
+                                            <arg value="${project.build.directory}/engine/engine.jar"/>
+                                            <arg value="--work"/>
+                                            <arg value="${project.build.directory}/tutorial"/>
+                                            <arg value="--out"/>
+                                            <arg value="${project.basedir}/../../docs/assets/amber-tutorial.mp4"/>
+                                            <env key="TUTORIAL_DRY" value="${tutorial.dry}"/>
+                                        </exec>
+                                    </target>
+                                </configuration>
+                            </execution>
+                        </executions>
+                    </plugin>
+                </plugins>
+            </build>
+        </profile>
+    </profiles>
 </project>

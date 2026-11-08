@@ -1,0 +1,82 @@
+/** The AI suggestions panel. The prompt text sent to the model is built by the engine and stays English. */
+export const ai = {
+  title: 'AI suggestions',
+  openaiCompatible: 'OpenAI-compatible',
+  noModel: 'no model chosen',
+  off: 'Off',
+  offText: "AI is off. Amber's analysis works without it. To get optimization ideas, set up a local Ollama model or an OpenAI-compatible API.",
+  setUp: 'Set up AI',
+  analyzeFirst: 'Analyze a script first.',
+  scope: 'Scope',
+  scopeStatement: 'Selected statement',
+  scopeScript: 'Whole script',
+  newConversation: 'New conversation',
+  previewContext: 'Preview context',
+  stale: 'The script was edited since the last analysis. Analyze it again first.',
+  selectStatement: 'Select a statement, or choose the whole script.',
+  notesLabel: 'Your notes for the model (optional)',
+  notesPlaceholder: 'For example: orders grows by about 10M rows a day. It must stay one statement. Prefer readability over speed.',
+  notesHint: 'Data volumes, constraints or goals. They are masked like the rest of the context.',
+  unavailableFeature: 'AI context building',
+  unavailableText: 'Amber sends a model only what its analysis extracted, built by the engine, so suggestions stay off until the engine supports it.',
+  aiGenerated: 'AI-generated',
+  conversationStats: '{rounds, plural, one {# round} other {# rounds}} · about {tokens, number} tokens in this conversation',
+  neverRuns: 'Amber never runs AI-generated SQL and never writes it into your file.',
+  roundYou: 'You: {question}',
+  roundContext: 'Suggestions for the context',
+  round: 'Round {number}',
+  receiving: 'Receiving',
+  checking: 'Checking',
+  suggestionsCount: '{count, plural, one {# suggestion} other {# suggestions}}',
+  noChanges: 'The model suggested no changes.',
+  badJson: 'The model did not answer with the expected JSON, so nothing could be checked.',
+  modelResponse: 'Model response',
+  followUp: 'Follow up',
+  followUpPlaceholder: 'Add a remark or ask again, e.g. suggestion 2 is wrong: this column is nullable',
+  sentAs: 'Sent as:',
+  send: 'Send',
+  maskFailed: 'Could not mask the message, so it was not sent: {reason}',
+  preview: {
+    tokens: 'About {tokens, number} tokens will be sent to {endpoint}.',
+    masked: '{count, plural, one {# name or literal is masked} other {# names and literals are masked}}; the mapping stays on this computer.',
+    notMasked: 'Names are not masked.',
+    trimmed: 'Left out to fit the budget: {items}',
+    system: 'System message',
+    confirm: 'I understand this content leaves my computer.',
+    notesChanged: 'Your notes changed. Preview the context again to include them.'
+  },
+  suggestion: {
+    fallbackTitle: 'Suggestion',
+    statementLine: 'Statement {number}, line {line}',
+    rationale: 'Rationale',
+    expectedEffect: 'Expected effect',
+    risk: 'Risk',
+    preservedNote: 'The parser found the same output columns, written objects, sources, grouping and column lineage. This is not proof that the results are the same; review and test it.',
+    whatChanged: 'What changed',
+    diagPosition: 'Line {line}, column {column}: ',
+    unexpected: "unexpected '{token}'",
+    copySql: 'Copy SQL',
+    copyFailed: 'Could not copy to the clipboard.'
+  },
+  notChecked: {
+    noStatement: 'Not checked: the suggestion does not name a statement of this script.',
+    unavailable: 'Not checked: ai.check is not available in this engine version.',
+    error: 'Not checked: {reason}'
+  },
+  readiness: {
+    loading: 'Settings are loading',
+    noModel: 'No model chosen',
+    noKey: 'No API key saved'
+  },
+  provider: 'Provider',
+  providerAria: 'AI provider',
+  settings: 'Settings',
+  setItUp: 'Set it up',
+  /** Labels of the parser check (ai.check and quick fixes). Never "equivalent" or "safe". */
+  check: {
+    STRUCTURE_PRESERVED: 'Structure preserved',
+    STRUCTURE_CHANGED: 'Structure changed',
+    INVALID_SQL: 'Invalid SQL',
+    none: 'Not checked'
+  }
+}

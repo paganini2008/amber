@@ -47,6 +47,9 @@
 Offline by default. An optional, read-only online mode reads table metadata (columns, keys, indexes)
 from one or more databases to make every analysis more precise.
 
+In English, Simplified Chinese or Spanish: the interface and the engine's own texts (statement summaries,
+findings, change reasons, rewrite explanations, the handover document) follow Settings → Language.
+
 ![Change impact: a DELETE that lost its WHERE and a column whose source changed, ranked by risk](docs/assets/screenshots/diff.png)
 
 ## How it works
@@ -56,7 +59,7 @@ flowchart LR
   subgraph App["Desktop app (Electron + React)"]
     UI["Views: outline · structure · lineage · lifecycle · change impact · fixes"]
   end
-  subgraph Engine["Engine (Java 25, JSON-RPC over stdio)"]
+  subgraph Engine["Engine (Java 17+, JSON-RPC over stdio)"]
     Split["Splitter per dialect<br/>(GO, /, DELIMITER, psql…)"] --> Parse["ANTLR 4 parsers<br/>8 dialects"]
     Parse --> IR["Script IR<br/>statements · refs · structure"]
     IR --> Lineage["Column lineage<br/>and lifecycles"]
@@ -82,7 +85,7 @@ flowchart LR
 | To | You need |
 |---|---|
 | Use Amber | Nothing else. Each installer bundles the engine, a trimmed Java runtime and all JDBC drivers. Windows 10/11 x64, macOS 12+ (Apple silicon or Intel), Linux x64 (deb or rpm). |
-| Build the engine | JDK **25**, Maven **3.9+** |
+| Build or run the engine yourself | JDK **17** or later (compiled for 17; CI and releases use 25), Maven **3.9+** |
 | Build the desktop app | Node.js **22.12+** |
 | Online mode (optional) | Network access to the database and an account that can read catalog metadata |
 | AI suggestions (optional) | [Ollama](https://ollama.com), or an OpenAI-compatible API and a key |
@@ -287,6 +290,8 @@ always entered in Settings and stored encrypted by the OS keychain, never in a `
 | `AMBER_PARSER_THREADS` | CPUs (min 2) | Threads that parse statements in parallel |
 | `AMBER_RPC_THREADS` | CPUs (min 2) | Threads that serve JSON-RPC requests |
 | `AMBER_JDBC_TIMEOUT_SECONDS` | 15 | Login, network and metadata-call timeout in online mode |
+| `AMBER_DB_DEADLINE_SECONDS` | 45 | Hard deadline per data source in online mode, also for servers that never answer |
+| `AMBER_FINDINGS_SECONDS` | 60 | Time budget for the checks of one script; past it, AMB-I003 marks where checking stopped |
 | `AMBER_CORPUS_TIMEOUT_SECONDS` | 60 | Per-file parse timeout of the corpus integration test |
 | `OPENAI_API_KEY` | — | Enables the optional real-model test `LlmIT` |
 | `AMBER_IT_OPENAI_BASE_URL` | `https://api.openai.com/v1` | Endpoint for `LlmIT` |
@@ -297,7 +302,7 @@ always entered in Settings and stored encrypted by the OS keychain, never in a `
 | Property | Default | Description |
 |---|---|---|
 | `AMBER_ENGINE_JAR` | `../../backend/amber-core/target/engine/engine.jar` | Engine jar to run |
-| `AMBER_JAVA` | `$JAVA_HOME/bin/java`, else `java` | Java 25 executable |
+| `AMBER_JAVA` | `$JAVA_HOME/bin/java`, else `java` | Java 17+ executable |
 | `AMBER_ENGINE_MAX_RESTARTS` / `AMBER_ENGINE_RESTART_WINDOW_SEC` | 5 / 60 | Engine crash restarts allowed per window |
 | `AMBER_DEV_CDP_PORT` | off | Chrome DevTools Protocol port for scripted UI checks |
 | `AMBER_LOG_LEVEL` | `info` | `off`, `error`, `info` or `debug` |
@@ -309,9 +314,9 @@ always entered in Settings and stored encrypted by the OS keychain, never in a `
 | `AMBER_MAX_FILE_MB` | 64 | Largest script the app opens |
 
 **Integration tests with real databases (optional):**
-`backend/amber-test/src/test/resources/online-it.properties` (git-ignored; see the `.example` next to
+`backend/amber-core/src/test/resources/online-it.properties` (git-ignored; see the `.example` next to
 it) lists test connections and tables for `OnlineMetadataIT`; fixture DDL is in
-`backend/amber-test/src/test/resources/online-fixtures/`.
+`backend/amber-core/src/test/resources/online-fixtures/`.
 
 ## Performance
 
@@ -379,9 +384,9 @@ cd ui/amber-desktop && npm ci && npm run typecheck && npm run lint && npm test &
   repository itself stays at `1.0.0-SNAPSHOT`.
 
 ```
-backend/              Maven build, Java 25
-  amber-core/         engine: splitters, parsers, IR, lineage, findings, rewrites, diff, format, JSON-RPC, CLI
-  amber-test/         integration tests (*IT): corpus, online mode, real-model AI
+backend/              Maven build, Java 17+
+  amber-core/         engine: splitters, parsers, IR, lineage, findings, rewrites, diff, format, JSON-RPC, CLI;
+                      unit tests (*Test) and integration tests (*IT: corpus, online mode, real-model AI)
 ui/amber-desktop/     Electron + React + TypeScript desktop app
 docs/                 GitHub Pages site, design document, engine protocol
 .github/              CI, release and Pages workflows, runtime build scripts

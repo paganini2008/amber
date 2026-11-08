@@ -4,15 +4,16 @@ import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.ObjectKind;
 import com.github.amber.core.ir.ObjectRef;
 import com.github.amber.core.ir.Statement;
+import com.github.amber.core.i18n.Messages;
 
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Set;
 import java.util.stream.Collectors;
 
 /**
- * One-line, plain-English descriptions of statements, built from the IR only (deterministic, no AI).
+ * One-line descriptions of statements in the request's language (texts: {@code amber/i18n/summary*.properties}),
+ * built from the IR only (deterministic, no AI).
  *
  * @Author: Fred Feng
  * @Date: 07/11/2026
@@ -28,88 +29,64 @@ public final class Summaries {
     public static String describe(Statement st) {
         String targets = names(st, r -> r.access() != Access.READ && r.access() != Access.EXECUTE);
         String sources = names(st, r -> r.access() == Access.READ && r.kind() != ObjectKind.CTE);
-        String via = st.ctes().isEmpty() ? "" : " via " + st.ctes().size() + (st.ctes().size() == 1 ? " CTE" : " CTEs");
-        String from = sources.isEmpty() ? "" : " from " + sources;
+        int ctes = st.ctes().size();
+        String via = ctes == 0 ? "" : t(ctes == 1 ? "summary.part.via.one" : "summary.part.via.other", ctes);
+        String from = part("summary.part.from", sources);
         String called = names(st, r -> r.access() == Access.EXECUTE);
         String named = st.name() == null ? "" : " " + st.name();
         String result = switch (st.kind()) {
-            case SELECT -> sources.isEmpty() ? "Query" : "Query " + sources + via;
-            case INSERT -> "Insert into " + targets + from + via;
-            case UPDATE -> "Update " + targets + (sources.isEmpty() ? "" : " using " + sources) + via;
-            case DELETE -> "Delete from " + targets + (sources.isEmpty() ? "" : " using " + sources) + via;
-            case MERGE -> "Merge into " + targets + from + via;
-            case SELECT_INTO -> "Select into new table " + targets + from + via;
-            case LOCK -> "Lock " + sources;
-            case CREATE_TABLE -> "Create " + objectWord(st) + " " + targets;
-            case CREATE_TABLE_AS -> "Create " + objectWord(st) + " " + targets + from + via;
-            case CREATE_VIEW -> "Create view " + targets + (sources.isEmpty() ? "" : " over " + sources) + via;
-            case CREATE_MATERIALIZED_VIEW -> "Create materialized view " + targets + from + via;
-            case CREATE_INDEX -> "Create index" + named + (targets.contains(",") || !sources.isEmpty() ? " on " + both(st) : onTable(st));
-            case CREATE_SEQUENCE -> "Create sequence" + named;
-            case CREATE_SYNONYM -> "Create synonym" + named;
-            case CREATE_SCHEMA -> "Create schema" + named;
-            case CREATE_TYPE -> "Create type" + named;
-            case CREATE_OTHER -> "Create" + named;
-            case ALTER -> "Alter " + (targets.isEmpty() ? "object" : targets);
-            case DROP -> "Drop " + (targets.isEmpty() ? "object" : objectWord(st) + " " + targets);
-            case TRUNCATE -> "Truncate " + targets;
-            case RENAME -> "Rename object";
-            case COMMENT -> "Comment on " + (sources.isEmpty() ? "object" : sources);
-            case CREATE_PROCEDURE -> "Create procedure" + named;
-            case CREATE_FUNCTION -> "Create function" + named;
-            case CREATE_PACKAGE -> "Create package" + named;
-            case CREATE_PACKAGE_BODY -> "Create package body" + named;
-            case CREATE_TRIGGER -> "Create trigger" + named + (sources.isEmpty() ? "" : " on " + sources);
-            case CREATE_TYPE_BODY -> "Create type body" + named;
-            case ROUTINE -> "Routine" + named;
-            case BLOCK -> "Block";
-            case IF -> "If";
-            case LOOP -> sources.isEmpty() ? "Loop" : "Loop over " + sources;
-            case CASE -> "Case";
-            case TRY -> "Try";
-            case EXCEPTION_HANDLER -> "Exception handler";
-            case CURSOR -> "Cursor" + (sources.isEmpty() ? "" : " over " + sources) + via;
-            case CALL -> called.isEmpty() ? "Call" : "Call " + called;
-            case DYNAMIC_SQL -> "Dynamic SQL";
-            case DECLARE -> "Declare";
-            case ASSIGNMENT -> "Assignment";
-            case RETURN -> "Return";
-            case GRANT -> "Grant" + (sources.isEmpty() ? "" : " on " + sources);
-            case REVOKE -> "Revoke" + (sources.isEmpty() ? "" : " on " + sources);
-            case TRANSACTION -> "Transaction control";
-            case SESSION -> "Session setting";
-            case CLIENT_COMMAND -> "Client command";
-            case DATA -> "Inline data";
-            case UNPARSED -> "Unparsed statement" + (targets.isEmpty() && sources.isEmpty() ? "" : " touching " + both(st));
-            case OTHER -> "Statement";
+            case SELECT -> sources.isEmpty() ? t("summary.SELECT.empty") : t("summary.SELECT", sources, via);
+            case INSERT, MERGE, SELECT_INTO, CREATE_MATERIALIZED_VIEW -> kind(st, targets, from, via);
+            case UPDATE, DELETE -> kind(st, targets, part("summary.part.using", sources), via);
+            case CREATE_VIEW -> kind(st, targets, part("summary.part.over", sources), via);
+            case LOCK -> kind(st, sources);
+            case TRUNCATE -> kind(st, targets);
+            case CREATE_TABLE -> kind(st, objectWord(st), targets);
+            case CREATE_TABLE_AS -> kind(st, objectWord(st), targets, from, via);
+            case CREATE_INDEX -> kind(st, named, targets.contains(",") || !sources.isEmpty()
+                    ? part("summary.part.on", both(st)) : onTable(st));
+            case CREATE_SEQUENCE, CREATE_SYNONYM, CREATE_SCHEMA, CREATE_TYPE, CREATE_OTHER, CREATE_PROCEDURE,
+                 CREATE_FUNCTION, CREATE_PACKAGE, CREATE_PACKAGE_BODY, CREATE_TYPE_BODY, ROUTINE -> kind(st, named);
+            case ALTER -> targets.isEmpty() ? t("summary.ALTER.unknown") : kind(st, targets);
+            case DROP -> targets.isEmpty() ? t("summary.DROP.unknown") : kind(st, objectWord(st), targets);
+            case COMMENT -> sources.isEmpty() ? t("summary.COMMENT.unknown") : kind(st, sources);
+            case CREATE_TRIGGER -> kind(st, named, part("summary.part.on", sources));
+            case LOOP -> sources.isEmpty() ? t("summary.LOOP") : t("summary.LOOP.over", sources);
+            case CURSOR -> kind(st, part("summary.part.over", sources), via);
+            case CALL -> called.isEmpty() ? t("summary.CALL") : t("summary.CALL.target", called);
+            case GRANT, REVOKE -> kind(st, part("summary.part.on", sources));
+            case UNPARSED -> kind(st, targets.isEmpty() && sources.isEmpty() ? "" : t("summary.part.touching", both(st)));
+            case RENAME, BLOCK, IF, CASE, TRY, EXCEPTION_HANDLER, DYNAMIC_SQL, DECLARE, ASSIGNMENT, RETURN, TRANSACTION,
+                 SESSION, CLIENT_COMMAND, DATA, OTHER -> kind(st);
         };
         return result.strip();
+    }
+
+    /** The sentence of the statement's kind ({@code summary.<KIND>}) with its parts. */
+    private static String kind(Statement st, Object... parts) {
+        return t("summary." + st.kind().name(), parts);
+    }
+
+    /** A part such as " from a, b"; empty when there are no names. */
+    private static String part(String key, String names) {
+        return names.isEmpty() ? "" : t(key, names);
+    }
+
+    private static String t(String key, Object... args) {
+        return Messages.t(key, args);
     }
 
     private static String objectWord(Statement st) {
         for (ObjectRef r : st.refs()) {
             if (r.access() != Access.READ) {
-                return switch (r.kind()) {
-                    case TEMP_TABLE -> "temp table";
-                    case TABLE_VARIABLE -> "table variable";
-                    case VIEW -> "view";
-                    case MATERIALIZED_VIEW -> "materialized view";
-                    case SEQUENCE -> "sequence";
-                    case INDEX -> "index";
-                    case PROCEDURE -> "procedure";
-                    case FUNCTION -> "function";
-                    case PACKAGE -> "package";
-                    case TRIGGER -> "trigger";
-                    default -> r.kind().name().toLowerCase(Locale.ROOT).replace('_', ' ');
-                };
+                return t("summary.object." + r.kind().name());
             }
         }
-        return "table";
+        return t("summary.object.TABLE");
     }
 
     private static String onTable(Statement st) {
-        String t = names(st, r -> r.access() == Access.ALTER);
-        return t.isEmpty() ? "" : " on " + t;
+        return part("summary.part.on", names(st, r -> r.access() == Access.ALTER));
     }
 
     private static String both(Statement st) {
@@ -119,10 +96,11 @@ public final class Summaries {
     private static String names(Statement st, java.util.function.Predicate<ObjectRef> filter) {
         Set<String> names = st.refs().stream().filter(filter).map(r -> r.name().toString())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
+        String separator = t("summary.names.separator");
         if (names.size() <= MAX_SOURCES) {
-            return String.join(", ", names);
+            return String.join(separator, names);
         }
         List<String> shown = names.stream().limit(MAX_SOURCES).toList();
-        return String.join(", ", shown) + " and " + (names.size() - MAX_SOURCES) + " more";
+        return t("summary.names.more", String.join(separator, shown), names.size() - MAX_SOURCES);
     }
 }

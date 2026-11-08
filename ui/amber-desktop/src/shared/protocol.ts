@@ -95,6 +95,11 @@ export interface Ref {
   access: Access | string
   confidence: Confidence | string
   range: Range
+  /**
+   * The routine defined in the script through which a call touches this object (the call's
+   * `range`), or null for a direct mention. Missing from engines older than call linking.
+   */
+  via?: string | null
 }
 
 export interface Statement {
@@ -180,6 +185,8 @@ export interface LifecycleEvent {
   step: number
   access: Access | string
   range: Range
+  /** The routine a call reaches the object through, or null for a direct access. */
+  via?: string | null
 }
 
 export interface Lifecycle {
@@ -210,6 +217,8 @@ export type LineageOwnerKind =
   | 'CTE'
   | 'SUBQUERY'
   | 'RESULT'
+  | 'VARIABLE'
+  | 'PARAMETER'
   | 'UNKNOWN'
 
 export interface LineageNode {
@@ -254,6 +263,15 @@ export interface Finding {
   range: Range
   /** INFERRED means "possible": there was no metadata to prove it. */
   confidence: Confidence | string
+  /** Optimized SQL for this finding (rule-based, no AI); null when none can be built safely. */
+  suggestedSql?: string | null
+  /** REWRITE_OF_STATEMENT replaces the statement; ADDITIONAL_DDL is a statement to add (index hints). */
+  suggestedSqlKind?: 'REWRITE_OF_STATEMENT' | 'ADDITIONAL_DDL' | string | null
+  /** STRUCTURE_PRESERVED / STRUCTURE_CHANGED (as ai.check), or NOT_CHECKED for DDL. */
+  verified?: string | null
+  suggestedSqlNote?: string | null
+  /** The `rewrite.suggest` rewrite with the same SQL, when there is one. */
+  rewriteId?: string | null
 }
 
 export interface AnalysisResult {
@@ -285,6 +303,36 @@ export interface AnalyzeParams {
   ddlFiles?: string[]
   /** Table metadata passed inline, e.g. `pack.tables` from `db.loadMetadata`. */
   metadata?: TableMeta[]
+  /** The user's rule settings (Settings → Rules); every method that computes findings takes them. */
+  rules?: RuleSettings
+  /** Language of the prose in the result ('en' default, 'zh-CN', 'es'); added by lib/api.ts. */
+  locale?: string
+}
+
+/** Rule settings as the engine takes them: disabled ids and severity overrides. */
+export interface RuleSettings {
+  disabled: string[]
+  severity: Record<string, FindingSeverity>
+}
+
+export type RuleCategory = 'risk' | 'performance' | 'maintainability' | 'info' | string
+
+/** One entry of `engine.rules`. */
+export interface RuleInfo {
+  id: string
+  /** The default severity. */
+  severity: FindingSeverity | string
+  title: string
+  description: string
+  category: RuleCategory
+  /** Reports only when table metadata is known. */
+  needsMetadata: boolean
+  /** Can have a `rewrite.suggest` quick fix. */
+  hasQuickFix: boolean
+}
+
+export interface EngineRulesResult {
+  rules: RuleInfo[]
 }
 
 export interface ColumnMeta {
@@ -305,6 +353,61 @@ export interface TableMeta {
   rowEstimate?: number | null
   /** Data source id (online) or where the table was described. */
   source?: string | null
+  foreignKeys?: { name: string | null; columns: string[]; refCatalog?: string | null; refSchema?: string | null; refTable: string; refColumns: string[] }[]
+}
+
+// ---------------------------------------------------------------------------------------------
+// er.model: tables, keys and the relationships the script implies (ER diagram)
+
+export interface ErModelParams extends AnalyzeParams {
+  /** Also INSERT … SELECT data flow between tables (default false). */
+  includeDataFlow?: boolean
+  /** Relationships suggested by column names alone (default true). */
+  includeNameMatch?: boolean
+}
+
+export interface ErColumn {
+  name: string
+  type?: string | null
+  nullable?: boolean | null
+  pk: boolean
+  unique: boolean
+  fk: boolean
+  joined: boolean
+  /** Where the column is known from. */
+  source: 'DDL' | 'METADATA' | 'USAGE' | string
+}
+
+export interface ErEntity {
+  key: string
+  name: string
+  kind: 'TABLE' | 'VIEW' | 'MATERIALIZED_VIEW' | 'TEMP_TABLE' | 'TABLE_VARIABLE' | string
+  columns: ErColumn[]
+  createdInScript: boolean
+  definitionRange?: Range | null
+  metadataSource?: string | null
+}
+
+/** Always oriented many → one: `from` is the many side. */
+export interface ErRelationship {
+  id: string
+  from: { entity: string; columns: string[] }
+  to: { entity: string; columns: string[] }
+  cardinality: 'MANY_TO_ONE' | 'ONE_TO_ONE' | 'ONE_TO_MANY' | 'MANY_TO_MANY' | 'UNKNOWN' | string
+  evidence: 'DECLARED_FK' | 'METADATA_FK' | 'JOIN' | 'NAME_MATCH' | 'DATA_FLOW' | string
+  confidence: 'CERTAIN' | 'INFERRED' | 'POSSIBLE' | string
+  /** At most 100; `count` is the full total. */
+  occurrences: { statement: number; range: Range }[]
+  count: number
+  note: string | null
+  constraint?: string | null
+}
+
+export interface ErModel {
+  entities: ErEntity[]
+  relationships: ErRelationship[]
+  mermaid: string
+  stats: { statements: number; joinEqualities: number; unresolved: number; elapsedMs: number }
 }
 
 /** Metadata pack file, `format` 1. */
@@ -414,6 +517,8 @@ export interface Occurrence {
   range: Range
   /** "12: <source line>" */
   line: string
+  /** The routine a call reaches the object through, or null for a direct use. */
+  via?: string | null
 }
 
 export interface ReferencesResult {
@@ -451,6 +556,7 @@ export interface DiffParams {
   metadataPacks?: string[]
   ddlFiles?: string[]
   metadata?: TableMeta[]
+  rules?: RuleSettings
 }
 
 export interface DiffSide {
@@ -625,15 +731,60 @@ export interface Rewrite {
   conflictsWith: string | null
 }
 
+// ---------------------------------------------------------------------------------------------
+// rewrite.optimize: every non-conflicting verified rewrite of a statement applied together (no AI)
+
+export interface OptimizeParams extends AnalyzeParams {
+  statements: number[]
+  /** Default false: only EQUIVALENT and EQUIVALENT_WITH_METADATA rewrites. */
+  includeEdgeCases?: boolean
+}
+
+export interface OptimizeApplied {
+  id: string
+  rule: string
+  title: string
+  safety: RewriteSafety
+}
+
+export interface OptimizeSkipped {
+  id: string
+  rule: string
+  title: string
+  reason: 'CONFLICT' | 'EDGE_CASE' | 'DISABLED' | 'UNVERIFIED' | string
+}
+
+export interface OptimizedStatement {
+  statement: number
+  original: string
+  optimized: string
+  applied: OptimizeApplied[]
+  skipped: OptimizeSkipped[]
+  /** The weakest safety of the applied rewrites. */
+  safety: RewriteSafety
+  /** Structural check of the final statement; null when only DDL is suggested. */
+  check: { label: AiCheckLabel | string; differences: string[] } | null
+  /** CREATE INDEX hints and similar: shown separately, never applied to the script. */
+  additionalDdl: string[]
+}
+
+export interface OptimizeResult {
+  statements: OptimizedStatement[]
+  optimizedText: string
+}
+
 /** Methods the UI knows about. Some are not implemented by every engine version. */
 export type EngineMethod =
   | 'engine.info'
+  | 'engine.rules'
+  | 'er.model'
   | 'analyze'
   | 'lineage'
   | 'impact'
   | 'findings'
   | 'diff'
   | 'rewrite.suggest'
+  | 'rewrite.optimize'
   | 'format'
   | 'export'
   | 'metadata.import'

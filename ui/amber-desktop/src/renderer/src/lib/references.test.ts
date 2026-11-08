@@ -97,3 +97,21 @@ describe('keywords and blanks', () => {
     expect(tokenAt(text, text.indexOf('= ') + 1)).toBeNull()
   })
 })
+
+describe('snippets from the script text', () => {
+  it('highlights the right characters on indented lines, where the engine trims the line', () => {
+    const source = 'BEGIN\n    INSERT INTO dw.daily (a) VALUES (1);\nEND;'
+    const start = source.indexOf('dw.daily')
+    const o = {
+      statement: 1,
+      access: 'INSERT',
+      line: '2: INSERT INTO dw.daily (a) VALUES (1);',
+      range: { start: { offset: start, line: 2, column: 17 }, end: { offset: start + 8, line: 2, column: 25 } },
+      via: null
+    }
+    expect(snippetParts(o, source)).toEqual({ lineNo: 2, before: 'INSERT INTO ', match: 'dw.daily', after: ' (a) VALUES (1);' })
+    // A range that runs over several lines is highlighted to the end of its first line.
+    const multi = { ...o, range: { ...o.range, end: { offset: source.length, line: 3, column: 5 } } }
+    expect(snippetParts(multi, source).match).toBe('dw.daily (a) VALUES (1);')
+  })
+})

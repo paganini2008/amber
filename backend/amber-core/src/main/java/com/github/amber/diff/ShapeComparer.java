@@ -1,5 +1,6 @@
 package com.github.amber.diff;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.ir.QueryBlock;
 import com.github.amber.core.ir.Statement;
 import com.github.amber.diff.DiffResult.Risk;
@@ -61,14 +62,14 @@ final class ShapeComparer {
             } else {
                 Flat f = fb.get(i);
                 add(ctx, p, out, ShapeChangeKind.BLOCK_REMOVED, f.path(), describe(f.block()),
-                        f.path() + " removed" + on(f.block()), f, null, Risk.MEDIUM);
+                        blockMessage("diff.shape.blockRemoved", f), f, null, Risk.MEDIUM);
             }
         }
         for (int j = 0; j < fa.size(); j++) {
             if (!usedA[j]) {
                 Flat f = fa.get(j);
                 add(ctx, p, out, ShapeChangeKind.BLOCK_ADDED, f.path(), describe(f.block()),
-                        f.path() + " added" + on(f.block()), null, f, Risk.MEDIUM);
+                        blockMessage("diff.shape.blockAdded", f), null, f, Risk.MEDIUM);
             }
         }
         List<String> cb = sb.ctes();
@@ -77,7 +78,7 @@ final class ShapeComparer {
             for (int i = 0; i < cb.size(); i++) {
                 if (!cb.get(i).equalsIgnoreCase(ca.get(i))) {
                     add(ctx, p, out, ShapeChangeKind.RENAMED, "CTE", cb.get(i) + " → " + ca.get(i),
-                            "CTE " + cb.get(i) + " renamed to " + ca.get(i), null, null, Risk.LOW);
+                            Messages.t("diff.shape.cteRenamed", cb.get(i), ca.get(i)), null, null, Risk.LOW);
                 }
             }
         }
@@ -90,20 +91,20 @@ final class ShapeComparer {
         String path = a.path();
         if (qb.kind() == QueryBlock.Kind.SET && !String.valueOf(qb.name()).equalsIgnoreCase(String.valueOf(qa.name()))) {
             add(ctx, p, out, ShapeChangeKind.SET_OPERATOR_CHANGED, path, qb.name() + " → " + qa.name(),
-                    path + ": " + qb.name() + " became " + qa.name(), b, a, Risk.MEDIUM);
+                    Messages.t("diff.shape.setOperator", path, qb.name(), qa.name()), b, a, Risk.MEDIUM);
         }
         Map<String, String> srcB = sources(qb, cteB);
         Map<String, String> srcA = sources(qa, cteA);
         for (Map.Entry<String, String> s : srcA.entrySet()) {
             if (!srcB.containsKey(s.getKey())) {
-                add(ctx, p, out, ShapeChangeKind.SOURCE_ADDED, path, s.getValue(), path + " now reads " + s.getValue(),
+                add(ctx, p, out, ShapeChangeKind.SOURCE_ADDED, path, s.getValue(), Messages.t("diff.shape.sourceAdded", path, s.getValue()),
                         b, a, Risk.MEDIUM);
             }
         }
         for (Map.Entry<String, String> s : srcB.entrySet()) {
             if (!srcA.containsKey(s.getKey())) {
-                add(ctx, p, out, ShapeChangeKind.SOURCE_REMOVED, path, s.getValue(), path + " no longer reads "
-                        + s.getValue(), b, a, Risk.MEDIUM);
+                add(ctx, p, out, ShapeChangeKind.SOURCE_REMOVED, path, s.getValue(), Messages.t("diff.shape.sourceRemoved", path,
+                        s.getValue()), b, a, Risk.MEDIUM);
             }
         }
         aliases(ctx, p, qb, qa, path, b, a, out);
@@ -111,18 +112,18 @@ final class ShapeComparer {
         int ja = joins(qa.clauses());
         if (jb != ja) {
             add(ctx, p, out, ShapeChangeKind.JOIN_COUNT_CHANGED, path, jb + " → " + ja,
-                    path + ": joins " + jb + " → " + ja, b, a, Risk.MEDIUM);
+                    Messages.t("diff.shape.joins", path, jb, ja), b, a, Risk.MEDIUM);
         }
         Set<String> clB = clauses(qb.clauses());
         Set<String> clA = clauses(qa.clauses());
         for (String c : clA) {
             if (!clB.contains(c)) {
-                add(ctx, p, out, ShapeChangeKind.CLAUSE_ADDED, path, c, path + ": " + c + " added", b, a, clauseRisk(c));
+                add(ctx, p, out, ShapeChangeKind.CLAUSE_ADDED, path, c, Messages.t("diff.shape.clauseAdded", path, c), b, a, clauseRisk(c));
             }
         }
         for (String c : clB) {
             if (!clA.contains(c)) {
-                add(ctx, p, out, ShapeChangeKind.CLAUSE_REMOVED, path, c, path + ": " + c + " removed", b, a, clauseRisk(c));
+                add(ctx, p, out, ShapeChangeKind.CLAUSE_REMOVED, path, c, Messages.t("diff.shape.clauseRemoved", path, c), b, a, clauseRisk(c));
             }
         }
         List<String> ob = upper(qb.outputs());
@@ -130,7 +131,7 @@ final class ShapeComparer {
         if (!ob.equals(oa)) {
             if (new java.util.TreeSet<>(ob).equals(new java.util.TreeSet<>(oa)) && ob.size() == oa.size()) {
                 add(ctx, p, out, ShapeChangeKind.OUTPUT_ORDER_CHANGED, path, qb.outputs() + " → " + qa.outputs(),
-                        path + ": output columns reordered", b, a, Risk.MEDIUM);
+                        Messages.t("diff.shape.outputsReordered", path), b, a, Risk.MEDIUM);
             } else {
                 List<String> plus = new ArrayList<>(qa.outputs());
                 plus.removeIf(o -> ob.contains(o.toUpperCase(Locale.ROOT)));
@@ -142,7 +143,7 @@ final class ShapeComparer {
                 if (detail.isEmpty()) {
                     detail = qb.outputs() + " → " + qa.outputs();
                 }
-                add(ctx, p, out, ShapeChangeKind.OUTPUTS_CHANGED, path, detail, path + ": output columns " + detail,
+                add(ctx, p, out, ShapeChangeKind.OUTPUTS_CHANGED, path, detail, Messages.t("diff.shape.outputsChanged", path, detail),
                         b, a, Risk.MEDIUM);
             }
         }
@@ -160,7 +161,7 @@ final class ShapeComparer {
                     || ("CTE".equals(x.kind()) && "CTE".equals(y.kind()));
             if (sameObject && !String.valueOf(x.alias()).equalsIgnoreCase(String.valueOf(y.alias()))) {
                 add(ctx, p, out, ShapeChangeKind.RENAMED, path, x.alias() + " → " + y.alias(),
-                        path + ": alias of " + y.name() + " renamed " + x.alias() + " → " + y.alias(), b, a, Risk.LOW);
+                        Messages.t("diff.shape.aliasRenamed", path, y.name(), x.alias(), y.alias()), b, a, Risk.LOW);
             }
         }
     }
@@ -175,7 +176,7 @@ final class ShapeComparer {
 
     private static void add(DiffContext ctx, P p, List<ShapeChange> out, ShapeChangeKind kind, String block,
                             String detail, String message, Flat b, Flat a, Risk risk) {
-        String msg = p.b.label() + ": " + message;
+        String msg = Messages.t("diff.shape.message", p.b.label(), message);
         var br = b == null ? null : b.block().range();
         var ar = a == null ? null : a.block().range();
         out.add(new ShapeChange(kind, block, detail, msg, p.a.id, p.b.id, br, ar));
@@ -273,10 +274,13 @@ final class ShapeComparer {
         return b.kind() + (b.role() == null ? "" : " (" + b.role() + ")");
     }
 
-    private static String on(QueryBlock b) {
+    /** "{path} removed|added", with " on {sources}" when the block reads any. */
+    private static String blockMessage(String key, Flat f) {
+        QueryBlock b = f.block();
         if (b.sources().isEmpty()) {
-            return "";
+            return Messages.t(key, f.path());
         }
-        return " on " + String.join(", ", b.sources().stream().map(QueryBlock.Source::name).toList());
+        return Messages.t(key + "On", f.path(),
+                String.join(", ", b.sources().stream().map(QueryBlock.Source::name).toList()));
     }
 }

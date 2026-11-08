@@ -165,7 +165,7 @@ record Source(Kind kind, String name, int nameStart, int nameEnd, String alias, 
             }
         }
         List<Source> s = Source.parse(sql, start, end < 0 ? sql.size() : end, 0);
-        return s.size() == 1 && s.getFirst().kind() == Kind.TABLE ? s : List.of();
+        return s.size() == 1 && s.get(0).kind() == Kind.TABLE ? s : List.of();
     }
 
     /** Skips table hints: {@code WITH (NOLOCK)}, {@code (NOLOCK)}, MySQL index hints. */

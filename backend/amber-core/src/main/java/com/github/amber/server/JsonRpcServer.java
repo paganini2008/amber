@@ -17,11 +17,16 @@ import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.concurrent.Future;
+import java.util.concurrent.FutureTask;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /**
  * JSON-RPC 2.0 over line-delimited JSON on stdin/stdout. Requests run concurrently; each response
- * is written as one line. Supports {@code $/cancel}.
+ * is written as one line. Supports {@code $/cancel}: the request is answered with -32800 at once (also
+ * when it was still queued) and its worker is interrupted. Every request with an id gets exactly one
+ * answer; notifications get none. When the input ends, requests already accepted are still answered
+ * (for up to {@value #DRAIN_SECONDS} s) before {@link #serve} returns.
  *
  * @Author: Fred Feng
  * @Date: 07/11/2026
@@ -35,6 +40,8 @@ public final class JsonRpcServer {
     static final int INVALID_PARAMS = -32602;
     static final int INTERNAL_ERROR = -32603;
     static final int CANCELLED = -32800;
+    /** How long {@link #serve} waits for accepted requests once the input has ended. */
+    static final int DRAIN_SECONDS = 60;
 
     /** A method implementation: params (may be null) to a result object serializable by Jackson. */
     @FunctionalInterface
@@ -42,10 +49,27 @@ public final class JsonRpcServer {
         Object handle(JsonNode params) throws Exception;
     }
 
+    /**
+     * Whether a failure is the result of {@code $/cancel}: the worker was interrupted, or the chain holds a
+     * cancellation or interruption (parallel parsing wraps them in {@code CompletionException}).
+     */
+    static boolean isCancellation(Throwable e) {
+        if (Thread.currentThread().isInterrupted()) {
+            return true;
+        }
+        for (Throwable t = e; t != null; t = t.getCause() == t ? null : t.getCause()) {
+            if (t instanceof CancellationException || t instanceof InterruptedException
+                    || t instanceof java.nio.channels.ClosedByInterruptException) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private final ObjectMapper mapper;
     private final Map<String, Handler> handlers;
     private final ExecutorService pool;
-    private final Map<String, Future<?>> running = new ConcurrentHashMap<>();
+    private final Map<String, Running> running = new ConcurrentHashMap<>();
     private final PrintStream log;
     private OutputStream out;
 
@@ -73,7 +97,16 @@ public final class JsonRpcServer {
             }
         } finally {
             pool.shutdown();
+            try {
+                pool.awaitTermination(DRAIN_SECONDS, TimeUnit.SECONDS);
+            } catch (InterruptedException e) {
+                Thread.currentThread().interrupt();
+            }
         }
+    }
+
+    /** A request in flight; {@code answered} makes sure it is answered once, by the worker or by a cancel. */
+    private record Running(JsonNode id, String method, FutureTask<?> task, AtomicBoolean answered) {
     }
 
     void accept(String line) {
@@ -81,7 +114,7 @@ public final class JsonRpcServer {
         try {
             msg = mapper.readTree(line);
         } catch (IOException e) {
-            send(error(null, PARSE_ERROR, "Invalid JSON: " + e.getMessage()));
+            send(error(idOf(line), PARSE_ERROR, "Invalid JSON: " + e.getMessage()));
             return;
         }
         if (!(msg instanceof ObjectNode obj) || !obj.hasNonNull("method")) {
@@ -93,9 +126,13 @@ public final class JsonRpcServer {
         JsonNode params = obj.get("params");
         if (method.equals("$/cancel")) {
             JsonNode target = params == null ? null : params.get("id");
-            Future<?> f = target == null ? null : running.remove(target.toString());
-            if (f != null) {
-                f.cancel(true);
+            Running r = target == null ? null : running.remove(target.toString());
+            if (r != null) {
+                r.task().cancel(true);
+                if (r.answered().compareAndSet(false, true)) {
+                    log.println("amber: request " + target + " (" + r.method() + ") cancelled");
+                    send(error(r.id(), CANCELLED, "Request cancelled"));
+                }
             }
             return;
         }
@@ -107,32 +144,89 @@ public final class JsonRpcServer {
             return;
         }
         String key = id == null ? null : id.toString();
-        Future<?> future = pool.submit(() -> {
+        AtomicBoolean answered = new AtomicBoolean();
+        FutureTask<Void> task = new FutureTask<>(() -> {
             try {
                 Object result = handler.handle(params);
                 if (id != null) {
                     ObjectNode resp = mapper.createObjectNode();
                     resp.put("jsonrpc", "2.0");
                     resp.set("id", id);
-                    resp.set("result", mapper.valueToTree(result));
-                    send(resp);
+                    resp.putPOJO("result", result);                // serialized once, without an intermediate tree
+                    String answer = mapper.writeValueAsString(resp);  // before claiming: a failure here is answered below
+                    if (answered.compareAndSet(false, true)) {
+                        write(answer);
+                    }
                 }
             } catch (IllegalArgumentException e) {
-                send(error(id, INVALID_PARAMS, e.getMessage()));
-            } catch (CancellationException | InterruptedException e) {
-                send(error(id, CANCELLED, "Request cancelled"));
+                if (id != null && answered.compareAndSet(false, true)) {
+                    send(error(id, INVALID_PARAMS, e.getMessage() == null ? e.toString() : e.getMessage()));
+                }
+            } catch (java.nio.file.FileSystemException e) {
+                if (id != null && answered.compareAndSet(false, true)) {
+                    send(error(id, INVALID_PARAMS, fileProblem(e)));     // a path the user gave: not an engine error
+                }
             } catch (Throwable e) {
-                e.printStackTrace(log);
-                send(error(id, INTERNAL_ERROR, e.getClass().getSimpleName() + ": " + e.getMessage()));
+                boolean answer = id != null && answered.compareAndSet(false, true);
+                if (id != null && !answer) {
+                    return;                                             // already answered as cancelled
+                }
+                if (isCancellation(e)) {
+                    log.println("amber: request " + key + " (" + method + ") cancelled");
+                    if (answer) {
+                        send(error(id, CANCELLED, "Request cancelled"));
+                    }
+                } else {
+                    e.printStackTrace(log);
+                    if (answer) {
+                        send(error(id, INTERNAL_ERROR, e.getClass().getSimpleName() + ": " + e.getMessage()));
+                    }
+                }
             } finally {
                 if (key != null) {
                     running.remove(key);
                 }
             }
-        });
+        }, null);
         if (key != null) {
-            running.put(key, future);
+            running.put(key, new Running(id, method, task, answered));   // before it runs: no stale entries
         }
+        pool.execute(task);
+    }
+
+    private static String fileProblem(java.nio.file.FileSystemException e) {
+        String file = e.getFile();
+        if (e instanceof java.nio.file.NoSuchFileException) {
+            return "File not found: " + file;
+        }
+        if (e instanceof java.nio.file.AccessDeniedException) {
+            return "Access denied: " + file;
+        }
+        return "Cannot access " + file + ": " + e.getMessage();
+    }
+
+    /**
+     * The id of a request whose line is not valid JSON (cut off, or over a limit), read with a streaming
+     * parser that skips the other members without materializing them; null when it cannot be found.
+     */
+    JsonNode idOf(String line) {
+        try (com.fasterxml.jackson.core.JsonParser p = mapper.getFactory().createParser(line)) {
+            if (p.nextToken() != com.fasterxml.jackson.core.JsonToken.START_OBJECT) {
+                return null;
+            }
+            while (p.nextToken() == com.fasterxml.jackson.core.JsonToken.FIELD_NAME) {
+                String name = p.currentName();
+                com.fasterxml.jackson.core.JsonToken value = p.nextToken();
+                if ("id".equals(name)) {
+                    return value != null && value.isScalarValue() && value != com.fasterxml.jackson.core.JsonToken.VALUE_TRUE
+                            && value != com.fasterxml.jackson.core.JsonToken.VALUE_FALSE ? mapper.readTree(p) : null;
+                }
+                p.skipChildren();
+            }
+        } catch (IOException | RuntimeException e) {
+            // no id to be found
+        }
+        return null;
     }
 
     private ObjectNode error(JsonNode id, int code, String message) {
@@ -152,7 +246,15 @@ public final class JsonRpcServer {
             }
         }
         try {
-            byte[] bytes = (mapper.writeValueAsString(message) + "\n").getBytes(StandardCharsets.UTF_8);
+            write(mapper.writeValueAsString(message));
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    private void write(String line) {
+        try {
+            byte[] bytes = (line + "\n").getBytes(StandardCharsets.UTF_8);
             synchronized (this) {
                 out.write(bytes);
                 out.flush();

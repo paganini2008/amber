@@ -110,7 +110,7 @@ class OtherDialectsLineageTest {
         DialectFrontend f = DialectFrontends.get(Dialect.MYSQL);
         var catalog = com.github.amber.core.lineage.Catalog.of(java.util.List.of());
         ScriptIrBuilder.build(f, f.parse(SourceText.of("create table t (`my col` int, b int);")), catalog);
-        assertEquals(java.util.List.of("my col", "b"), catalog.tables().getFirst().columnNames());
+        assertEquals(java.util.List.of("my col", "b"), catalog.tables().get(0).columnNames());
         Set<String> ora = edges(Dialect.ORACLE, "insert into t2 (lvl) select \"LEVEL\" from t;");
         assertTrue(ora.contains("TABLE:t.LEVEL -> t2.lvl PASS_THROUGH"), ora::toString);
     }

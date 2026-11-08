@@ -1,4 +1,5 @@
 import type { Finding, Range, Rewrite, RewriteEdit, StatementPair } from '@shared/protocol'
+import { t } from '../i18n'
 
 /**
  * Rule-based quick fixes (`rewrite.suggest`): how they are worded, grouped, matched to findings
@@ -11,13 +12,13 @@ export type SafetyTone = 'same' | 'metadata' | 'edge'
 export function safetyText(safety: string): { label: string; tone: SafetyTone; detail: string } {
   switch (safety) {
     case 'EQUIVALENT':
-      return { label: 'Same result', tone: 'same', detail: 'Returns the same rows for any data.' }
+      return { label: t('fixes.safety.EQUIVALENT.label'), tone: 'same', detail: t('fixes.safety.EQUIVALENT.detail') }
     case 'EQUIVALENT_WITH_METADATA':
-      return { label: 'Same result given the table definitions', tone: 'metadata', detail: 'The same rows, as long as the column types, nullability and keys are as described.' }
+      return { label: t('fixes.safety.EQUIVALENT_WITH_METADATA.label'), tone: 'metadata', detail: t('fixes.safety.EQUIVALENT_WITH_METADATA.detail') }
     case 'CHANGES_BEHAVIOR_IN_EDGE_CASES':
-      return { label: 'Changes behavior in edge cases', tone: 'edge', detail: 'Read the note before applying it.' }
+      return { label: t('fixes.safety.CHANGES_BEHAVIOR_IN_EDGE_CASES.label'), tone: 'edge', detail: t('fixes.safety.CHANGES_BEHAVIOR_IN_EDGE_CASES.detail') }
     default:
-      return { label: safety ? safety.charAt(0) + safety.slice(1).toLowerCase().replace(/_/g, ' ') : 'Not rated', tone: 'edge', detail: '' }
+      return { label: safety ? safety.charAt(0) + safety.slice(1).toLowerCase().replace(/_/g, ' ') : t('fixes.safety.notRated'), tone: 'edge', detail: '' }
   }
 }
 
@@ -93,7 +94,7 @@ export function applyEdits(text: string, edits: RewriteEdit[]): string {
   return out
 }
 
-function position(text: string, offset: number): { offset: number; line: number; column: number } {
+export function position(text: string, offset: number): { offset: number; line: number; column: number } {
   let line = 1
   let last = -1
   for (let i = 0; i < offset && i < text.length; i++) {

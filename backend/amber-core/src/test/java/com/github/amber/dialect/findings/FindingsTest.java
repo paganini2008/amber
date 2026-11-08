@@ -97,8 +97,8 @@ class FindingsTest {
         List<Finding> online = Findings.of(script, catalog);
         List<Finding> s004 = online.stream().filter(f -> f.rule().equals("AMB-S004")).toList();
         assertEquals(1, s004.size(), "NOT NULL column b.ref is safe");
-        assertEquals(2, s004.getFirst().range().start().line());
-        assertEquals(com.github.amber.core.ir.Confidence.CERTAIN, s004.getFirst().confidence());
+        assertEquals(2, s004.get(0).range().start().line());
+        assertEquals(com.github.amber.core.ir.Confidence.CERTAIN, s004.get(0).confidence());
         assertEquals(2, Findings.of(script).stream().filter(f -> f.rule().equals("AMB-S004")).count(), "offline: both");
     }
 

@@ -1,4 +1,5 @@
 import type { Finding } from '@shared/protocol'
+import { severityText as severityLabel } from './kinds'
 
 export const SEVERITY_ORDER = ['HIGH', 'MEDIUM', 'LOW', 'INFO']
 
@@ -34,17 +35,9 @@ export function worstByStatement(findings: Finding[]): Map<number, { severity: s
   return out
 }
 
+/** Severity in the UI language; anything unknown reads as "Info". */
 export function severityText(severity: string): string {
-  switch (severity) {
-    case 'HIGH':
-      return 'High'
-    case 'MEDIUM':
-      return 'Medium'
-    case 'LOW':
-      return 'Low'
-    default:
-      return 'Info'
-  }
+  return severityLabel(['HIGH', 'MEDIUM', 'LOW'].includes(severity) ? severity : 'INFO')
 }
 
 export function ignoreHint(rule: string): string {

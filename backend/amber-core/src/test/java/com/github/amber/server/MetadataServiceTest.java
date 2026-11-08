@@ -104,8 +104,8 @@ class MetadataServiceTest {
         assertEquals(2, r.tables(), r::toString);
         assertEquals(List.of("inv.nowhere"), r.missing().stream().map(String::toLowerCase).toList());
         assertEquals(1, r.ambiguous().size(), r::toString);
-        assertEquals("inv.stock", r.ambiguous().getFirst().name());
-        assertEquals("a", r.ambiguous().getFirst().chosen(), "no column decides: the first source wins");
+        assertEquals("inv.stock", r.ambiguous().get(0).name());
+        assertEquals("a", r.ambiguous().get(0).chosen(), "no column decides: the first source wins");
         assertTrue(r.errors().isEmpty(), r::toString);
         assertEquals(2, r.servers().size());
         assertTrue(Files.exists(save));
@@ -118,7 +118,7 @@ class MetadataServiceTest {
         var r = new MetadataService().load(new MetadataService.LoadRequest("h2",
                 "insert into tmp_site select s.site, s.qty from inv.stock s;", null,
                 List.of(ds("a", URL_A), ds("b", URL_B)), null));
-        assertEquals("b", r.ambiguous().getFirst().chosen(), "only b has the column site");
+        assertEquals("b", r.ambiguous().get(0).chosen(), "only b has the column site");
         assertTrue(r.pack().tables().stream().anyMatch(t -> t.column("site").isPresent()));
     }
 }

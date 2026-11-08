@@ -15,6 +15,7 @@ describe('resolveEngineCommand', () => {
     })
     expect(cmd.command).toBe(join(res, 'runtime', 'bin', 'java'))
     expect(cmd.args).toEqual([
+      '-XX:MaxRAMPercentage=50',
       `-XX:SharedArchiveFile=${join(res, 'engine', 'amber.jsa')}`,
       '-jar',
       join(res, 'engine', 'engine.jar'),
@@ -32,7 +33,7 @@ describe('resolveEngineCommand', () => {
       exists: () => false
     })
     expect(cmd.command.endsWith('java.exe')).toBe(true)
-    expect(cmd.args[0]).toBe('-jar')
+    expect(cmd.args).toEqual(['-XX:MaxRAMPercentage=50', '-jar', join('C:\\Amber\\resources', 'engine', 'engine.jar'), 'serve'])
   })
 
   it('prefers AMBER_ENGINE_JAR and JAVA_HOME in development', () => {
@@ -45,7 +46,8 @@ describe('resolveEngineCommand', () => {
       exists: () => true
     })
     expect(cmd.command).toBe(join('/jdk', 'bin', 'java'))
-    expect(cmd.args).toEqual(['-jar', '/opt/engine.jar', 'serve'])
+    // The heap cap applies in development too.
+    expect(cmd.args).toEqual(['-XX:MaxRAMPercentage=50', '-jar', '/opt/engine.jar', 'serve'])
   })
 
   it('falls back to the backend build output and java on PATH', () => {

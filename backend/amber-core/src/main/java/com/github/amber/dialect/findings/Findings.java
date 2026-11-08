@@ -52,7 +52,11 @@ import java.util.regex.Pattern;
  *   <tr><td>AMB-D002</td><td>Subquery repeated across the script</td><td>LOW</td></tr>
  *   <tr><td>AMB-I001</td><td>Dynamic SQL is not analyzed</td><td>INFO</td></tr>
  *   <tr><td>AMB-I002</td><td>Columns that could not be attributed to a table</td><td>INFO</td></tr>
+ *   <tr><td>AMB-I003</td><td>Checks stopped early: the time budget ran out</td><td>INFO</td></tr>
  * </table>
+ *
+ * <p>The performance and maintenance hints AMB-P001 … AMB-P009 live in
+ * {@link com.github.amber.dialect.findings.rules.ExtraRules}; {@link RuleCatalog} lists every rule.
  *
  * @Author: Fred Feng
  * @Date: 07/11/2026
@@ -79,6 +83,14 @@ public final class Findings {
     private final com.github.amber.core.lineage.Catalog catalog;
     private final List<Finding> out = new ArrayList<>();
 
+    /**
+     * Time budget for all checks of one script ({@code AMBER_FINDINGS_SECONDS}, default 60). A guard, not a
+     * tuning knob: when it runs out the remaining statements are skipped and AMB-I003 says from where.
+     */
+    static final long BUDGET_NANOS = java.util.concurrent.TimeUnit.SECONDS.toNanos(Math.max(1,
+            com.github.amber.core.config.Env.get().integer("AMBER_FINDINGS_SECONDS", 60)));
+    private long budgetNanos = BUDGET_NANOS;
+
     private Findings(Dialect dialect, SourceText source, com.github.amber.core.lineage.Catalog catalog) {
         this.dialect = dialect;
         this.source = source;
@@ -91,16 +103,37 @@ public final class Findings {
 
     /** With a catalog, metadata rules run and static rules backed by metadata become certain. */
     public static List<Finding> of(Script script, com.github.amber.core.lineage.Catalog catalog) {
+        return of(script, catalog, BUDGET_NANOS);
+    }
+
+    /** With an explicit time budget in nanoseconds; for tests. */
+    static List<Finding> of(Script script, com.github.amber.core.lineage.Catalog catalog, long budgetNanos) {
         Findings f = new Findings(script.dialect(), script.source(), catalog);
+        f.budgetNanos = budgetNanos;
         f.run(script);
         return f.out;
+    }
+
+    /** As {@link #of(Script, com.github.amber.core.lineage.Catalog)} with the user's rule settings applied. */
+    public static List<Finding> of(Script script, com.github.amber.core.lineage.Catalog catalog, RuleConfig config) {
+        List<Finding> all = of(script, catalog);
+        return config == null ? all : config.apply(all);
     }
 
     private void run(Script script) {
         Map<String, Statement> fingerprints = new HashMap<>();
         Map<String, List<TextRange>> subqueries = new LinkedHashMap<>();
         Map<String, Statement> subqueryOwner = new HashMap<>();
+        long started = System.nanoTime();
         for (Statement st : script.flatten()) {
+            if (Thread.currentThread().isInterrupted()) {
+                throw new java.util.concurrent.CancellationException("findings cancelled");
+            }
+            if (System.nanoTime() - started > budgetNanos) {
+                add("AMB-I003", Severity.INFO, t("findings.I003.message"), st, st.range(), Confidence.CERTAIN);
+                suppress();
+                return;
+            }
             if (st.kind() == StatementKind.CLIENT_COMMAND || st.kind() == StatementKind.DATA) {
                 continue;
             }
@@ -108,9 +141,7 @@ public final class Findings {
                 loopRules(st);
             }
             if (st.kind() == StatementKind.DYNAMIC_SQL) {
-                add("AMB-I001", Severity.INFO, "Dynamic SQL", "The statement builds SQL at run time; Amber does not "
-                        + "analyze its text.", "Where possible, use static SQL so the statement can be checked.",
-                        st, st.range(), Confidence.CERTAIN);
+                add("AMB-I001", Severity.INFO, t("findings.I001.message"), st, st.range(), Confidence.CERTAIN);
             }
             if (st.kind().isContainer()) {
                 continue;
@@ -128,9 +159,7 @@ public final class Findings {
                 String fp = fingerprint(tokens, 0, tokens.size());
                 Statement earlier = fingerprints.putIfAbsent(fp, st);
                 if (earlier != null && tokens.size() > 4) {
-                    add("AMB-D001", Severity.LOW, "Duplicate statement", "Same statement as line "
-                            + earlier.range().start().line() + " (literals ignored).",
-                            "Remove the repetition or factor it into a procedure.", st, st.range(), Confidence.CERTAIN);
+                    add("AMB-D001", Severity.LOW, t("findings.D001.message", earlier.range().start().line()), st, st.range(), Confidence.CERTAIN);
                 }
                 collectSubqueries(st, tokens, subqueries, subqueryOwner);
             }
@@ -138,11 +167,10 @@ public final class Findings {
         subqueries.forEach((fp, ranges) -> {
             if (ranges.size() >= 2) {
                 Statement st = subqueryOwner.get(fp);
-                add("AMB-D002", Severity.LOW, "Repeated subquery", "This subquery appears " + ranges.size()
-                        + " times in the script.", "Compute it once in a CTE or temp table and reuse it.",
-                        st, ranges.getFirst(), Confidence.CERTAIN);
+                add("AMB-D002", Severity.LOW, t("findings.D002.message", ranges.size()), st, ranges.get(0), Confidence.CERTAIN);
             }
         });
+        out.addAll(com.github.amber.dialect.findings.rules.ExtraRules.of(script, catalog));   // AMB-P001 … P009
         suppress();
     }
 
@@ -154,9 +182,7 @@ public final class Findings {
             // AMB-S003 leading wildcard
             if (tok.isWord("LIKE") && i + 1 < t.size() && t.get(i + 1).type() == ScanToken.Type.STRING
                     && unquote(t.get(i + 1).text()).startsWith("%")) {
-                add("AMB-S003", Severity.MEDIUM, "Leading wildcard", "LIKE " + t.get(i + 1).text()
-                        + " cannot use an index on the column.", "Anchor the pattern at the start, or use full-text search.",
-                        st, range(tok, t.get(i + 1)), Confidence.CERTAIN);
+                add("AMB-S003", Severity.MEDIUM, t("findings.S003.message", t.get(i + 1).text()), st, range(tok, t.get(i + 1)), Confidence.CERTAIN);
             }
             // AMB-S004 NOT IN (SELECT
             if (tok.isWord("NOT") && i + 3 < t.size() && t.get(i + 1).isWord("IN") && t.get(i + 2).isSymbol('(')
@@ -164,18 +190,14 @@ public final class Findings {
                 // With metadata: a NOT NULL subquery column makes NOT IN safe; a nullable one makes the risk real.
                 Boolean nullable = subqueryColumnNullable(t, i + 4);
                 if (!Boolean.FALSE.equals(nullable)) {
-                    add("AMB-S004", Severity.MEDIUM, "NOT IN with a subquery", nullable == null
-                            ? "If the subquery returns a NULL, NOT IN matches no rows."
-                            : "The subquery column is nullable in the database: one NULL makes NOT IN match no rows.",
-                            "Use NOT EXISTS, or filter NULLs out of the subquery.", st,
+                    add("AMB-S004", Severity.MEDIUM, t(nullable == null ? "findings.S004.message.unknown"
+                            : "findings.S004.message.nullable"), st,
                             range(tok, t.get(i + 3)), nullable == null ? Confidence.INFERRED : Confidence.CERTAIN);
                 }
             }
             // AMB-S009 UNION without ALL
             if (tok.isWord("UNION") && (i + 1 >= t.size() || !t.get(i + 1).isWord("ALL"))) {
-                add("AMB-S009", Severity.LOW, "UNION removes duplicates", "UNION sorts or hashes the result to "
-                        + "remove duplicates.", "Use UNION ALL when the branches cannot overlap or duplicates are fine.",
-                        st, range(tok, tok), Confidence.INFERRED);
+                add("AMB-S009", Severity.LOW, t("findings.S009.message"), st, range(tok, tok), Confidence.INFERRED);
             }
         }
         if (WRITES_STAR.contains(st.kind())) {
@@ -183,8 +205,7 @@ public final class Findings {
                 if (t.get(i).isWord("SELECT") && (t.get(i + 1).isSymbol('*')
                         || (i + 2 < t.size() && (t.get(i + 1).isWord("DISTINCT") || t.get(i + 1).isWord("ALL"))
                         && t.get(i + 2).isSymbol('*')))) {
-                    add("AMB-S010", Severity.LOW, "SELECT * written into a table or view", "The column list changes "
-                            + "whenever the source table changes.", "List the columns explicitly.", st,
+                    add("AMB-S010", Severity.LOW, t("findings.S010.message"), st,
                             range(t.get(i), t.get(i + 1)), Confidence.CERTAIN);
                     break;
                 }
@@ -268,13 +289,11 @@ public final class Findings {
             }
         }
         if (distinct && groupBy) {
-            add("AMB-S011", Severity.LOW, "DISTINCT with GROUP BY", "GROUP BY already returns one row per group.",
-                    "Remove DISTINCT unless the select list adds columns outside the groups.", st,
+            add("AMB-S011", Severity.LOW, t("findings.S011.message"), st,
                     range(t.get(start), t.get(start + 1)), Confidence.INFERRED);
         }
         if (orderBy >= 0 && !limited && d > 0 && !outerLimited(t, depth, start, end, d)) {
-            add("AMB-S012", Severity.LOW, "ORDER BY in a subquery", "The order of a subquery or CTE is not kept by the "
-                    + "outer query.", "Remove ORDER BY, or move it to the outermost query.", st,
+            add("AMB-S012", Severity.LOW, t("findings.S012.message"), st,
                     range(t.get(orderBy), t.get(orderBy + 1)), Confidence.INFERRED);
         }
         if (from < 0) {
@@ -299,9 +318,7 @@ public final class Findings {
             }
         }
         if (commas > 0 && where < 0 && !hasJoin) {
-            add("AMB-S001", Severity.HIGH, "Cartesian product", (commas + 1) + " tables are listed in FROM without any "
-                    + "join or WHERE condition; every row is combined with every row.",
-                    "Add join conditions, or write CROSS JOIN if the product is intended.", st,
+            add("AMB-S001", Severity.HIGH, t("findings.S001.message", commas + 1), st,
                     range(t.get(from), t.get(fromEnd - 1)), Confidence.CERTAIN);
         }
         // AMB-S002: LEFT JOIN alias filtered in WHERE
@@ -333,9 +350,7 @@ public final class Findings {
                 }
                 if (k < whereEnd && (t.get(k).isSymbol('=') || t.get(k).isSymbol('<') || t.get(k).isSymbol('>')
                         || t.get(k).isWord("IN") || t.get(k).isWord("LIKE") || t.get(k).isWord("BETWEEN"))) {
-                    add("AMB-S002", Severity.MEDIUM, "LEFT JOIN behaves as INNER JOIN", "The WHERE condition on "
-                            + t.get(i).text() + "." + t.get(i + 2).text() + " drops the rows the LEFT JOIN kept.",
-                            "Move the condition into the ON clause, or use INNER JOIN if that is intended.", st,
+                    add("AMB-S002", Severity.MEDIUM, t("findings.S002.message", t.get(i).text() + "." + t.get(i + 2).text()), st,
                             range(t.get(i), t.get(k)), Confidence.INFERRED);
                     outer.remove(alias);
                 }
@@ -375,11 +390,9 @@ public final class Findings {
             if (column && close < to && (t.get(close).isSymbol('=') || t.get(close).isSymbol('<')
                     || t.get(close).isSymbol('>') || t.get(close).isWord("BETWEEN") || t.get(close).isWord("IN")
                     || t.get(close).isWord("LIKE"))) {
-                add("AMB-S008", indexed != null ? Severity.HIGH : Severity.MEDIUM, "Function on a filtered column",
-                        fn.text().toUpperCase(Locale.ROOT) + "(…) is applied to "
-                        + (indexed != null ? "the indexed column " + indexed : "a column") + " before comparing it; "
-                        + "an index on that column cannot be used.",
-                        "Compare the bare column with a transformed value (e.g. a date range instead of TRUNC(col)).",
+                add("AMB-S008", indexed != null ? Severity.HIGH : Severity.MEDIUM, indexed != null
+                        ? t("findings.S008.message.indexed", fn.text().toUpperCase(Locale.ROOT), indexed)
+                        : t("findings.S008.message.column", fn.text().toUpperCase(Locale.ROOT)),
                         st, range(fn, t.get(close - 1)), indexed != null ? Confidence.CERTAIN : Confidence.INFERRED);
                 return;
             }
@@ -468,10 +481,7 @@ public final class Findings {
                 sides.add(displayNames.getOrDefault(key, meta.get().qualifiedName())
                         + " (" + String.join(", ", side.getValue()) + ")");
             }
-            add("AMB-M001", Severity.HIGH, "Many-to-many join", "Neither side of this join is unique: "
-                    + String.join(" and ", sides) + "; every match repeats rows on both sides.",
-                    "Join on a unique key, or aggregate one side to one row per join key first. Check whether "
-                    + "totals are inflated.", st, range, Confidence.CERTAIN);
+            add("AMB-M001", Severity.HIGH, t("findings.M001.message", String.join(t("findings.M001.and"), sides)), st, range, Confidence.CERTAIN);
         });
     }
 
@@ -524,9 +534,7 @@ public final class Findings {
         }
         reads.forEach((key, refs) -> {
             if (refs.size() >= 2) {
-                add("AMB-S005", Severity.MEDIUM, "Table read several times", refs.getFirst().name() + " is read "
-                        + refs.size() + " times in this statement.", "Read it once in a CTE (or with conditional "
-                        + "aggregation) and reuse the result.", st, refs.get(1).range(), Confidence.CERTAIN);
+                add("AMB-S005", Severity.MEDIUM, t("findings.S005.message", refs.get(0).name(), refs.size()), st, refs.get(1).range(), Confidence.CERTAIN);
             }
         });
     }
@@ -542,10 +550,8 @@ public final class Findings {
             }
         }
         if (!unknown.isEmpty()) {
-            add("AMB-I002", Severity.INFO, "Columns without a table", "Could not tell which table "
-                    + String.join(", ", unknown) + (unknown.size() == 1 ? " belongs" : " belong") + " to.",
-                    "Qualify the columns with a table alias, or add metadata (DDL import, metadata pack or online mode).",
-                    st, st.range(), Confidence.CERTAIN);
+            add("AMB-I002", Severity.INFO, t(unknown.size() == 1 ? "findings.I002.message.one" : "findings.I002.message.other",
+                    String.join(", ", unknown)), st, st.range(), Confidence.CERTAIN);
         }
     }
 
@@ -556,15 +562,11 @@ public final class Findings {
             }
             if (s.kind() == StatementKind.INSERT || s.kind() == StatementKind.UPDATE || s.kind() == StatementKind.DELETE
                     || s.kind() == StatementKind.MERGE) {
-                add("AMB-S006", Severity.MEDIUM, "Row-by-row DML in a loop", "This " + s.kind().name().toLowerCase(Locale.ROOT)
-                        + " runs once per loop iteration.", "Replace the loop with one set-based statement "
-                        + "(INSERT … SELECT, UPDATE … FROM, MERGE), or batch it (FORALL / bulk binds).", s, s.range(),
+                add("AMB-S006", Severity.MEDIUM, t("findings.S006.message." + s.kind().name().toLowerCase(Locale.ROOT)), s, s.range(),
                         Confidence.INFERRED);
             }
             if (s.kind() == StatementKind.TRANSACTION && text(s.range()).strip().toUpperCase(Locale.ROOT).startsWith("COMMIT")) {
-                add("AMB-S007", Severity.MEDIUM, "COMMIT inside a loop", "Committing every iteration is slow and leaves "
-                        + "partial results if the loop fails.", "Commit once after the loop, or in larger batches.",
-                        s, s.range(), Confidence.CERTAIN);
+                add("AMB-S007", Severity.MEDIUM, t("findings.S007.message"), s, s.range(), Confidence.CERTAIN);
             }
         });
     }
@@ -612,9 +614,15 @@ public final class Findings {
 
     // ----- helpers ----------------------------------------------------------------------------------
 
-    private void add(String rule, Severity severity, String title, String message, String suggestion, Statement st,
-                     TextRange range, Confidence confidence) {
-        out.add(new Finding(rule, severity, title, message, suggestion, st, range, confidence));
+    /** A finding with the rule's catalogue title and general suggestion, in the request's language. */
+    private void add(String rule, Severity severity, String message, Statement st, TextRange range,
+                     Confidence confidence) {
+        out.add(new Finding(rule, severity, t("rule." + rule + ".title"), message, t("rule." + rule + ".suggestion"),
+                st, range, confidence));
+    }
+
+    private static String t(String key, Object... args) {
+        return com.github.amber.core.i18n.Messages.t(key, args);
     }
 
     /** Drops findings whose statement (or the line above it) says {@code amber:ignore RULE}. */

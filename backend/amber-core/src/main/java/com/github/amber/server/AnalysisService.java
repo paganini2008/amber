@@ -38,10 +38,16 @@ public final class AnalysisService {
      */
     public record Request(String dialect, String text, String path, String encoding, String name,
                           Boolean allowFallback, List<String> metadataPacks, List<String> ddlFiles,
-                          List<com.github.amber.core.meta.TableMeta> metadata) {
+                          List<com.github.amber.core.meta.TableMeta> metadata, Dtos.RulesDto rules) {
 
         public Request(String dialect, String text, String path, String encoding, String name, Boolean allowFallback) {
-            this(dialect, text, path, encoding, name, allowFallback, null, null, null);
+            this(dialect, text, path, encoding, name, allowFallback, null, null, null, null);
+        }
+
+        public Request(String dialect, String text, String path, String encoding, String name, Boolean allowFallback,
+                       List<String> metadataPacks, List<String> ddlFiles,
+                       List<com.github.amber.core.meta.TableMeta> metadata) {
+            this(dialect, text, path, encoding, name, allowFallback, metadataPacks, ddlFiles, metadata, null);
         }
     }
 
@@ -69,9 +75,10 @@ public final class AnalysisService {
         }
         List<Statement> steps = Lifecycles.steps(a.script());
         List<DiagnosticDto> all = new java.util.ArrayList<>(a.script().diagnostics().stream().map(DiagnosticDto::of).toList());
+        var rules = Dtos.RulesDto.config(req.rules());
         List<com.github.amber.dialect.findings.Finding> findings;
         try {
-            findings = com.github.amber.dialect.findings.Findings.of(a.script(), a.catalog());
+            findings = findings(a, rules, steps);
         } catch (RuntimeException e) {
             findings = List.of();                 // findings are hints; never fail the analysis
             all.add(new DiagnosticDto("WARNING", "findings", "Findings could not be computed: " + e, null, null, List.of()));
@@ -81,6 +88,18 @@ public final class AnalysisService {
                 Lifecycles.of(a.script()).stream().map(LifecycleDto::of).toList(), steps.size(),
                 Dtos.lineage(com.github.amber.core.lineage.LineageGraph.of(a.script()), steps),
                 Dtos.findings(findings, steps));
+    }
+
+    /**
+     * Findings of an analysis with the user's rule settings, each with its optimized SQL when one can be
+     * built (the extra rules attach theirs; rules with a quick fix get the verified rewrite).
+     */
+    static List<com.github.amber.dialect.findings.Finding> findings(Analysis a,
+                                                                    com.github.amber.dialect.findings.RuleConfig rules,
+                                                                    List<Statement> steps) {
+        var list = com.github.amber.dialect.findings.Findings.of(a.script(), a.catalog(), rules);
+        return com.github.amber.rewrite.FindingFixes.attach(a.frontend().dialect(), a.parse().source().text(),
+                a.catalog(), a.parse().status() != ScriptStatus.SUCCESS, list, steps, rules::enabled);
     }
 
     /** Parses and builds the IR; the script is {@code null} when strict parsing failed. */

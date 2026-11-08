@@ -19,7 +19,8 @@ final class SqlServerLineageRules {
      * {@code BEGIN … END} does not open a scope); {@code SELECT @v = …} items are handled by the extractor.
      */
     private static final VariableRules VARIABLES = new VariableRules(Set.of("procedure_param"), Set.of("declare_local"),
-            Set.of("set_statement"), Set.of(), Set.of("fetch_cursor"), false, false, VariableRules.AtNames.ROUTINE);
+            Set.of("set_statement"), Set.of(), Set.of("fetch_cursor"), false, false, VariableRules.AtNames.ROUTINE,
+            Set.of("return_statement", "func_body_returns_scalar"), Set.of());
     static final LineageRules INSTANCE = new LineageRules(
             Set.of("query_specification"),
             Set.of("select_statement", "select_statement_standalone", "subquery", "derived_table"),

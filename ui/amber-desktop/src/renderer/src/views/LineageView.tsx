@@ -18,12 +18,14 @@ import {
 } from '@xyflow/react'
 import '@xyflow/react/dist/base.css'
 import clsx from 'clsx'
-import { Box, CircleQuestionMark, Layers, Maximize2, Rows3, ScanSearch, Search, Table2, X } from 'lucide-react'
+import { ArrowLeftFromLine, ArrowLeftRight, ArrowRightFromLine, ArrowRightToLine, Box, CircleQuestionMark, Layers, Maximize2, Rows3, ScanSearch, Search, Table2, Variable, X } from 'lucide-react'
 import { memo, useEffect, useMemo, useRef, useState } from 'react'
 import { usePlaybackView, useReducedMotion } from '@/hooks'
 import { layoutFlow, type LayoutResult } from '@/lib/layout'
 import {
+  isVariableKind,
   ownerKindLabel,
+  ownerSubtitle,
   ownerTitle,
   pickableColumns,
   traceLineage,
@@ -33,6 +35,7 @@ import {
   type LineageTrace
 } from '@/lib/lineage'
 import { buildLineageView, readableViewport, statementTrace, type LineageCard, type LineageViewModel } from '@/lib/lineageView'
+import { t, useLanguage } from '@/i18n'
 import { useStore } from '@/store'
 import { IconButton, NotAvailable, Spinner, Switch, inputClass } from '@/components/ui'
 import { FindReferencesButton, onReferenceContextMenu } from '@/components/References'
@@ -76,6 +79,9 @@ const KIND_ICON: Record<string, typeof Box> = {
   CTE: Box,
   SUBQUERY: Box,
   RESULT: Rows3,
+  // Values in procedural code: an x-variable icon and an input arrow, so the kind never rests on colour.
+  VARIABLE: Variable,
+  PARAMETER: ArrowRightToLine,
   UNKNOWN: CircleQuestionMark
 }
 
@@ -83,13 +89,16 @@ type CardData = { card: LineageCard; focus: number | null; dimAll: boolean }
 
 const OwnerCard = memo(function OwnerCard({ data }: NodeProps<Node<CardData>>) {
   const { card, focus, dimAll } = data
+  useLanguage()
   const Icon = KIND_ICON[card.kind] ?? Box
   const unknown = card.kind === 'UNKNOWN'
   const transient = card.kind === 'CTE' || card.kind === 'SUBQUERY' || card.kind === 'RESULT'
+  const variable = isVariableKind(card.kind)
   return (
     <div
       className={clsx(
         'overflow-hidden rounded-[6px] border bg-surface',
+        variable && 'var-card',
         unknown ? 'border-dashed border-ink-muted' : transient ? 'border-line' : 'border-line-strong',
         transient && 'bg-surface-2',
         dimAll && 'recede'
@@ -97,7 +106,7 @@ const OwnerCard = memo(function OwnerCard({ data }: NodeProps<Node<CardData>>) {
       style={{ width: card.width, height: card.height }}
     >
       <div className="flex h-10 items-center gap-2 border-b border-line px-2.5">
-        <Icon size={14} className="shrink-0 text-ink-muted" />
+        <Icon size={14} className={clsx('shrink-0', variable ? 'text-[var(--var-accent)]' : 'text-ink-muted')} />
         <div className="min-w-0">
           <div className={clsx('truncate text-[12.5px] leading-4 text-ink', card.kind === 'RESULT' || unknown ? 'font-medium' : 'code')}>{card.title}</div>
           <div className={clsx('truncate text-xs leading-4', unknown ? 'text-ink' : 'text-ink-muted')}>{card.subtitle}</div>
@@ -167,7 +176,7 @@ export function LineageView(): React.JSX.Element {
   if (!lineage) {
     return (
       <div className="p-8">
-        <NotAvailable feature="Column lineage">Update the engine to see where each column's values come from.</NotAvailable>
+        <NotAvailable feature={t('lineage.title')}>{t('lineage.notAvailable')}</NotAvailable>
       </div>
     )
   }
@@ -208,21 +217,21 @@ function ColumnPicker({ lineage }: { lineage: LineageIndex }): React.JSX.Element
       <div className="space-y-2 border-b border-line p-2.5">
         <div className="relative">
           <Search size={13} className="pointer-events-none absolute top-1/2 left-2 -translate-y-1/2 text-ink-faint" />
-          <input className={clsx(inputClass, 'pl-7')} placeholder="Find a column" aria-label="Find a column" value={query} onChange={(e) => setQuery(e.target.value)} />
+          <input className={clsx(inputClass, 'pl-7')} placeholder={t('lineage.find')} aria-label={t('lineage.find')} value={query} onChange={(e) => setQuery(e.target.value)} />
         </div>
         {ownerFilter ? (
           <div className="flex items-center gap-1.5 text-xs whitespace-nowrap text-ink-muted">
-            Columns of <span className="code truncate text-ink">{lineage.owners.get(ownerFilter)?.name ?? ownerFilter}</span>
-            <button type="button" aria-label="Show all columns" className="ml-auto hover:text-ink" onClick={() => setLineageOptions({ ownerFilter: null })}>
+            {t('lineage.columnsOf')} <span className="code truncate text-ink">{lineage.owners.get(ownerFilter)?.name ?? ownerFilter}</span>
+            <button type="button" aria-label={t('lineage.showAllColumns')} className="ml-auto hover:text-ink" onClick={() => setLineageOptions({ ownerFilter: null })}>
               <X size={13} />
             </button>
           </div>
         ) : (
-          <div className="text-xs text-ink-muted">{all.length.toLocaleString('en-US')} columns</div>
+          <div className="text-xs text-ink-muted">{t('common.columns', { count: all.length })}</div>
         )}
       </div>
-      <div ref={parent} className="min-h-0 flex-1 overflow-auto" role="listbox" aria-label="Columns">
-        {list.length === 0 ? <p className="p-3 text-sm text-ink-muted">No column matches.</p> : null}
+      <div ref={parent} className="min-h-0 flex-1 overflow-auto" role="listbox" aria-label={t('lineage.columns')}>
+        {list.length === 0 ? <p className="p-3 text-sm text-ink-muted">{t('lineage.noMatch')}</p> : null}
         <div style={{ height: virtualizer.getTotalSize(), position: 'relative' }}>
           {virtualizer.getVirtualItems().map((item) => {
             const c = list[item.index]!
@@ -243,7 +252,11 @@ function ColumnPicker({ lineage }: { lineage: LineageIndex }): React.JSX.Element
               >
                 <span className="code truncate text-[12.5px] text-ink">{c.column}</span>
                 <span className="truncate text-xs text-ink-muted">
-                  {c.ownerKind === 'RESULT' || c.ownerKind === 'UNKNOWN' ? ownerTitle(lineage.owners.get(c.ownerKey)!) : `${c.owner} · ${ownerKindLabel(c.ownerKind)}`}
+                  {c.ownerKind === 'RESULT' || c.ownerKind === 'UNKNOWN'
+                    ? ownerTitle(lineage.owners.get(c.ownerKey)!)
+                    : isVariableKind(c.ownerKind)
+                      ? ownerSubtitle({ kind: c.ownerKind, name: c.owner })
+                      : `${c.owner} · ${ownerKindLabel(c.ownerKind)}`}
                 </span>
               </button>
             )
@@ -254,11 +267,13 @@ function ColumnPicker({ lineage }: { lineage: LineageIndex }): React.JSX.Element
   )
 }
 
-const DIRECTIONS: { id: LineageDirection; label: string; hint: string }[] = [
-  { id: 'upstream', label: 'Where it comes from', hint: 'Upstream: follow the value back to source tables' },
-  { id: 'downstream', label: 'What it affects', hint: 'Downstream: what breaks if I change this?' },
-  { id: 'both', label: 'Both', hint: 'Upstream and downstream' }
-]
+const DIRECTIONS: LineageDirection[] = ['upstream', 'downstream', 'both']
+const DIRECTION_ICON: Record<LineageDirection, typeof Box> = { upstream: ArrowLeftFromLine, downstream: ArrowRightFromLine, both: ArrowLeftRight }
+
+function DirectionIcon({ direction }: { direction: LineageDirection }): React.JSX.Element {
+  const Icon = DIRECTION_ICON[direction]
+  return <Icon size={14} strokeWidth={1.75} aria-hidden />
+}
 
 function LineageCanvas({ lineage }: { lineage: LineageIndex }): React.JSX.Element {
   const focus = useStore((s) => s.lineageFocus)
@@ -273,9 +288,11 @@ function LineageCanvas({ lineage }: { lineage: LineageIndex }): React.JSX.Elemen
   const { trace, mode } = useLineageTrace()
   const [layout, setLayout] = useState<{ model: LineageViewModel; result: LayoutResult } | null>(null)
 
-  const model = useMemo(() => (trace ? buildLineageView(lineage, trace, transformLabel) : null), [lineage, trace])
+  // Card subtitles, row labels and edge labels are in the UI language.
+  const language = useLanguage()
+  const model = useMemo(() => (trace ? buildLineageView(lineage, trace, transformLabel) : null), [lineage, trace, language]) // eslint-disable-line react-hooks/exhaustive-deps
   const focusNode = focus !== null ? lineage.nodes.get(focus) : undefined
-  const title = mode === 'statement' && playback.current !== null ? `Columns written by step ${playback.current + 1}` : focusNode ? `${focusNode.owner}.${focusNode.column}` : ''
+  const title = mode === 'statement' && playback.current !== null ? t('lineage.writtenByStep', { step: playback.current + 1 }) : focusNode ? `${focusNode.owner}.${focusNode.column}` : ''
 
   useEffect(() => {
     if (!model || model.cards.length === 0) return
@@ -299,6 +316,7 @@ function LineageCanvas({ lineage }: { lineage: LineageIndex }): React.JSX.Elemen
   }, [model])
 
   const laid = layout && layout.model === model ? layout : null
+  const hasVariables = Boolean(laid?.model.cards.some((c) => isVariableKind(c.kind)))
 
   // Fit the path; if that would make text unreadable, centre on the focused column instead.
   // Fitting waits until React Flow has measured the cards (fitting earlier used stale sizes and
@@ -394,43 +412,46 @@ function LineageCanvas({ lineage }: { lineage: LineageIndex }): React.JSX.Elemen
       <div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-2 border-b border-line px-4 py-2">
         <div className="min-w-0 basis-full">
           <div className="flex min-w-0 items-center gap-2">
-            <div className="code truncate text-base font-medium text-ink">{title || 'Column lineage'}</div>
+            <div className="code truncate text-base font-medium text-ink">{title || t('lineage.title')}</div>
             {focusNode && TABLE_LIKE.has(focusNode.ownerKind) && mode !== 'statement' ? (
               <FindReferencesButton query={{ table: focusNode.owner, column: focusNode.column }} />
             ) : null}
           </div>
           {counts ? (
             <div className="text-xs text-ink-muted">
-              {counts.columns} columns across {counts.owners} {counts.owners === 1 ? 'object' : 'objects'}
-              {trace?.truncated ? ' · showing the first 600 columns of the path' : ''}
+              {t('lineage.counts', { columns: counts.columns, owners: counts.owners })}
+              {trace?.truncated ? ` · ${t('lineage.truncated', { count: 600 })}` : ''}
             </div>
           ) : null}
         </div>
-        <div className="flex flex-wrap items-center gap-3 whitespace-nowrap">
-          <div className="flex rounded-[6px] border border-line p-0.5" role="radiogroup" aria-label="Direction">
+        <div className="flex max-w-full min-w-0 flex-wrap items-center gap-3 whitespace-nowrap">
+          <div className="flex max-w-full flex-wrap rounded-[6px] border border-line p-0.5" role="radiogroup" aria-label={t('lineage.direction.label')}>
             {DIRECTIONS.map((d) => (
               <button
-                key={d.id}
+                key={d}
                 type="button"
                 role="radio"
-                aria-checked={direction === d.id}
-                title={d.hint}
-                onClick={() => setLineageOptions({ direction: d.id })}
+                aria-checked={direction === d}
+                title={t(`lineage.direction.${d}.hint`)}
+                onClick={() => setLineageOptions({ direction: d })}
                 className={clsx(
                   'h-6 rounded-[4px] px-2 text-xs',
-                  direction === d.id ? 'bg-amber-wash font-medium text-ink' : 'text-ink-muted hover:text-ink'
+                  direction === d ? 'bg-amber-wash font-medium text-ink' : 'text-ink-muted hover:text-ink'
                 )}
               >
-                {d.label}
+                <span className="inline-flex items-center gap-1.5">
+                  <DirectionIcon direction={d} />
+                  {t(`lineage.direction.${d}.label`)}
+                </span>
               </button>
             ))}
           </div>
-          <label className="flex items-center gap-2 text-xs text-ink-muted" title="Columns used in WHERE, JOIN and GROUP BY decide which rows arrive">
-            <Switch checked={indirect} onChange={(v) => setLineageOptions({ indirect: v })} label="Include filters, joins and groups" />
-            Filters, joins, groups
+          <label className="flex items-center gap-2 text-xs text-ink-muted" title={t('lineage.indirect.hint')}>
+            <Switch checked={indirect} onChange={(v) => setLineageOptions({ indirect: v })} label={t('lineage.indirect.label')} />
+            {t('lineage.indirect.short')}
           </label>
           <IconButton
-            label="Fit the whole path"
+            label={t('lineage.fit')}
             onClick={() => {
               setClipped(false)
               void flow.fitView({ padding: 0.1, duration: reduced ? 0 : 200 })
@@ -440,19 +461,19 @@ function LineageCanvas({ lineage }: { lineage: LineageIndex }): React.JSX.Elemen
           </IconButton>
         </div>
       </div>
-      <div ref={setPaneEl} className="relative min-h-0 flex-1">
+      <div ref={setPaneEl} className="relative min-h-0 flex-1 overflow-hidden">
         {mode === 'none' ? (
-          <p className="p-6 text-sm text-ink-muted">What breaks if you change a column? Pick one on the left to see where its values come from and what they feed.</p>
+          <p className="p-6 text-sm text-ink-muted">{t('lineage.empty.pick')}</p>
         ) : model && model.cards.length === 0 ? (
-          <p className="p-6 text-sm text-ink-muted">{mode === 'statement' ? 'This step moves no columns.' : 'No lineage for this column.'}</p>
+          <p className="p-6 text-sm text-ink-muted">{mode === 'statement' ? t('lineage.empty.step') : t('lineage.empty.column')}</p>
         ) : !laid ? (
           <div className="flex h-full items-center justify-center gap-2 text-sm text-ink-muted">
-            <Spinner /> Laying out
+            <Spinner /> {t('lineage.layingOut')}
           </div>
         ) : null}
         {laid && clipped ? (
           <div className="pointer-events-none absolute top-2 left-1/2 z-10 -translate-x-1/2 rounded-[5px] border border-line bg-surface px-2.5 py-1 text-xs text-ink-muted shadow-[0_2px_10px_rgba(0,0,0,0.08)]">
-            Part of the path is outside the view. Drag to pan, or use Fit for the whole path.
+            {t('lineage.clipped')}
           </div>
         ) : null}
         {laid ? (
@@ -466,7 +487,7 @@ function LineageCanvas({ lineage }: { lineage: LineageIndex }): React.JSX.Elemen
             nodesDraggable={false}
             nodesConnectable={false}
             onlyRenderVisibleElements={nodes.length > 120}
-            proOptions={{ hideAttribution: true }}
+            attributionPosition="bottom-left"
             onEdgeClick={(_ev, edge) => {
               const e = laid.model.edges.find((x) => x.id === edge.id)
               if (!e) return
@@ -478,20 +499,26 @@ function LineageCanvas({ lineage }: { lineage: LineageIndex }): React.JSX.Elemen
           </ReactFlow>
         ) : null}
         {laid ? (
-          <div className="pointer-events-none absolute bottom-3 left-3 flex items-center gap-3 rounded-[5px] border border-line bg-surface px-2 py-1 text-xs text-ink-muted">
+          <div className="pointer-events-none absolute right-16 bottom-3 left-3 flex w-fit max-w-[calc(100%-5rem)] flex-wrap items-center gap-x-3 gap-y-0.5 rounded-[5px] border border-line bg-surface px-2 py-1 text-xs text-ink-muted">
             <span className="flex items-center gap-1">
               <svg width="22" height="6" aria-hidden>
                 <line x1="0" y1="3" x2="22" y2="3" stroke="var(--amber)" strokeWidth="2" />
               </svg>
-              value flows
+              {t('lineage.legend.flows')}
             </span>
             <span className="flex items-center gap-1">
               <svg width="22" height="6" aria-hidden>
                 <line x1="0" y1="3" x2="22" y2="3" stroke="var(--amber)" strokeWidth="2" strokeDasharray="5 4" />
               </svg>
-              decides rows (filter, join, group)
+              {t('lineage.legend.decides')}
             </span>
-            <span>Click an edge to see its SQL</span>
+            {hasVariables ? (
+              <span className="flex items-center gap-1">
+                <span className="var-swatch" aria-hidden />
+                <Variable size={12} aria-hidden /> {t('lineage.legend.variable')} · <ArrowRightToLine size={12} aria-hidden /> {t('lineage.legend.parameter')}
+              </span>
+            ) : null}
+            <span>{t('lineage.legend.clickEdge')}</span>
           </div>
         ) : null}
       </div>

@@ -1,9 +1,11 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
-import type { ConnectionProfile, Settings, SettingsPatch, ThemeId } from '../../shared/api'
+import { LANGUAGES, type ConnectionProfile, type LanguageId, type Settings, type SettingsPatch, type ThemeId } from '../../shared/api'
+import { tm } from '../i18n'
 
 export const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
+  language: 'en',
   fontSize: 13,
   defaultDialect: 'oracle',
   encoding: 'auto',
@@ -34,6 +36,7 @@ export const DEFAULT_SETTINGS: Settings = {
   connections: [],
   online: { enabled: false, connectionIds: [] },
   format: { indentSize: 4, keywordCase: 'UPPER', maxLineWidth: 100, commaStyle: 'TRAILING' },
+  rules: { disabled: [], severity: {} },
   recentFiles: []
 }
 
@@ -187,7 +190,7 @@ export class SettingsStore {
 
   private async requireEncryption(): Promise<void> {
     if (!(await this.box.available())) {
-      throw new Error('Secure storage is not available on this system, so secrets cannot be saved.')
+      throw new Error(tm('main.settings.noSecureStorage'))
     }
   }
 
@@ -214,6 +217,7 @@ function normalize(raw: unknown, d: Settings = DEFAULT_SETTINGS): Settings {
   const ai = (r.ai ?? {}) as Partial<Settings['ai']>
   return {
     theme: THEMES.includes(r.theme as ThemeId) ? (r.theme as ThemeId) : d.theme,
+    language: LANGUAGES.includes(r.language as LanguageId) ? (r.language as LanguageId) : d.language,
     fontSize: clampNumber(r.fontSize, 11, 20, d.fontSize),
     defaultDialect: typeof r.defaultDialect === 'string' ? r.defaultDialect : d.defaultDialect,
     encoding: typeof r.encoding === 'string' && r.encoding ? r.encoding : d.encoding,
@@ -233,6 +237,7 @@ function normalize(raw: unknown, d: Settings = DEFAULT_SETTINGS): Settings {
         : []
     },
     format: normalizeFormat(r.format),
+    rules: normalizeRules(r.rules),
     recentFiles: Array.isArray(r.recentFiles)
       ? r.recentFiles.filter((p): p is string => typeof p === 'string').slice(0, MAX_RECENT)
       : []
@@ -248,6 +253,23 @@ function normalizeFormat(raw: unknown): Settings['format'] {
     maxLineWidth: clampNumber(f.maxLineWidth, 40, 400, d.maxLineWidth),
     commaStyle: f.commaStyle === 'LEADING' || f.commaStyle === 'TRAILING' ? f.commaStyle : d.commaStyle
   }
+}
+
+const SEVERITIES = new Set(['HIGH', 'MEDIUM', 'LOW', 'INFO'])
+
+/** Rule ids upper-cased and de-duplicated; unknown severities dropped (the engine rejects them). */
+export function normalizeRules(raw: unknown): Settings['rules'] {
+  const r = (raw && typeof raw === 'object' ? raw : {}) as Partial<Settings['rules']>
+  const disabled = Array.isArray(r.disabled)
+    ? [...new Set(r.disabled.filter((id): id is string => typeof id === 'string' && id.trim() !== '').map((id) => id.trim().toUpperCase()))].sort()
+    : []
+  const severity: Settings['rules']['severity'] = {}
+  if (r.severity && typeof r.severity === 'object') {
+    for (const [id, value] of Object.entries(r.severity)) {
+      if (typeof value === 'string' && SEVERITIES.has(value)) severity[id.trim().toUpperCase()] = value as Settings['rules']['severity'][string]
+    }
+  }
+  return { disabled, severity }
 }
 
 function isConnection(c: unknown): c is ConnectionProfile {

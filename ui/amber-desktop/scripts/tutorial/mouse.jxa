@@ -1,0 +1,70 @@
+// osascript -l JavaScript mouse.jxa '<json actions>'  (JXA: real mouse and keyboard via CGEvents and System Events)
+// actions: {"move":[x,y],"ms":700} | {"click":true} | {"double":true} | {"scroll":-5} | {"type":"text","cps":14}
+//          | {"key":"return"|"escape"|"tab"|"down"|"up", "cmd":bool, "shift":bool} | {"wait":ms}
+ObjC.import('CoreGraphics')
+ObjC.import('Foundation')
+function run(argv) {
+  const actions = JSON.parse(argv[0])
+  const sleep = (ms) => $.NSThread.sleepForTimeInterval(ms / 1000)
+  const pos = () => { const p = $.CGEventGetLocation($.CGEventCreate(null)); return [p.x, p.y] }
+  const post = (e) => $.CGEventPost($.kCGHIDEventTap, e)
+  const mouse = (type, x, y) => post($.CGEventCreateMouseEvent(null, type, $.CGPointMake(x, y), $.kCGMouseButtonLeft))
+  const KEYS = { return: 36, escape: 53, tab: 48, down: 125, left: 123, right: 124, space: 49, delete: 51, a: 0, g: 5, o: 31, v: 9 }
+  KEYS.up = 126
+  for (const a of actions) {
+    if (a.wait) sleep(a.wait)
+    if (a.move) {
+      const [x0, y0] = pos(); const [x1, y1] = a.move
+      const d = Math.hypot(x1 - x0, y1 - y0)
+      const ms = a.ms || Math.min(1100, 320 + d * 0.9)
+      const steps = Math.max(12, Math.round(ms / 9))
+      // a gently curved path: control point off the straight line, as a hand would move
+      const nx = -(y1 - y0) / (d || 1), ny = (x1 - x0) / (d || 1)
+      const bend = Math.min(80, d * 0.12) * (((x0 + y1) % 2) ? 1 : -1)
+      const cx = (x0 + x1) / 2 + nx * bend, cy = (y0 + y1) / 2 + ny * bend
+      for (let i = 1; i <= steps; i++) {
+        let t = i / steps; t = t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2   // ease in-out
+        const x = (1 - t) * (1 - t) * x0 + 2 * (1 - t) * t * cx + t * t * x1
+        const y = (1 - t) * (1 - t) * y0 + 2 * (1 - t) * t * cy + t * t * y1
+        mouse($.kCGEventMouseMoved, x, y); sleep(ms / steps)
+      }
+      mouse($.kCGEventMouseMoved, x1, y1)
+    }
+    if (a.down) { const [x, y] = pos(); mouse($.kCGEventLeftMouseDown, x, y); sleep(80) }
+    if (a.dragTo) { mouse($.kCGEventLeftMouseDragged, a.dragTo[0], a.dragTo[1]) }
+    if (a.up) { const [x, y] = pos(); mouse($.kCGEventLeftMouseUp, x, y); sleep(60) }
+    if (a.click || a.double) {
+      const [x, y] = pos(); sleep(90)
+      const n = a.double ? 2 : 1
+      for (let k = 1; k <= n; k++) {
+        const down = $.CGEventCreateMouseEvent(null, $.kCGEventLeftMouseDown, $.CGPointMake(x, y), $.kCGMouseButtonLeft)
+        $.CGEventSetIntegerValueField(down, $.kCGMouseEventClickState, k); post(down); sleep(70)
+        const up = $.CGEventCreateMouseEvent(null, $.kCGEventLeftMouseUp, $.CGPointMake(x, y), $.kCGMouseButtonLeft)
+        $.CGEventSetIntegerValueField(up, $.kCGMouseEventClickState, k); post(up); sleep(60)
+      }
+    }
+    if (a.scroll) {
+      const n = Math.abs(a.scroll), dir = Math.sign(a.scroll)
+      for (let i = 0; i < n; i++) { post($.CGEventCreateScrollWheelEvent(null, $.kCGScrollEventUnitLine, 1, dir * 2)); sleep(45) }
+    }
+    if (a.type) {
+      const se = Application('System Events'); const cps = a.cps || 14
+      // Punctuation by key code (US layout positions): keystroke() of e.g. '_' can come out wrong under other
+      // layouts or input methods. Letters and digits go through keystroke().
+      const PUNCT = { ' ': [49], '.': [47], ',': [43], '/': [44], '-': [27], '_': [27, true], ':': [41, true], ';': [41], "'": [39] }
+      for (const ch of a.type) {
+        const p = PUNCT[ch]
+        if (p) se.keyCode(p[0], p[1] ? { using: ['shift down'] } : {})
+        else se.keystroke(ch)
+        sleep(1000 / cps * (0.6 + Math.random() * 0.8))
+      }
+    }
+    if (a.key) {
+      const se = Application('System Events'); const using = []
+      if (a.cmd) using.push('command down'); if (a.shift) using.push('shift down')
+      se.keyCode(KEYS[a.key], using.length ? { using } : {})
+      sleep(120)
+    }
+  }
+  const [x, y] = pos(); return JSON.stringify([Math.round(x), Math.round(y)])
+}

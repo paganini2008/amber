@@ -105,7 +105,7 @@ public final class MetadataReader implements AutoCloseable {
 
     private TableMeta find(ObjectName name) throws SQLException {
         List<String> parts = name.parts().stream().map(ObjectName.Part::text).toList();
-        String table = parts.getLast();
+        String table = parts.get(parts.size() - 1);
         String schema = parts.size() >= 2 ? parts.get(parts.size() - 2) : null;
         String catalog = parts.size() >= 3 ? parts.get(parts.size() - 3) : null;
         boolean catalogIsDatabase = spec.dialectEnum() == Dialect.MYSQL || spec.dialectEnum() == Dialect.MARIADB;
@@ -183,7 +183,52 @@ public final class MetadataReader implements AutoCloseable {
         });
         String kind = type != null && type.toUpperCase(Locale.ROOT).contains("VIEW") ? "VIEW" : "TABLE";
         return new TableMeta(catalog, schema, table, kind, columns, pk, uniqueKeys, indexes, rows,
-                spec.id() == null ? spec.describe() : spec.id());
+                spec.id() == null ? spec.describe() : spec.id(),
+                "VIEW".equals(kind) ? List.of() : importedKeys(catalog, schema, table));
+    }
+
+    /**
+     * Foreign keys of a table through {@link DatabaseMetaData#getImportedKeys} (the driver reads its own
+     * catalog); columns in key order. Drivers without support simply give none.
+     */
+    List<TableMeta.ForeignKeyMeta> importedKeys(String catalog, String schema, String table) {
+        record Part(String name, String refCatalog, String refSchema, String refTable, short seq, String column,
+                    String refColumn) {
+        }
+        Map<String, List<Part>> byKey = new LinkedHashMap<>();
+        Map<String, String> current = new java.util.HashMap<>();
+        try (ResultSet rs = meta.getImportedKeys(catalog, schema, table)) {
+            while (rs.next()) {
+                Part p = new Part(rs.getString("FK_NAME"), rs.getString("PKTABLE_CAT"), rs.getString("PKTABLE_SCHEM"),
+                        rs.getString("PKTABLE_NAME"), rs.getShort("KEY_SEQ"), rs.getString("FKCOLUMN_NAME"),
+                        rs.getString("PKCOLUMN_NAME"));
+                if (p.refTable() == null || p.column() == null) {
+                    continue;
+                }
+                // Unnamed keys: one per referenced table; KEY_SEQ restarting at 1 starts another key.
+                boolean named = p.name() != null && !p.name().isBlank();
+                String base = named ? p.name() : p.refCatalog() + "." + p.refSchema() + "." + p.refTable();
+                String key = current.get(base);
+                if (key == null || (!named && p.seq() <= 1)) {
+                    key = base + "#" + byKey.size();
+                    current.put(base, key);
+                }
+                List<Part> parts = byKey.computeIfAbsent(key, k -> new ArrayList<>());
+                parts.add(p);
+            }
+        } catch (SQLException | RuntimeException | AbstractMethodError e) {
+            return List.of();                             // optional: some drivers / objects do not support it
+        }
+        List<TableMeta.ForeignKeyMeta> out = new ArrayList<>();
+        for (List<Part> parts : byKey.values()) {
+            parts.sort(java.util.Comparator.comparingInt(Part::seq));
+            Part first = parts.get(0);
+            boolean refColumnsKnown = parts.stream().allMatch(x -> x.refColumn() != null);
+            out.add(new TableMeta.ForeignKeyMeta(first.name() == null || first.name().isBlank() ? null : first.name(),
+                    parts.stream().map(Part::column).toList(), first.refCatalog(), first.refSchema(), first.refTable(),
+                    refColumnsKnown ? parts.stream().map(Part::refColumn).toList() : List.of()));
+        }
+        return out;
     }
 
     private String safeSchema() {

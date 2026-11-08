@@ -1,9 +1,31 @@
 import type { UpdateInfo } from '../../shared/api'
 import type { FetchLike } from '../ai/gateway'
+import { tm } from '../i18n'
 
 /** Where the update check looks; `repo` is GitHub owner/name (AMBER_UPDATE_REPO in development). */
 export function releaseUrls(repo = 'paganini2008/amber'): { api: string; page: string } {
   return { api: `https://api.github.com/repos/${repo}/releases/latest`, page: `https://github.com/${repo}/releases/latest` }
+}
+
+/** Where About Amber points: project, website (GitHub Pages), releases, new issue, author profile. */
+export interface ProjectLinks {
+  project: string
+  website: string
+  releases: string
+  issue: string
+  author: { name: string; url: string }
+}
+
+export function projectLinks(repo = 'paganini2008/amber'): ProjectLinks {
+  const [owner = 'paganini2008', name = 'amber'] = repo.split('/')
+  return {
+    project: `https://github.com/${owner}/${name}`,
+    website: `https://${owner.toLowerCase()}.github.io/${name}/`,
+    releases: `https://github.com/${owner}/${name}/releases/latest`,
+    issue: `https://github.com/${owner}/${name}/issues/new`,
+    // The author's public profile only; no e-mail address is shown anywhere.
+    author: { name: 'Fred Feng', url: `https://github.com/${owner}` }
+  }
 }
 
 export const LATEST_RELEASE_API = releaseUrls().api
@@ -36,7 +58,7 @@ export async function checkLatestRelease(fetchFn: FetchLike, current: string, re
     signal: AbortSignal.timeout(timeoutSec * 1000)
   })
   if (response.status === 404) return { current, latest: current, newer: false, url: page }
-  if (!response.ok) throw new Error(`GitHub answered ${response.status}`)
+  if (!response.ok) throw new Error(tm('main.updates.githubAnswered', { status: response.status }))
   const body = (await response.json()) as { tag_name?: string; html_url?: string }
   const latest = (body.tag_name ?? '').replace(/^v/i, '')
   const url = body.html_url && body.html_url.startsWith('https://github.com/') ? body.html_url : page

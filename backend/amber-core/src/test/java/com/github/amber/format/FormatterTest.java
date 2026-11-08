@@ -155,7 +155,7 @@ class FormatterTest {
         assertEquals("SELECT a\nFROM t;\nselect 'oops from t", r.text());
         assertEquals(1, r.warnings().size());
         assertEquals(1, r.skipped().size());
-        assertEquals(2, r.skipped().getFirst().start().line());
+        assertEquals(2, r.skipped().get(0).start().line());
     }
 
     @Test
@@ -174,7 +174,7 @@ class FormatterTest {
         FormatResult r = Formatter.format(Dialect.SQLSERVER, sql);
         assertEquals(sql, r.text());
         assertEquals(1, r.warnings().size());
-        assertTrue(r.warnings().getFirst().contains("split"), r.warnings().toString());
+        assertTrue(r.warnings().get(0).contains("split"), r.warnings().toString());
     }
 
     @Test
@@ -289,7 +289,7 @@ class FormatterTest {
         FormatResult r = Formatter.format(Dialect.SQLSERVER, "\uFEFFselect a from t\nGO\nselect 'x");
         assertEquals("\uFEFFSELECT a\nFROM t\nGO\nselect 'x", r.text());
         assertEquals(1, r.skipped().size());
-        assertEquals(20, r.skipped().getFirst().start().offset());
+        assertEquals(20, r.skipped().get(0).start().offset());
         FormatResult range = Formatter.formatRange(Dialect.SQLSERVER, "\uFEFFselect a from t", 0, 0, FormatOptions.DEFAULTS);
         assertEquals("\uFEFFSELECT a\nFROM t", range.text());
     }

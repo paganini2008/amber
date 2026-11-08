@@ -34,6 +34,11 @@ import java.util.regex.Pattern;
  * {@code ownerKey} {@code var:<scope key>:<NAME>} is unique to the variable, so every variable has its
  * own {@link ColumnNode#ROWS} node for the filters of the query that filled it.
  *
+ * <p>A function's result is the variable {@code return} of the function's scope ({@link #returnNode}):
+ * {@code RETURN expr} writes it, and a call of the function in another statement reads it. The record
+ * of a cursor FOR loop ({@code FOR r IN (SELECT …) LOOP}, {@code FOR r IN c LOOP}) is no variable: its
+ * fields are the output columns of the loop's query ({@link #record}).
+ *
  * <p>Built per parse tree by {@code TreeIrBuilder}, which registers every container statement before
  * its children are analyzed; PL/pgSQL bodies, whose statements are parsed one by one, use one
  * {@linkplain #fixed fixed scope} filled by the body parser.
@@ -61,6 +66,11 @@ public final class VariableScopes {
     private static final Pattern FETCH = Pattern.compile("(?is)\\s*FETCH\\b(.*?)\\bINTO\\b.*");
     private static final Pattern CURSOR_NAME = Pattern.compile(
             "(?is)\\s*(?:DECLARE\\s+)?(?:CURSOR\\s+|OPEN\\s+)?(" + NAME + ")");
+    private static final Pattern LOOP_QUERY_RECORD = Pattern.compile("(?is)\\s*(" + NAME + ")\\s+IN\\b.*");
+    private static final Pattern LOOP_CURSOR_RECORD = Pattern.compile(
+            "(?is)\\s*(" + NAME + ")\\s+IN\\s+(" + NAME + "(?:\\s*\\.\\s*" + NAME + ")?)\\s*(?:\\(.*)?");
+    /** Name of the function-result variable (no SQL dialect allows {@code return} as a variable name). */
+    public static final String RETURN = "return";
     private static final Set<String> ASSIGNMENT_OPERATORS = Set.of(":=", "=", "+=", "-=", "*=", "/=", "%=", "&=",
             "|=", "^=");
 
@@ -74,6 +84,7 @@ public final class VariableScopes {
         private final Map<String, String> declared = new LinkedHashMap<>();
         private final Map<String, String> targets = new LinkedHashMap<>();
         private final Map<String, Cursor> cursors = new LinkedHashMap<>();
+        private final Map<String, LoopRecord> records = new LinkedHashMap<>();
 
         /**
          * @param key     stable key of the scope within the script (e.g. {@code DW.P_LOAD@120})
@@ -112,6 +123,11 @@ public final class VariableScopes {
             cursors.put(norm(name), cursor);
         }
 
+        /** The record of a cursor FOR loop: fields are the columns of {@code record}'s query or cursor. */
+        public void addRecord(String name, LoopRecord record) {
+            records.put(norm(name), record);
+        }
+
         /** Parameter names in declaration order (for PostgreSQL {@code $1}, {@code $2}). */
         public List<String> parameterNames() {
             return List.copyOf(parameters.values());
@@ -137,6 +153,15 @@ public final class VariableScopes {
      * @param ownerKey key of the cursor statement's result owner
      */
     public record Cursor(String ownerKey, List<String> columns) {
+    }
+
+    /**
+     * The record of a cursor FOR loop.
+     *
+     * @param ownerKey key of the loop query's result owner ({@code result@<offset>}), or {@code null}
+     * @param cursor   the cursor the loop opens ({@code FOR r IN c LOOP}), or {@code null}
+     */
+    public record LoopRecord(String ownerKey, String cursor) {
     }
 
     private record Entry(Statement statement, Statement parent) {
@@ -297,6 +322,56 @@ public final class VariableScopes {
         return null;
     }
 
+    /**
+     * Field {@code column} of the cursor FOR-loop record {@code name}: the output column of the loop's
+     * query ({@code RESULT} node), or {@code null} when {@code name} is no loop record seen from {@code scope}.
+     */
+    public ColumnNode record(Scope scope, String name, String column) {
+        String upper = norm(name);
+        for (Scope s = scope; s != null; s = s.parent) {
+            LoopRecord r = s.records.get(upper);
+            if (r == null) {
+                continue;
+            }
+            String key = r.ownerKey();
+            String spelling = clean(column);
+            if (key == null) {
+                Cursor c = r.cursor() == null ? null : cursor(scope, r.cursor());
+                if (c == null) {
+                    return null;
+                }
+                key = c.ownerKey();
+                for (String col : c.columns()) {
+                    if (col.equalsIgnoreCase(spelling)) {
+                        spelling = col;
+                    }
+                }
+            }
+            return new ColumnNode(OwnerKind.RESULT, "result", key, spelling);
+        }
+        return null;
+    }
+
+    /** The {@code return} variable of the routine around {@code scope}, or {@code null} outside routines. */
+    public static ColumnNode returnNode(Scope scope) {
+        for (Scope s = scope; s != null; s = s.parent) {
+            if (s.routine) {
+                return s.node(RETURN);
+            }
+        }
+        return null;
+    }
+
+    /** Key of the scope of a routine defined by statement {@code routine} (as built here and by PL/pgSQL). */
+    public static String routineKey(Statement routine) {
+        return routine.name().toString().toUpperCase(Locale.ROOT) + "@" + routine.range().start().offset();
+    }
+
+    /** Node of variable or parameter {@code name} of the scope {@code key} shown as {@code display}. */
+    public static ColumnNode variableNode(OwnerKind kind, String display, String key, String name) {
+        return new ColumnNode(kind, display, "var:" + key + ":" + norm(name), clean(name));
+    }
+
     private static Scope declaring(Scope scope, String upper) {
         for (Scope s = scope; s != null; s = s.parent) {
             if (s.declares(upper)) {
@@ -370,10 +445,46 @@ public final class VariableScopes {
                 assignments.add(c);
             } else if (rules.intoClauses().contains(rule) || rules.fetches().contains(rule)) {
                 intos.add(c);
+            } else if (rules.loopRecords().contains(rule)) {
+                loopRecord(c, s);
+                collect(c, inner, s, assignments, intos);
             } else {
                 collect(c, inner, s, assignments, intos);
             }
         }
+    }
+
+    /** {@code r IN (SELECT …)} or {@code r IN c [(args)]} of a cursor FOR loop (not {@code i IN 1..n}). */
+    private void loopRecord(ParserRuleContext header, Scope s) {
+        String t = text(header);
+        ParserRuleContext query = firstSelect(header);
+        if (query != null) {
+            Matcher m = LOOP_QUERY_RECORD.matcher(t);
+            if (m.matches()) {
+                int from = query.getStart() == null ? 0 : Math.max(0, query.getStart().getStartIndex());
+                s.addRecord(m.group(1), new LoopRecord("result@" + Math.min(base + from, source.length()), null));
+            }
+            return;
+        }
+        Matcher m = LOOP_CURSOR_RECORD.matcher(t);
+        if (!t.contains("..") && m.matches()) {
+            s.addRecord(m.group(1), new LoopRecord(null, m.group(2).replaceAll("\\s+", "")));
+        }
+    }
+
+    private ParserRuleContext firstSelect(ParserRuleContext node) {
+        for (int i = 0; i < node.getChildCount(); i++) {
+            if (node.getChild(i) instanceof ParserRuleContext c) {
+                if (ir.kindOf(c) == StatementKind.SELECT) {
+                    return c;
+                }
+                ParserRuleContext found = firstSelect(c);
+                if (found != null) {
+                    return found;
+                }
+            }
+        }
+        return null;
     }
 
     // ----- text helpers (also used by LineageExtractor) ------------------------------------------------
@@ -519,7 +630,7 @@ public final class VariableScopes {
         List<ColumnNode> outputs = new ArrayList<>();
         List<ColumnNode> outs = lineage.outputs();
         for (int i = 0; i < outs.size(); i++) {
-            ColumnNode to = vars.size() == 1 ? vars.getFirst() : i < vars.size() ? vars.get(i) : null;
+            ColumnNode to = vars.size() == 1 ? vars.get(0) : i < vars.size() ? vars.get(i) : null;
             if (to != null && outs.get(i).ownerKey().equals(resultKey)) {
                 byOutput.putIfAbsent(outs.get(i).key(), to);
                 if (outputs.stream().noneMatch(o -> o.key().equals(to.key()))) {

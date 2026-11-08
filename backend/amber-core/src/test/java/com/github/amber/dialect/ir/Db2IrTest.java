@@ -45,7 +45,7 @@ class Db2IrTest {
     void outlineAndObjects() {
         assertEquals(List.of(StatementKind.CREATE_TABLE, StatementKind.INSERT, StatementKind.MERGE,
                 StatementKind.CREATE_PROCEDURE, StatementKind.CALL, StatementKind.DROP), kinds(script.statements()));
-        assertEquals(List.of("CREATE TEMP_TABLE SESSION.TMP_POSTING"), writes(script.statements().getFirst()));
+        assertEquals(List.of("CREATE TEMP_TABLE SESSION.TMP_POSTING"), writes(script.statements().get(0)));
         Statement insert = first(script.statements(), StatementKind.INSERT);
         assertEquals(List.of("INSERT TEMP_TABLE SESSION.TMP_POSTING"), writes(insert));
         assertEquals(List.of("FIN.ENTRY"), reads(insert));

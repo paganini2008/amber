@@ -31,6 +31,16 @@ import java.util.Set;
 public final class FallbackScanner {
 
     private static final Set<String> TEMP_WORDS = Set.of("TEMP", "TEMPORARY");
+    /**
+     * Unquoted words that are never an object name in any supported dialect: when one follows FROM, JOIN,
+     * INTO, UPDATE…, the statement is broken there and no object is guessed. Quoted names are always kept.
+     */
+    private static final Set<String> NOT_NAMES = Set.of("SELECT", "LATERAL", "TABLE", "SET", "WHERE", "FROM", "JOIN",
+            "ON", "USING", "VALUES", "VALUE", "INTO", "AS", "AND", "OR", "NOT", "NULL", "GROUP", "ORDER", "BY", "HAVING",
+            "UNION", "INTERSECT", "EXCEPT", "MINUS", "ALL", "DISTINCT", "CASE", "WHEN", "THEN", "ELSE", "END", "LIMIT",
+            "OFFSET", "FETCH", "LEFT", "RIGHT", "INNER", "OUTER", "CROSS", "FULL", "NATURAL", "WITH", "RETURNING", "IN",
+            "EXISTS", "IS", "LIKE", "BETWEEN", "DEFAULT", "INSERT", "UPDATE", "DELETE", "MERGE", "CREATE", "DROP",
+            "ALTER", "TRUNCATE", "OUTPUT", "TOP", "IF", "BEGIN", "DECLARE");
 
     public record Result(StatementKind kind, List<ObjectRef> refs) {
     }
@@ -66,7 +76,7 @@ public final class FallbackScanner {
                 kind = kindOnce(kind, StatementKind.DELETE);
                 add(refs, dialect, source, base, tokens, skip(tokens, i + 1, "FROM"), Access.DELETE, ObjectKind.TABLE);
             } else if (tok.isWord("TABLE") && i > 0) {
-                ScanToken verb = tokens.getFirst();
+                ScanToken verb = tokens.get(0);
                 int j = skipIfNotExists(tokens, i + 1);
                 if (verb.isWord("CREATE")) {
                     kind = kindOnce(kind, StatementKind.CREATE_TABLE);
@@ -121,8 +131,8 @@ public final class FallbackScanner {
         if (first.type() != ScanToken.Type.WORD && first.type() != ScanToken.Type.QUOTED_IDENTIFIER) {
             return;
         }
-        if (first.isWord("SELECT") || first.isWord("LATERAL") || first.isWord("TABLE")) {
-            return;
+        if (first.type() == ScanToken.Type.WORD && first.isWordIn(NOT_NAMES)) {
+            return;                                   // a keyword where the name should be: the statement is broken
         }
         int end = first.end();
         int j = i + 1;

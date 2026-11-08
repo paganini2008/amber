@@ -1,5 +1,6 @@
 package com.github.amber.diff;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.lineage.ColumnEdge;
 import com.github.amber.core.lineage.ColumnNode;
 import com.github.amber.core.lineage.ColumnNode.OwnerKind;
@@ -251,7 +252,7 @@ final class LineageComparer {
             Col b = e.getValue();
             Col a = pa.columns.get(e.getKey());
             if (a == null) {
-                columns.add(column(ColumnChangeKind.REMOVED, b, null, b.owner + "." + b.column + " is no longer written"));
+                columns.add(column(ColumnChangeKind.REMOVED, b, null, Messages.t("diff.column.removed", b.owner + "." + b.column)));
                 removedByOwner.computeIfAbsent(b.owner, k -> new ArrayList<>()).add(b.column);
                 owners.putIfAbsent(b.owner, new Col[]{b, null});
                 continue;
@@ -263,8 +264,8 @@ final class LineageComparer {
                         c.message(), b.step, a.step, b.range, a.range);
             }
             if (!a.transforms.equals(b.transforms)) {
-                String msg = a.owner + "." + a.column + " is derived differently: " + String.join(", ", b.transforms)
-                        + " → " + String.join(", ", a.transforms);
+                String msg = Messages.t("diff.column.derived", a.owner + "." + a.column, String.join(", ", b.transforms),
+                        String.join(", ", a.transforms));
                 columns.add(column(ColumnChangeKind.TRANSFORM_CHANGED, b, a, msg));
                 ctx.reason(Risk.MEDIUM, "TRANSFORM_CHANGED", msg, b.step, a.step, b.range, a.range);
             }
@@ -272,8 +273,10 @@ final class LineageComparer {
         for (Map.Entry<String, Col> e : pa.columns.entrySet()) {
             if (!pb.columns.containsKey(e.getKey())) {
                 Col a = e.getValue();
-                String from = a.sources.isEmpty() ? "" : " from " + String.join(", ", displays(a, a.sources));
-                columns.add(column(ColumnChangeKind.ADDED, null, a, a.owner + "." + a.column + " is newly written" + from));
+                String target = a.owner + "." + a.column;
+                columns.add(column(ColumnChangeKind.ADDED, null, a, a.sources.isEmpty()
+                        ? Messages.t("diff.column.added", target)
+                        : Messages.t("diff.column.addedFrom", target, String.join(", ", displays(a, a.sources)))));
                 addedByOwner.computeIfAbsent(a.owner, k -> new ArrayList<>()).add(a.column);
                 owners.putIfAbsent(a.owner, new Col[]{null, a});
             }
@@ -289,8 +292,7 @@ final class LineageComparer {
             Col[] c = owners.get(owner);
             Col any = c[0] != null ? c[0] : c[1];
             Risk level = TEMP.contains(any.ownerKind) ? Risk.LOW : Risk.MEDIUM;
-            String msg = owner + (added ? ": columns newly written: " : ": columns no longer written: ")
-                    + String.join(", ", cols);
+            String msg = Messages.t(added ? "diff.columns.added" : "diff.columns.removed", owner, String.join(", ", cols));
             ctx.reason(level, added ? "COLUMNS_ADDED" : "COLUMNS_REMOVED", msg, c[0] == null ? null : c[0].step,
                     c[1] == null ? null : c[1].step, c[0] == null ? null : c[0].range, c[1] == null ? null : c[1].range);
         });
@@ -309,7 +311,7 @@ final class LineageComparer {
             boolean temp = TEMP.contains(any.ownerKind);
             for (Item i : ia.values()) {
                 if (!ib.containsKey(i.role() + "|" + i.sourceKey())) {
-                    String msg = any.owner + ": rows now " + roleVerb(i.role()) + " " + i.source();
+                    String msg = Messages.t("diff.rows.now." + roleKey(i.role()), any.owner, i.source());
                     out.add(new IndirectChange(any.owner, ownerKey, i.role(), "ADDED", i.source(), msg, null, i.step(),
                             null, i.range()));
                     ctx.reason(temp ? Risk.LOW : Risk.MEDIUM, i.role() + "_ADDED", msg, null, i.step(), null, i.range());
@@ -317,7 +319,7 @@ final class LineageComparer {
             }
             for (Item i : ib.values()) {
                 if (!ia.containsKey(i.role() + "|" + i.sourceKey())) {
-                    String msg = any.owner + ": rows no longer " + roleVerb(i.role()) + " " + i.source();
+                    String msg = Messages.t("diff.rows.noLonger." + roleKey(i.role()), any.owner, i.source());
                     out.add(new IndirectChange(any.owner, ownerKey, i.role(), "REMOVED", i.source(), msg, i.step(), null,
                             i.range(), null));
                     ctx.reason(temp ? Risk.LOW : Risk.MEDIUM, i.role() + "_REMOVED", msg, i.step(), null, i.range(), null);
@@ -327,11 +329,11 @@ final class LineageComparer {
         return out;
     }
 
-    private static String roleVerb(String role) {
+    /** Message key suffix of a row role: FILTER, JOIN, or GROUP for anything else. */
+    private static String roleKey(String role) {
         return switch (role) {
-            case "FILTER" -> "filtered by";
-            case "JOIN" -> "joined on";
-            default -> "grouped by";
+            case "FILTER", "JOIN" -> role;
+            default -> "GROUP";
         };
     }
 
@@ -342,13 +344,13 @@ final class LineageComparer {
         removed.removeAll(a.sources);
         String target = a.owner + "." + a.column;
         if (!added.isEmpty() && !removed.isEmpty()) {
-            return target + " now comes from " + String.join(", ", displays(a, added)) + " instead of "
-                    + String.join(", ", displays(b, removed));
+            return Messages.t("diff.column.sourcesReplaced", target, String.join(", ", displays(a, added)),
+                    String.join(", ", displays(b, removed)));
         }
         if (!added.isEmpty()) {
-            return target + " now also comes from " + String.join(", ", displays(a, added));
+            return Messages.t("diff.column.sourcesAdded", target, String.join(", ", displays(a, added)));
         }
-        return target + " no longer comes from " + String.join(", ", displays(b, removed));
+        return Messages.t("diff.column.sourcesRemoved", target, String.join(", ", displays(b, removed)));
     }
 
     private static List<String> displays(Col c, Set<String> keys) {

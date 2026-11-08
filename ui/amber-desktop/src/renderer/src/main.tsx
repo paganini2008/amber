@@ -1,3 +1,6 @@
+// Variable weight axis: body text at 450 reads less thin than 400 (static 400/500/600 stay as fallback)
+import '@fontsource-variable/ibm-plex-sans/wght.css'
+import '@fontsource-variable/ibm-plex-sans/wght-italic.css'
 import '@fontsource/ibm-plex-sans/400.css'
 import '@fontsource/ibm-plex-sans/400-italic.css'
 import '@fontsource/ibm-plex-sans/500.css'

@@ -1,6 +1,7 @@
 import type { QueryBlock, QueryBlockSource, Statement } from '@shared/protocol'
 import type { ThemeTokens } from '@shared/themes'
 import { WRITE_ACCESS } from './model'
+import { t } from '../i18n'
 
 /**
  * The nested query structure of one statement (`Statement.structure`): CTEs, set operations,
@@ -77,19 +78,19 @@ export function collapsibleIds(tree: StructureNode[]): string[] {
 
 /** Short one-line description, e.g. "4 blocks · 2 CTEs, 1 set operation, 3 subqueries · 3 levels". */
 export function describeCounts(c: StructureCounts): string {
-  if (c.total === 0) return 'No query structure'
+  if (c.total === 0) return t('structure.counts.none')
   const parts: string[] = []
-  const add = (kind: string, one: string, many: string): void => {
+  const add = (kind: 'CTE' | 'SET' | 'DERIVED' | 'SUBQUERY' | 'QUERY'): void => {
     const n = c.byKind[kind] ?? 0
-    if (n) parts.push(`${n} ${n === 1 ? one : many}`)
+    if (n) parts.push(t(`structure.counts.${kind}`, { count: n }))
   }
-  add('CTE', 'CTE', 'CTEs')
-  add('SET', 'set operation', 'set operations')
-  add('DERIVED', 'derived table', 'derived tables')
-  add('SUBQUERY', 'subquery', 'subqueries')
-  add('QUERY', 'query', 'queries')
-  const levels = `${c.maxDepth} ${c.maxDepth === 1 ? 'level' : 'levels'}`
-  return [`${c.total} ${c.total === 1 ? 'block' : 'blocks'}`, parts.join(', '), levels].filter(Boolean).join(' · ')
+  add('CTE')
+  add('SET')
+  add('DERIVED')
+  add('SUBQUERY')
+  add('QUERY')
+  const levels = t('structure.counts.levels', { count: c.maxDepth })
+  return [t('structure.counts.blocks', { count: c.total }), parts.join(t('common.listSeparator')), levels].filter(Boolean).join(' · ')
 }
 
 /** Badge text of a block: "QUERY", "UNION ALL", "CTE paid", "DERIVED r", "SUBQUERY". */
@@ -190,11 +191,11 @@ export function isDarkTokens(t: ThemeTokens): boolean {
  * SUBQUERY tell them apart), CTE green, SET magenta. QUERY stays neutral, and amber is left
  * for selection.
  */
-export function structurePalette(t: ThemeTokens): Record<BlockKindColor, string> {
-  const dark = isDarkTokens(t)
+export function structurePalette(tokens: ThemeTokens): Record<BlockKindColor, string> {
+  const dark = isDarkTokens(tokens)
   return dark
-    ? { query: t.inkMuted, set: '#D55181', cte: '#0CA30C', derived: '#3987E5', subquery: '#3987E5' }
-    : { query: t.inkMuted, set: '#D55181', cte: '#008300', derived: '#2A78D6', subquery: '#2A78D6' }
+    ? { query: tokens.inkMuted, set: '#D55181', cte: '#0CA30C', derived: '#3987E5', subquery: '#3987E5' }
+    : { query: tokens.inkMuted, set: '#D55181', cte: '#008300', derived: '#2A78D6', subquery: '#2A78D6' }
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -206,7 +207,8 @@ export type StepBadges = Map<number, { phase: string; step: number }[]>
 export function stepsText(badges: StepBadges | undefined, blockId: number | undefined): string {
   const list = typeof blockId === 'number' ? badges?.get(blockId) : undefined
   if (!list?.length) return ''
-  return `${list.length === 1 ? 'step' : 'steps'} ${list.map((b) => `${b.step} ${b.phase === 'CTE' ? 'ready' : b.phase}`).join(', ')}`
+  const items = list.map((b) => `${b.step} ${b.phase === 'CTE' ? t('structure.steps.ready') : b.phase}`).join(t('common.listSeparator'))
+  return t('structure.steps.list', { count: list.length, items })
 }
 
 /** Escapes text for a quoted Mermaid label (entity codes, so `#` goes first). */
@@ -228,7 +230,7 @@ export function blockDetail(block: QueryBlock): string {
   const parts: string[] = []
   if (block.sources.length) parts.push(block.sources.map(sourceLabel).join(', '))
   if (block.clauses.length) parts.push(block.clauses.join(' '))
-  if (block.outputs.length) parts.push(block.outputs.length <= 4 ? block.outputs.join(', ') : `${block.outputs.length} columns`)
+  if (block.outputs.length) parts.push(block.outputs.length <= 4 ? block.outputs.join(', ') : t('common.columns', { count: block.outputs.length }))
   return parts.join(' · ')
 }
 
@@ -246,7 +248,7 @@ export function structureToMermaid(statement: Statement, tree: StructureNode[], 
       const title = n.block.role ? `${blockTitle(n.block)} [${n.block.role}]` : blockTitle(n.block)
       lines.push(`${indent}subgraph ${id}["${escapeMermaid(title)}"]`)
       lines.push(`${indent}  direction TB`)
-      const detail = truncate(blockDetail(n.block) || 'no sources', 120)
+      const detail = truncate(blockDetail(n.block) || t('structure.box.noSources'), 120)
       const steps = stepsText(badges, n.block.id)
       lines.push(`${indent}  ${id}_d["${steps ? `${escapeMermaid(detail)}<br/>${escapeMermaid(steps)}` : escapeMermaid(detail)}"]`)
       write(n.children, `${indent}  `)
@@ -254,10 +256,10 @@ export function structureToMermaid(statement: Statement, tree: StructureNode[], 
       if (palette) styles.push(`  style ${id} stroke:${palette[kindColorKey(n.block.kind)]},stroke-width:1.5px`)
     }
   }
-  lines.push(`  subgraph root["${escapeMermaid(`${statementTitle(statement)} (line ${statement.range.start.line})`)}"]`)
+  lines.push(`  subgraph root["${escapeMermaid(t('structure.box.rootTitle', { title: statementTitle(statement), line: statement.range.start.line }))}"]`)
   lines.push('    direction TB')
   if (tree.length) write(tree, '    ')
-  else lines.push('    root_d["no query structure"]')
+  else lines.push(`    root_d["${escapeMermaid(t('structure.box.noStructureLower'))}"]`)
   const writeStep = stepsText(badges, -1)
   if (writeStep && tree.length) lines.push(`    root_w["${escapeMermaid(writeStep)}"]`)
   lines.push('  end')
@@ -305,7 +307,7 @@ export function layoutStructure(
     if (b.sources.length) lines.push({ text: truncate(b.sources.map(sourceLabel).join(' · '), chars(width)), mono: true })
     if (b.clauses.length) lines.push({ text: truncate(b.clauses.join('  '), chars(width)), mono: false })
     if (b.outputs.length)
-      lines.push({ text: truncate(b.outputs.length > 6 ? `${b.outputs.length} columns` : b.outputs.join(', '), chars(width)), mono: true })
+      lines.push({ text: truncate(b.outputs.length > 6 ? t('common.columns', { count: b.outputs.length }) : b.outputs.join(', '), chars(width)), mono: true })
     const steps = stepsText(badges, b.id)
     if (steps) lines.push({ text: truncate(steps, chars(width)), mono: false })
     const box: StructureBox = {
@@ -327,7 +329,7 @@ export function layoutStructure(
         cy = place(c, x + BOX.INDENT, cy, width - BOX.INDENT * 2) + BOX.GAP
       }
     } else if (box.collapsedChildren) {
-      box.lines.push({ text: `${box.collapsedChildren} nested ${box.collapsedChildren === 1 ? 'block' : 'blocks'} collapsed`, mono: false })
+      box.lines.push({ text: t('structure.box.collapsed', { count: box.collapsedChildren }), mono: false })
       cy += BOX.LINE
     }
     box.height = cy - y + BOX.PAD / 2
@@ -351,7 +353,7 @@ export function layoutStructure(
   let y = BOX.HEADER + root.lines.length * BOX.LINE + BOX.GAP / 2
   for (const n of tree) y = place(n, BOX.INDENT, y, rootWidth - BOX.INDENT * 2) + BOX.GAP
   if (!tree.length) {
-    root.lines.push({ text: 'No query structure', mono: false })
+    root.lines.push({ text: t('structure.counts.none'), mono: false })
     y += BOX.LINE
   }
   root.height = y + BOX.PAD / 2

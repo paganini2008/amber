@@ -42,8 +42,9 @@ import java.util.Set;
  * every hop. Set operations combine their branches by position.
  *
  * <p>Unqualified columns are resolved with the {@link Catalog} (the script's own DDL, later metadata).
- * When that is not enough and several tables are in scope, the column is attributed to an
- * {@link OwnerKind#UNKNOWN} owner instead of a guess.
+ * When that is not enough and several tables are in scope, the script's own column evidence
+ * ({@link com.github.amber.core.lineage.ColumnEvidence}) may show exactly one of them to have the column;
+ * otherwise the column is attributed to an {@link OwnerKind#UNKNOWN} owner instead of a guess.
  *
  * @Author: Fred Feng
  * @Date: 07/11/2026
@@ -81,6 +82,12 @@ public final class LineageExtractor {
     private VariableScopes.Scope varScope;
     /** Select items that assign a variable ({@code SELECT @v = expr}), with the variable name. */
     private final Map<Out, String> assignedItems = new java.util.IdentityHashMap<>();
+    /** Calls of possible script routines already analyzed, by the offset of their opening parenthesis. */
+    private final Map<Integer, ColumnNode> calls = new java.util.HashMap<>();
+    /** Calls whose subtree is being walked (nested nodes that span the same call are the same call). */
+    private final Set<Integer> activeCalls = new java.util.HashSet<>();
+    /** Variables an UPDATE assigns ({@code SET @v = col}); they also take the statement's filters. */
+    private final List<ColumnNode> assignedVars = new ArrayList<>();
     /** The query or blocks of an INSERT's VALUES source, whose rows become positional outputs. */
     private final Set<ParserRuleContext> valuesSources = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
 
@@ -344,7 +351,9 @@ public final class LineageExtractor {
         }
         return switch (st.kind()) {
             case SELECT, CURSOR -> select(st, node);
-            case DECLARE, ASSIGNMENT, SESSION, OTHER -> procedural(node);
+            case DECLARE, ASSIGNMENT, SESSION, OTHER, RETURN -> procedural(node);
+            case CALL -> call(node);
+            case DYNAMIC_SQL -> dynamicInto(node);
             case INSERT -> insert(st, node);
             case CREATE_TABLE_AS, SELECT_INTO, CREATE_VIEW, CREATE_MATERIALIZED_VIEW -> create(st, node);
             case CREATE_TABLE -> {
@@ -353,6 +362,10 @@ public final class LineageExtractor {
             }
             case CREATE_INDEX -> {
                 recordIndex(st, node);
+                yield null;
+            }
+            case ALTER -> {
+                recordForeignKeys(st, node);
                 yield null;
             }
             case UPDATE -> update(st, node, Access.UPDATE);
@@ -378,7 +391,7 @@ public final class LineageExtractor {
     private StatementLineage select(Statement st, ParserRuleContext node) {
         ParserRuleContext q = firstQuery(node);
         if (q == null) {
-            return st.kind() == StatementKind.CURSOR ? procedural(node) : null;
+            return st.kind() == StatementKind.CURSOR ? procedural(node) : valuesInto(node);
         }
         QueryOut out = query(q, statementScope(node, q));
         Owner owner = resultOwner(st);
@@ -406,12 +419,29 @@ public final class LineageExtractor {
         if (target == null) {
             return null;
         }
+        Scope targetScope = new Scope(null);
+        targetScope.sources.add(new Source(target.name().simpleKey().toUpperCase(Locale.ROOT), tableOwner(target),
+                target.name(), null));
+        List<ColumnNode> returned = returning(st, node, targetScope);
+        StatementLineage main = insertBody(node, target);
+        if (returned.isEmpty()) {
+            return main;
+        }
+        if (main == null) {
+            return result(returned);
+        }
+        List<ColumnNode> outputs = new ArrayList<>(main.outputs());
+        returned.forEach(o -> addOutput(outputs, o));
+        return new StatementLineage(outputs, main.edges());
+    }
+
+    private StatementLineage insertBody(ParserRuleContext node, ObjectRef target) {
         ParserRuleContext q = firstQuery(node);
         List<ParserRuleContext> rows = lr.valuesExpressionList() == null ? List.of()
                 : findAll(node, lr.valuesExpressionList(), lr.queryBlocks());
         QueryOut out;
         boolean values;
-        if (q != null && (rows.isEmpty() || !isInside(q, rows.getFirst()))) {
+        if (q != null && (rows.isEmpty() || !isInside(q, rows.get(0)))) {
             values = isValues(q);
             if (values) {
                 valuesSources.add(q);
@@ -422,7 +452,7 @@ public final class LineageExtractor {
             out = valuesOut(rows, new Scope(statementScope(node, null)));
             values = true;
         } else {
-            return null;
+            return insertSet(node, target);
         }
         List<String> names = insertColumns(node);
         if (names.isEmpty()) {
@@ -432,6 +462,19 @@ public final class LineageExtractor {
             return null;                              // VALUES without known columns: positions mean nothing
         }
         return emit(out, tableOwner(target), names.isEmpty() ? null : names);
+    }
+
+    /** MySQL / MariaDB {@code INSERT … SET col = expr, …}: each assignment writes its column. */
+    private StatementLineage insertSet(ParserRuleContext node, ObjectRef target) {
+        Owner owner = tableOwner(target);
+        Scope scope = new Scope(statementScope(node, null));
+        List<ColumnNode> outputs = new ArrayList<>();
+        for (String setRule : lr.setClauses()) {
+            for (ParserRuleContext set : findAll(node, setRule)) {
+                assign(set, scope, owner, outputs);
+            }
+        }
+        return outputs.isEmpty() ? null : result(outputs);
     }
 
     private boolean isValues(ParserRuleContext node) {
@@ -510,8 +553,345 @@ public final class LineageExtractor {
         for (var pair : lr.hooks().assignments(node)) {
             assignPair(pair.getKey(), pair.getValue(), scope, owner, outputs);
         }
+        returning(st, node, scope).forEach(o -> addOutput(outputs, o));
         indirect(node, scope, owner);
+        if (!assignedVars.isEmpty()) {
+            // SET @v = col: the variable takes its value from the rows the statement filters.
+            ColumnNode rows = owner.column(ColumnNode.ROWS);
+            for (ColumnEdge e : new ArrayList<>(edges)) {
+                if (!e.isDirect() && e.to().key().equals(rows.key())) {
+                    for (ColumnNode v : assignedVars) {
+                        edges.add(ColumnEdge.indirect(e.from(), rowsOf(v), e.role(), e.confidence(), e.range()));
+                    }
+                }
+            }
+        }
         return result(outputs);
+    }
+
+    /**
+     * {@code RETURNING exprs INTO v1, v2} of a DML statement: the expressions (columns of the target
+     * row) flow into the variables by position; without {@code INTO} (PostgreSQL, or PL/pgSQL whose
+     * {@code INTO} was blanked before parsing) into the statement's result columns.
+     *
+     * @return the written variables or result columns
+     */
+    private List<ColumnNode> returning(Statement st, ParserRuleContext node, Scope scope) {
+        Set<String> rules = lr.hooks().returningClauses();
+        ParserRuleContext ret = rules.isEmpty() ? null : firstOf(node, rules);
+        if (ret == null || ret.getChildCount() < 2) {
+            return List.of();
+        }
+        ParserRuleContext into = variables == null ? null : firstOf(ret, variables.rules().intoClauses());
+        int from = rangeOf(ret.getChild(0)).end().offset();
+        int to = into != null ? range(into).start().offset() : range(ret).end().offset();
+        List<ColumnNode> vars = null;
+        if (into != null) {
+            vars = new ArrayList<>();
+            for (String name : VariableScopes.intoNames(text(into))) {
+                vars.add(name == null ? null : intoVariable(name));
+            }
+        }
+        Owner result = resultOwner(st);
+        List<ColumnNode> outputs = new ArrayList<>();
+        String text = source.text();
+        List<int[]> spans = ArgumentText.split(text, from, to);
+        for (int i = 0; i < spans.size(); i++) {
+            int[] s = ArgumentText.trim(text, spans.get(i)[0], spans.get(i)[1]);
+            String value = text.substring(s[0], s[1]);
+            if (value.isEmpty() || value.endsWith("*")) {
+                continue;
+            }
+            ColumnNode target = vars == null ? result.column(returningName(value))
+                    : vars.size() == 1 ? vars.get(0) : i < vars.size() ? vars.get(i) : null;
+            if (target == null) {
+                continue;
+            }
+            List<ColumnNode> refs = new ArrayList<>();
+            refsInSpan(ret, s[0], s[1], scope, refs);
+            addOutput(outputs, target);
+            Transform t = refs.size() == 1 && isPlainColumn(value) ? Transform.PASS_THROUGH : classifyText(value, refs.size());
+            for (ColumnNode ref : refs) {
+                if (!ref.key().equals(target.key())) {
+                    edges.add(ColumnEdge.direct(ref, target, t, Confidence.INFERRED, source.range(s[0], s[1])));
+                }
+            }
+        }
+        nestedIndirect.clear();
+        return outputs;
+    }
+
+    private static final java.util.regex.Pattern AS_ALIAS = java.util.regex.Pattern.compile(
+            "(?is).*\\s+AS\\s+([\\p{L}_\"`\\[][\\p{L}\\p{N}_$#\"`\\]]*)\\s*");
+
+    /** Name of a RETURNING item: its alias, its column, or its text. */
+    private String returningName(String value) {
+        java.util.regex.Matcher m = AS_ALIAS.matcher(value);
+        if (m.matches()) {
+            return m.group(1).replace("\"", "").replace("`", "").replace("[", "").replace("]", "");
+        }
+        return exprName(value);
+    }
+
+    /** Db2 {@code VALUES expr [, …] INTO v [, …]}: the expressions flow into the variables by position. */
+    private StatementLineage valuesInto(ParserRuleContext node) {
+        if (variables == null) {
+            return null;
+        }
+        ParserRuleContext into = firstOf(node, variables.rules().intoClauses());
+        String t = text(node);
+        if (into == null || !isValues(node)) {
+            return null;
+        }
+        String text = source.text();
+        int from = offset(node) + (t.length() - t.stripLeading().length()) + "VALUES".length();
+        int to = range(into).start().offset();
+        List<String> names = VariableScopes.intoNames(text(into));
+        List<int[]> spans = ArgumentText.split(text, from, to);
+        if (spans.size() == 1 && names.size() > 1) {
+            int[] s = ArgumentText.trim(text, spans.get(0)[0], spans.get(0)[1]);
+            if (s[1] > s[0] && text.charAt(s[0]) == '(' && ArgumentText.closing(text, s[0]) == s[1] - 1) {
+                spans = ArgumentText.split(text, s[0] + 1, s[1] - 1);     // VALUES (a, b) INTO x, y
+            }
+        }
+        Scope scope = new Scope(null);
+        List<Out> outs = new ArrayList<>();
+        for (int[] span : spans) {
+            int[] s = ArgumentText.trim(text, span[0], span[1]);
+            String value = text.substring(s[0], s[1]);
+            List<ColumnNode> refs = new ArrayList<>();
+            refsInSpan(node, s[0], s[1], scope, refs);
+            Transform tr = refs.size() == 1 && isPlainColumn(value) ? Transform.PASS_THROUGH : classifyText(value, refs.size());
+            outs.add(new Out(exprName(value), tr, refs, source.range(s[0], s[1]), Confidence.INFERRED));
+        }
+        List<Indirect> indirect = new ArrayList<>();
+        drainNested(indirect, IndirectRole.FILTER, range(node));
+        List<ColumnNode> vars = new ArrayList<>();
+        for (String name : names) {
+            vars.add(name == null ? null : intoVariable(name));
+        }
+        return vars.isEmpty() ? null : emitVariables(new QueryOut(outs, indirect), vars);
+    }
+
+    /**
+     * {@code EXECUTE IMMEDIATE '…' INTO v} (and other dynamic SQL with {@code INTO}): the dynamic text is
+     * not analyzed, so the variables are written (statement outputs) without any edge into them.
+     */
+    private StatementLineage dynamicInto(ParserRuleContext node) {
+        if (variables == null || variables.rules().intoClauses().isEmpty()) {
+            return null;
+        }
+        ParserRuleContext into = firstOf(node, variables.rules().intoClauses());
+        if (into == null) {
+            return null;
+        }
+        List<ColumnNode> outputs = new ArrayList<>();
+        for (String name : VariableScopes.intoNames(text(into))) {
+            if (name != null) {
+                addOutput(outputs, intoVariable(name));
+            }
+        }
+        return outputs.isEmpty() ? null : result(outputs);
+    }
+
+    // ----- calls of routines the script may define --------------------------------------------------
+
+    private static final String NAME_RE = "[\\p{L}_\"\\[`][\\p{L}\\p{N}_$#\"\\]`]*";
+    private static final java.util.regex.Pattern CALL_HEAD = java.util.regex.Pattern.compile(
+            "(?s)\\s*(" + NAME_RE + "(?:\\s*\\.\\s*" + NAME_RE + ")*)\\s*\\(");
+    private static final java.util.regex.Pattern FIELD_TAIL = java.util.regex.Pattern.compile(
+            "(?s)(?:\\s*\\.\\s*" + NAME_RE + ")+\\s*");
+    private static final java.util.regex.Pattern CALL_STATEMENT = java.util.regex.Pattern.compile(
+            "(?is)\\s*(?:(?:CALL|EXEC|EXECUTE)\\s+)?(?:@[\\p{L}\\p{N}_@#$]+\\s*=\\s*)?(" + NAME_RE
+                    + "(?:\\s*\\.\\s*" + NAME_RE + ")*)");
+    private static final java.util.regex.Pattern NAMED_ARGUMENT = java.util.regex.Pattern.compile(
+            "(?s)(@?" + NAME_RE + ")\\s*(=>|:=|=(?![=>]))\\s*");
+    private static final java.util.regex.Pattern OUTPUT_ARGUMENT = java.util.regex.Pattern.compile(
+            "(?is)(.*?)\\s+(?:OUTPUT|OUT)\\s*");
+
+    /**
+     * {@code name(args)} (optionally followed by {@code .field}) spanning a whole node.
+     *
+     * @param nameStart absolute offset of the name
+     * @param open      absolute offset of the opening parenthesis
+     * @param close     absolute offset of the closing parenthesis
+     * @param plain     whether nothing follows the closing parenthesis
+     */
+    private record Call(String name, int nameStart, int open, int close, boolean plain) {
+    }
+
+    private Call callAt(ParserRuleContext node) {
+        boolean collections = variables != null && ir.dialect() == com.github.amber.core.Dialect.ORACLE;
+        if (!collections && !catalog.hasRoutines() || node.getStart() == null || node.getStop() == null) {
+            return null;
+        }
+        if (!")".equals(node.getStop().getText()) && !(collections && variable(node.getStart().getText()) != null)) {
+            return null;
+        }
+        String t = text(node);
+        java.util.regex.Matcher m = CALL_HEAD.matcher(t);
+        if (!m.lookingAt()) {
+            return null;
+        }
+        int open = m.end() - 1;
+        int close = ArgumentText.closing(t, open);
+        if (close < 0) {
+            return null;
+        }
+        String tail = t.substring(close + 1);
+        boolean plain = tail.isBlank();
+        if (!plain && !FIELD_TAIL.matcher(tail).matches()) {
+            return null;
+        }
+        int at = offset(node);
+        return new Call(m.group(1).replaceAll("\\s+", ""), at + m.start(1), at + open, at + close, plain);
+    }
+
+    /**
+     * What a call node reads: a PL/SQL collection element {@code v(i)} / {@code v(i).field} reads the
+     * variable {@code v}; a call of a routine the script may define reads the routine's result
+     * (placeholder resolved by {@link CallLineage}), and its arguments flow into the parameters.
+     * Null when the node is neither.
+     */
+    private ColumnNode callRead(Call call, ParserRuleContext node, Scope scope) {
+        if (!call.name().contains(".") && variables != null && ir.dialect() == com.github.amber.core.Dialect.ORACLE) {
+            ColumnNode v = variable(call.name());
+            if (v != null) {
+                return v;
+            }
+        }
+        if (!call.plain()) {
+            return null;
+        }
+        ObjectName name = ObjectName.parse(ir.dialect(), call.name());
+        if (name == null || !catalog.isRoutine(name.simpleName())) {
+            return null;
+        }
+        ColumnNode ret = calls.get(call.open());
+        if (ret == null) {
+            ret = CallLineage.result(call.name(), call.nameStart());
+            calls.put(call.open(), ret);
+            arguments(call.name(), call.nameStart(), node, call.open() + 1, call.close(), scope, false);
+        }
+        return ret;
+    }
+
+    /** CALL / EXEC / a PL/SQL procedure call statement of a routine the script may define. */
+    private StatementLineage call(ParserRuleContext node) {
+        String t = text(node);
+        java.util.regex.Matcher m = CALL_STATEMENT.matcher(t);
+        if (!m.lookingAt()) {
+            return null;
+        }
+        String callee = m.group(1).replaceAll("\\s+", "");
+        ObjectName name = ObjectName.parse(ir.dialect(), callee);
+        if (name == null || !catalog.isRoutine(name.simpleName())) {
+            return null;
+        }
+        String text = source.text();
+        int at = offset(node);
+        int end = range(node).end().offset();
+        int i = at + m.end();
+        while (i < end && Character.isWhitespace(text.charAt(i))) {
+            i++;
+        }
+        int from;
+        int to;
+        if (i < end && text.charAt(i) == '(') {
+            int close = ArgumentText.closing(text, i);
+            if (close < 0 || close >= end) {
+                return null;
+            }
+            from = i + 1;
+            to = close;
+        } else {
+            from = i;
+            to = end;
+            while (to > from && (text.charAt(to - 1) == ';' || Character.isWhitespace(text.charAt(to - 1)))) {
+                to--;
+            }
+        }
+        List<ColumnNode> outputs = new ArrayList<>();
+        arguments(callee, at + m.start(1), node, from, to, new Scope(statementScope(node, null)), true);
+        return edges.isEmpty() ? null : result(outputs);
+    }
+
+    /**
+     * Edges from each argument in {@code [from, to)} into the placeholder of its parameter slot ({@code #n}
+     * or the name of a named argument); in a call statement, an argument that is a plain variable also
+     * gets an edge back from the slot (an OUT parameter writes it).
+     */
+    private void arguments(String callee, int callAt, ParserRuleContext root, int from, int to, Scope scope,
+                           boolean statement) {
+        String text = source.text();
+        int[] all = ArgumentText.trim(text, from, to);
+        if (all[0] >= all[1]) {
+            return;
+        }
+        int position = 0;
+        for (int[] span : ArgumentText.split(text, from, to)) {
+            position++;
+            int[] s = ArgumentText.trim(text, span[0], span[1]);
+            if (s[0] >= s[1]) {
+                continue;
+            }
+            String slot = "#" + position;
+            java.util.regex.Matcher named = NAMED_ARGUMENT.matcher(text.substring(s[0], s[1]));
+            if (named.lookingAt() && (!named.group(2).equals("=") || named.group(1).startsWith("@"))) {
+                slot = named.group(1);
+                s[0] += named.end();
+            }
+            if (ir.dialect() == com.github.amber.core.Dialect.SQLSERVER) {
+                java.util.regex.Matcher out = OUTPUT_ARGUMENT.matcher(text.substring(s[0], s[1]));
+                if (out.matches()) {
+                    s[1] = s[0] + out.group(1).length();
+                }
+            }
+            String value = text.substring(s[0], s[1]).strip();
+            List<ColumnNode> refs = new ArrayList<>();
+            refsInSpan(root, s[0], s[1], scope, refs);
+            nestedIndirect.clear();
+            TextRange r = source.range(s[0], s[1]);
+            boolean plain = refs.size() == 1 && isPlainColumn(value);
+            Transform t = plain ? Transform.PASS_THROUGH : classifyText(value, refs.size());
+            ColumnNode param = CallLineage.argument(callee, callAt, slot);
+            for (ColumnNode ref : refs) {
+                edges.add(ColumnEdge.direct(ref, param, t, Confidence.INFERRED, r));
+            }
+            if (statement && plain && (refs.get(0).ownerKind() == OwnerKind.VARIABLE
+                    || refs.get(0).ownerKind() == OwnerKind.PARAMETER) && !CallLineage.isPlaceholder(refs.get(0))) {
+                edges.add(ColumnEdge.direct(CallLineage.outArgument(callee, callAt, slot), refs.get(0),
+                        Transform.PASS_THROUGH, Confidence.INFERRED, r));
+            }
+        }
+    }
+
+    /** References inside {@code [from, to)} of {@code node}'s subtree. */
+    private void refsInSpan(ParserRuleContext node, int from, int to, Scope scope, List<ColumnNode> out) {
+        TextRange r = range(node);
+        int a = r.start().offset();
+        int b = r.end().offset();
+        if (b <= from || a >= to) {
+            return;
+        }
+        if (a >= from && b <= to) {
+            refsIn(node, scope, out);
+            return;
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            ParseTree c = node.getChild(i);
+            if (c instanceof ParserRuleContext rc) {
+                refsInSpan(rc, from, to, scope, out);
+            } else if (variables != null) {
+                TextRange tr = rangeOf(c);
+                if (tr.start().offset() >= from && tr.end().offset() <= to) {
+                    ColumnNode v = prefixedVariable(c.getText());
+                    if (v != null) {
+                        out.add(v);
+                    }
+                }
+            }
+        }
     }
 
     /**
@@ -600,11 +980,39 @@ public final class LineageExtractor {
         return result(outputs);
     }
 
+    /** T-SQL {@code UPDATE … SET @v = expr} and {@code SET @v = col = expr} (both take {@code expr}). */
+    private void assignVariable(ParserRuleContext set, Scope scope, Owner owner, List<ColumnNode> outputs) {
+        if (variables == null || set.getChildCount() < 3
+                || !(set.getChild(0) instanceof org.antlr.v4.runtime.tree.TerminalNode target)
+                || !target.getText().startsWith("@") || target.getText().startsWith("@@")) {
+            return;
+        }
+        ColumnNode var = variable(target.getText());
+        List<ParserRuleContext> parts = childRules(set);
+        if (var == null || parts.isEmpty()) {
+            return;
+        }
+        ParserRuleContext expr = parts.get(parts.size() - 1);
+        if (parts.size() >= 2) {
+            ColumnNode to = owner.column(lastPart(text(parts.get(0))));
+            addOutput(outputs, to);
+            List<ColumnNode> froms = refsIn(expr, scope);
+            Transform t = froms.size() == 1 && isPlainColumn(text(expr)) ? Transform.PASS_THROUGH
+                    : classify(expr, froms.size());
+            for (ColumnNode from : froms) {
+                edges.add(ColumnEdge.direct(from, to, t, Confidence.INFERRED, range(set)));
+            }
+        }
+        flow(List.of(expr), var, "=", range(set), outputs, scope);
+        assignedVars.add(var);
+    }
+
     /** {@code target = expression}: the assignment's first rule child is the target column. */
     private void assign(ParserRuleContext set, Scope scope, Owner owner, List<ColumnNode> outputs) {
-        ParserRuleContext col = childRules(set).isEmpty() ? null : childRules(set).getFirst();
+        ParserRuleContext col = childRules(set).isEmpty() ? null : childRules(set).get(0);
         if (col == null || text(set).strip().startsWith("@") || text(col).strip().startsWith("@")) {
-            return;                                   // variable assignment (SET @v = …), not a column
+            assignVariable(set, scope, owner, outputs);     // T-SQL UPDATE … SET @v = expr, not a column
+            return;
         }
         String name = lastPart(text(col));
         ColumnNode to = owner.column(name);
@@ -685,13 +1093,53 @@ public final class LineageExtractor {
         var existing = catalog.meta(table.name().key(), table.name().simpleKey());
         List<String> parts = table.name().parts().stream().map(ObjectName.Part::text).toList();
         var base = existing.orElse(new com.github.amber.core.meta.TableMeta(null,
-                parts.size() > 1 ? String.join(".", parts.subList(0, parts.size() - 1)) : null, parts.getLast(),
+                parts.size() > 1 ? String.join(".", parts.subList(0, parts.size() - 1)) : null, parts.get(parts.size() - 1),
                 "TABLE", List.of(), List.of(), List.of(), List.of(), -1, "script DDL"));
         List<com.github.amber.core.meta.TableMeta.IndexMeta> indexes = new ArrayList<>(base.indexes());
         indexes.add(new com.github.amber.core.meta.TableMeta.IndexMeta(st.name() == null ? null : st.name().toString(),
                 cols, unique));
         catalog.add(new com.github.amber.core.meta.TableMeta(base.catalog(), base.schema(), base.name(), base.kind(),
-                base.columns(), base.primaryKey(), base.uniqueKeys(), indexes, base.rowEstimate(), base.source()));
+                base.columns(), base.primaryKey(), base.uniqueKeys(), indexes, base.rowEstimate(), base.source(),
+                base.foreignKeys()));
+    }
+
+    /** {@code ALTER TABLE t ADD [CONSTRAINT n] FOREIGN KEY (a) REFERENCES r (x)}: adds the key to t's metadata. */
+    private void recordForeignKeys(Statement st, ParserRuleContext node) {
+        ObjectRef table = target(st, Access.ALTER);
+        if (table == null) {
+            return;
+        }
+        var added = DdlText.tableForeignKeys(text(node), ir.dialect());
+        if (added.isEmpty()) {
+            return;
+        }
+        var existing = catalog.meta(table.name().key(), table.name().simpleKey());
+        List<String> parts = table.name().parts().stream().map(ObjectName.Part::text).toList();
+        var base = existing.orElse(new com.github.amber.core.meta.TableMeta(null,
+                parts.size() > 1 ? String.join(".", parts.subList(0, parts.size() - 1)) : null, parts.get(parts.size() - 1),
+                "TABLE", List.of(), List.of(), List.of(), List.of(), -1, "script DDL"));
+        catalog.add(base.withForeignKeys(mergeForeignKeys(base.foreignKeys(), added)));
+    }
+
+    /** {@code have} plus the keys of {@code more} not already in it (same columns and referenced table). */
+    private static List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> mergeForeignKeys(
+            List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> have,
+            List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> more) {
+        List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> out = new ArrayList<>(have);
+        Set<String> seen = new java.util.HashSet<>();
+        for (var fk : have) {
+            seen.add(fkKey(fk));
+        }
+        for (var fk : more) {
+            if (seen.add(fkKey(fk))) {
+                out.add(fk);
+            }
+        }
+        return out;
+    }
+
+    private static String fkKey(com.github.amber.core.meta.TableMeta.ForeignKeyMeta fk) {
+        return (fk.columns() + "->" + fk.refSchema() + "." + fk.refTable() + fk.refColumns()).toUpperCase(Locale.ROOT);
     }
 
     private void recordDdlColumns(Statement st, ParserRuleContext node) {
@@ -702,6 +1150,7 @@ public final class LineageExtractor {
         List<String> cols = new ArrayList<>();
         List<com.github.amber.core.meta.TableMeta.ColumnMeta> metas = new ArrayList<>();
         List<String> pk = new ArrayList<>();
+        List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> fks = new ArrayList<>();
         for (ParserRuleContext def : findAll(node, lr.columnDefinition())) {
             ParserRuleContext name = lr.columnNameRule() == null ? null : first(def, lr.columnNameRule());
             String t = name != null ? text(name) : firstWord(def);
@@ -716,6 +1165,10 @@ public final class LineageExtractor {
                 if (DdlText.inlinePrimaryKey(defText)) {
                     pk.add(col);
                 }
+                var fk = DdlText.inlineForeignKey(defText, col, ir.dialect());
+                if (fk != null) {
+                    fks.add(fk);
+                }
             }
         }
         catalog.put(target.name().key(), target.name().simpleKey(), cols);
@@ -727,7 +1180,8 @@ public final class LineageExtractor {
             List<String> parts = target.name().parts().stream().map(ObjectName.Part::text).toList();
             catalog.add(new com.github.amber.core.meta.TableMeta(null,
                     parts.size() > 1 ? String.join(".", parts.subList(0, parts.size() - 1)) : null,
-                    parts.getLast(), "TABLE", metas, pk, DdlText.uniqueKeys(stmtText), List.of(), -1, "script DDL"));
+                    parts.get(parts.size() - 1), "TABLE", metas, pk, DdlText.uniqueKeys(stmtText), List.of(), -1, "script DDL",
+                    mergeForeignKeys(fks, DdlText.tableForeignKeys(stmtText, ir.dialect()))));
         }
     }
 
@@ -854,7 +1308,7 @@ public final class LineageExtractor {
         // ORDER BY / LIMIT / FETCH written on the query root (outside every block) belong to the whole query.
         if (!lr.queryBlocks().contains(ir.ruleName(q)) && !blocks.isEmpty()) {
             List<org.antlr.v4.runtime.tree.TerminalNode> tokens = clauseTokens(q, q, true);
-            QueryBlock target = setBox != null ? setBox : boxOf.get(blocks.getLast());
+            QueryBlock target = setBox != null ? setBox : boxOf.get(blocks.get(blocks.size() - 1));
             if (target != null && !tokens.isEmpty()) {
                 for (String label : clauseLabels(counts(tokens))) {
                     if (!target.clauses().contains(label)) {
@@ -1252,6 +1706,20 @@ public final class LineageExtractor {
             }
             return;
         }
+        Call call = callAt(node);
+        if (call != null && !activeCalls.contains(call.open())) {
+            ColumnNode read = callRead(call, node, scope);
+            if (read != null) {
+                out.add(read);
+                activeCalls.add(call.open());
+                try {
+                    childRefs(node, scope, out);
+                } finally {
+                    activeCalls.remove(call.open());
+                }
+                return;
+            }
+        }
         if (lr.columnRefs().contains(rule)) {
             String t = text(node).strip();
             if (isDatePartArgument(node, t)) {
@@ -1268,6 +1736,10 @@ public final class LineageExtractor {
                 return;
             }
         }
+        childRefs(node, scope, out);
+    }
+
+    private void childRefs(ParserRuleContext node, Scope scope, List<ColumnNode> out) {
         for (int i = 0; i < node.getChildCount(); i++) {
             if (node.getChild(i) instanceof ParserRuleContext c) {
                 refsIn(c, scope, out);
@@ -1331,7 +1803,7 @@ public final class LineageExtractor {
             return null;
         }
         String column = ref.simpleName();
-        if (!ref.parts().getLast().quoted() && lr.pseudoColumns().contains(column.toUpperCase(Locale.ROOT))) {
+        if (!ref.parts().get(ref.parts().size() - 1).quoted() && lr.pseudoColumns().contains(column.toUpperCase(Locale.ROOT))) {
             return null;                      // a quoted "LEVEL" is a real column, LEVEL is the pseudo-column
         }
         char c0 = refText.charAt(0);
@@ -1349,7 +1821,9 @@ public final class LineageExtractor {
                 }
             }
             if (ref.parts().size() == 2) {
-                return variable(ref.parts().getFirst().text());     // r.field of a record variable
+                ColumnNode field = variables == null ? null
+                        : variables.record(varScope, ref.parts().get(0).text(), column);     // FOR r IN (…) LOOP
+                return field != null ? field : variable(ref.parts().get(0).text());     // r.field of a record variable
             }
             return null;                     // package variable, sequence.nextval …
         }
@@ -1363,7 +1837,7 @@ public final class LineageExtractor {
                 }
             }
             if (candidates.size() == 1) {
-                return columnOf(candidates.getFirst(), column);
+                return columnOf(candidates.get(0), column);
             }
             if (candidates.size() > 1) {
                 return new ColumnNode(OwnerKind.UNKNOWN, "?", "?", column);
@@ -1373,11 +1847,46 @@ public final class LineageExtractor {
                 if (v != null) {
                     return v;
                 }
-                return s.sources.size() == 1 ? columnOf(s.sources.getFirst(), column)
-                        : new ColumnNode(OwnerKind.UNKNOWN, "?", "?", column);
+                if (s.sources.size() == 1) {
+                    return columnOf(s.sources.get(0), column);
+                }
+                Source owner = byEvidence(s.sources, column);
+                return owner != null ? columnOf(owner, column) : new ColumnNode(OwnerKind.UNKNOWN, "?", "?", column);
             }
         }
         return variable(column);
+    }
+
+    /**
+     * The only source the script's own evidence shows to have {@code column}, when no metadata places it
+     * (see {@link com.github.amber.core.lineage.ColumnEvidence}); null otherwise. Sources whose columns are
+     * known (DDL, metadata, CTE and derived outputs) do not have it and take no part; a CTE or derived table
+     * with unknown columns makes the answer null. The edges keep their INFERRED confidence.
+     */
+    private Source byEvidence(List<Source> sources, String column) {
+        var evidence = catalog.evidence();
+        if (evidence == null || evidence.isEmpty()) {
+            return null;
+        }
+        List<Source> open = new ArrayList<>();
+        List<ObjectName> names = new ArrayList<>();
+        for (Source src : sources) {
+            if (src.outputs != null) {
+                if (src.outputs.stream().noneMatch(o -> "*".equals(o.name))) {
+                    continue;                           // known columns, without this one
+                }
+                open.add(src);
+                names.add(null);
+            } else if (src.table == null) {
+                open.add(src);
+                names.add(null);
+            } else if (catalog.columns(src.table.key(), src.table.simpleKey()).isEmpty()) {
+                open.add(src);
+                names.add(src.table);
+            }
+        }
+        var choice = evidence.choose(names, column);
+        return choice == null ? null : open.get(choice.index());
     }
 
     private boolean hasColumn(Source src, String column) {
@@ -1502,7 +2011,7 @@ public final class LineageExtractor {
     private StatementLineage emitVariables(QueryOut out, List<ColumnNode> vars) {
         List<ColumnNode> outputs = new ArrayList<>();
         for (int i = 0; i < out.outs.size(); i++) {
-            ColumnNode to = vars.size() == 1 ? vars.getFirst() : i < vars.size() ? vars.get(i) : null;
+            ColumnNode to = vars.size() == 1 ? vars.get(0) : i < vars.size() ? vars.get(i) : null;
             if (to == null) {
                 continue;
             }
@@ -1553,9 +2062,31 @@ public final class LineageExtractor {
             fetch(n, outputs);
             return;
         }
+        if (vr.returns().contains(rule)) {
+            returnValue(n, outputs);
+            return;
+        }
         for (ParserRuleContext c : childRules(n)) {
             if (!container || ir.kindOf(c) == null) {  // a child statement has its own lineage
                 procedural(c, container, outputs);
+            }
+        }
+    }
+
+    /** {@code RETURN expr}: the expression flows into the function's {@code return} variable. */
+    private void returnValue(ParserRuleContext n, List<ColumnNode> outputs) {
+        ColumnNode to = VariableScopes.returnNode(varScope);
+        if (to == null) {
+            return;
+        }
+        boolean after = false;
+        for (int i = 0; i < n.getChildCount(); i++) {
+            ParseTree c = n.getChild(i);
+            if (c instanceof org.antlr.v4.runtime.tree.TerminalNode t) {
+                after |= t.getText().equalsIgnoreCase("RETURN");
+            } else if (after && c instanceof ParserRuleContext expr) {
+                flow(List.of(expr), to, "=", range(n), outputs);
+                return;
             }
         }
     }
@@ -1615,12 +2146,17 @@ public final class LineageExtractor {
 
     /** Direct edges from the columns and variables an expression reads into variable {@code to}. */
     private void flow(List<ParserRuleContext> exprs, ColumnNode to, String operator, TextRange r, List<ColumnNode> outputs) {
-        Scope scope = new Scope(null);
+        flow(exprs, to, operator, r, outputs, new Scope(null));
+    }
+
+    /** {@link #flow} with the data sources of the enclosing statement ({@code UPDATE … SET @v = col}). */
+    private void flow(List<ParserRuleContext> exprs, ColumnNode to, String operator, TextRange r, List<ColumnNode> outputs,
+                      Scope scope) {
         List<ColumnNode> froms = new ArrayList<>();
         for (ParserRuleContext e : exprs) {
             refsIn(e, scope, froms);
         }
-        ParserRuleContext expr = exprs.getFirst();
+        ParserRuleContext expr = exprs.get(0);
         Transform t = froms.size() == 1 && exprs.size() == 1 && isPlainColumn(text(expr)) ? Transform.PASS_THROUGH
                 : classify(expr, froms.size());
         if (t == Transform.PASS_THROUGH && !operator.equals("=") && !operator.equals(":=")) {
@@ -1657,7 +2193,7 @@ public final class LineageExtractor {
             return;
         }
         for (int i = 0; i < cursor.columns().size(); i++) {
-            ColumnNode to = vars.size() == 1 ? vars.getFirst() : i < vars.size() ? vars.get(i) : null;
+            ColumnNode to = vars.size() == 1 ? vars.get(0) : i < vars.size() ? vars.get(i) : null;
             if (to == null) {
                 continue;
             }
@@ -1685,10 +2221,14 @@ public final class LineageExtractor {
 
     /** How an expression transforms its inputs, from its tokens (dialect-neutral). */
     private Transform classify(ParserRuleContext node, int refCount) {
+        return classifyText(text(node), refCount);
+    }
+
+    private Transform classifyText(String text, int refCount) {
         if (refCount == 0) {
             return Transform.CONSTANT;
         }
-        SqlScanner sc = new SqlScanner(text(node), ScannerOptions.forDialect(ir.dialect()));
+        SqlScanner sc = new SqlScanner(text, ScannerOptions.forDialect(ir.dialect()));
         List<ScanToken> tokens = new ArrayList<>();
         ScanToken t;
         while ((t = sc.next()) != null) {
@@ -1800,7 +2340,7 @@ public final class LineageExtractor {
 
     private ParserRuleContext first(ParserRuleContext node, String rule) {
         List<ParserRuleContext> all = findAll(node, rule, lr.queryBlocks());
-        return all.isEmpty() ? null : all.getFirst();
+        return all.isEmpty() ? null : all.get(0);
     }
 
     private List<ParserRuleContext> childRules(ParserRuleContext node) {
@@ -1850,12 +2390,37 @@ public final class LineageExtractor {
         return null;
     }
 
-    /** Alias next to a table or subquery: an alias-rule node among the following siblings (or the parent's). */
+    /** Child positions of nodes with many children (long FROM or select lists), built on first use. */
+    private final java.util.Map<ParserRuleContext, java.util.Map<ParseTree, Integer>> childIndex =
+            new java.util.IdentityHashMap<>();
+
+    private int indexIn(ParserRuleContext parent, ParseTree child) {
+        if (parent.children.size() <= 32) {
+            return parent.children.indexOf(child);
+        }
+        return childIndex.computeIfAbsent(parent, p -> {
+            java.util.Map<ParseTree, Integer> m = new java.util.IdentityHashMap<>();
+            for (int i = 0; i < p.children.size(); i++) {
+                m.put(p.children.get(i), i);
+            }
+            return m;
+        }).getOrDefault(child, -1);
+    }
+
+    /**
+     * Alias next to a table or subquery: an alias-rule node among the following siblings (or the parent's).
+     * The search ends at a comma: an alias never follows one, and scanning on made a FROM list of n tables
+     * cost n² (16,000 tables took seconds).
+     */
     private String aliasNear(ParseTree node) {
         ParseTree level = node;
         for (int depth = 0; depth < 3 && level.getParent() instanceof ParserRuleContext parent; depth++) {
-            int idx = parent.children.indexOf(level);
+            int idx = indexIn(parent, level);
             for (int i = idx + 1; i < parent.getChildCount(); i++) {
+                if (parent.getChild(i) instanceof org.antlr.v4.runtime.tree.TerminalNode comma
+                        && ",".equals(comma.getText())) {
+                    return null;
+                }
                 if (parent.getChild(i) instanceof ParserRuleContext c) {
                     ParserRuleContext alias = findAlias(c, Math.max(ir.aliasDepth(), 1));
                     if (alias != null) {
@@ -1925,8 +2490,9 @@ public final class LineageExtractor {
     }
 
     private String qualifiedText(ParserRuleContext ctx) {
-        if (ctx.getParent() instanceof ParserRuleContext parent) {
-            int idx = parent.children.indexOf(ctx);
+        ParserRuleContext parent = ctx.getParent();
+        if (parent != null) {
+            int idx = indexIn(parent, ctx);
             if (idx >= 2 && ".".equals(parent.getChild(idx - 1).getText())
                     && parent.getChild(idx - 2) instanceof ParserRuleContext schema) {
                 return text(schema) + "." + text(ctx);

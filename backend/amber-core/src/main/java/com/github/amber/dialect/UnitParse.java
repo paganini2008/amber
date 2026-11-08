@@ -33,4 +33,9 @@ public record UnitParse(StatementUnit unit, UnitStatus status, ParserRuleContext
     UnitParse withStatus(UnitStatus newStatus) {
         return new UnitParse(unit, newStatus, tree, mode, diagnostics, elapsed);
     }
+
+    /** The same result without its parse tree, for callers that keep it after the IR is built. */
+    public UnitParse withoutTree() {
+        return tree == null ? this : new UnitParse(unit, status, null, mode, diagnostics, elapsed);
+    }
 }

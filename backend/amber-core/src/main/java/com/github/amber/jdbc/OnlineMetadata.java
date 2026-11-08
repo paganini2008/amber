@@ -28,6 +28,9 @@ public final class OnlineMetadata {
             ObjectKind.MATERIALIZED_VIEW);
 
     /** A name found in several data sources; {@code chosen} is the source whose table was used. */
+    private record SourceRead(MetadataReader.ServerInfo info, Map<ObjectName, List<TableMeta>> tables) {
+    }
+
     public record Ambiguous(String name, List<String> dataSources, String chosen) {
     }
 
@@ -116,14 +119,26 @@ public final class OnlineMetadata {
         Map<String, String> chosen = new LinkedHashMap<>();
         for (DataSourceSpec spec : sources) {
             String id = spec.id() == null ? spec.describe() : spec.id();
-            try (MetadataReader reader = MetadataReader.open(spec)) {
-                servers.put(id, reader.test());
+            try {
+                // One hard deadline per source: a server that accepts and never answers must not hang the
+                // whole lookup; the other sources still run.
+                SourceRead read = Deadline.within(id, () -> {
+                    try (MetadataReader reader = MetadataReader.open(spec)) {
+                        MetadataReader.ServerInfo info = reader.test();
+                        Map<ObjectName, List<TableMeta>> tables = new LinkedHashMap<>();
+                        for (ObjectName name : names) {
+                            tables.put(name, reader.read(List.of(name)));
+                        }
+                        return new SourceRead(info, tables);
+                    }
+                });
+                servers.put(id, read.info());
                 for (ObjectName name : names) {
-                    List<TableMeta> t = reader.read(List.of(name));
+                    List<TableMeta> t = read.tables().getOrDefault(name, List.of());
                     if (!t.isEmpty()) {
-                        int score = score(t.getFirst(), used.getOrDefault(name.key(), Set.of()), spec, scriptDialect);
+                        int score = score(t.get(0), used.getOrDefault(name.key(), Set.of()), spec, scriptDialect);
                         if (!found.containsKey(name.key()) || score > scores.get(name.key())) {
-                            found.put(name.key(), t.getFirst());
+                            found.put(name.key(), t.get(0));
                             scores.put(name.key(), score);
                             chosen.put(name.key(), id);
                         }

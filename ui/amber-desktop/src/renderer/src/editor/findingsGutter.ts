@@ -1,11 +1,13 @@
 import { RangeSet, StateEffect, StateField, type Extension } from '@codemirror/state'
 import { GutterMarker, gutter, type EditorView } from '@codemirror/view'
-import { severityRank } from '@/lib/findings'
+import { getLanguage, t } from '@/i18n'
+import { severityRank, severityText } from '@/lib/findings'
 
 export interface GutterFinding {
   offset: number
   severity: string
   index: number
+  /** Already in the UI language (the caller re-sends the findings when the language changes). */
   title: string
 }
 
@@ -21,20 +23,21 @@ class FindingMarker extends GutterMarker {
     readonly severity: string,
     readonly index: number,
     readonly title: string,
-    readonly count: number
+    readonly count: number,
+    readonly language = getLanguage()
   ) {
     super()
   }
 
   override eq(other: GutterMarker): boolean {
-    return other instanceof FindingMarker && other.severity === this.severity && other.index === this.index && other.count === this.count
+    return other instanceof FindingMarker && other.severity === this.severity && other.index === this.index && other.count === this.count && other.title === this.title && other.language === this.language
   }
 
   override toDOM(): Node {
     const el = document.createElement('span')
     el.className = 'cm-finding-marker'
-    el.title = this.count > 1 ? `${this.title} (+${this.count - 1} more)` : this.title
-    el.setAttribute('aria-label', `${this.severity.toLowerCase()} finding: ${this.title}`)
+    el.title = this.count > 1 ? t('editor.findingMarker', { title: this.title, count: this.count - 1 }) : this.title
+    el.setAttribute('aria-label', t('editor.findingAria', { severity: severityText(this.severity).toLocaleLowerCase(getLanguage()), title: this.title }))
     el.innerHTML = `<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">${SHAPES[this.severity] ?? SHAPES.INFO}</svg>`
     return el
   }

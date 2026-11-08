@@ -1,0 +1,1103 @@
+{
+  "status" : "SUCCESS",
+  "dialect" : "sqlserver",
+  "name" : "proc.sql",
+  "lineCount" : 19,
+  "elapsedMs" : 662,
+  "diagnostics" : [ ],
+  "statements" : [ {
+    "id" : 0,
+    "kind" : "CREATE_PROCEDURE",
+    "category" : "PROGRAM",
+    "container" : true,
+    "confidence" : "INFERRED",
+    "name" : "dw.p_load",
+    "summary" : "Create procedure dw.p_load",
+    "range" : {
+      "start" : {
+        "offset" : 23,
+        "line" : 2,
+        "column" : 1
+      },
+      "end" : {
+        "offset" : 294,
+        "line" : 9,
+        "column" : 5
+      }
+    },
+    "ctes" : [ ],
+    "refs" : [ {
+      "name" : "dw.p_load",
+      "key" : "DW.P_LOAD",
+      "kind" : "PROCEDURE",
+      "access" : "CREATE",
+      "confidence" : "CERTAIN",
+      "range" : {
+        "start" : {
+          "offset" : 40,
+          "line" : 2,
+          "column" : 18
+        },
+        "end" : {
+          "offset" : 49,
+          "line" : 2,
+          "column" : 27
+        }
+      },
+      "via" : null
+    } ],
+    "children" : [ {
+      "id" : 1,
+      "kind" : "BLOCK",
+      "category" : "PROGRAM",
+      "container" : true,
+      "confidence" : "INFERRED",
+      "name" : null,
+      "summary" : "Block",
+      "range" : {
+        "start" : {
+          "offset" : 65,
+          "line" : 4,
+          "column" : 1
+        },
+        "end" : {
+          "offset" : 294,
+          "line" : 9,
+          "column" : 5
+        }
+      },
+      "ctes" : [ ],
+      "refs" : [ ],
+      "children" : [ {
+        "id" : 2,
+        "kind" : "DECLARE",
+        "category" : "PROCEDURAL",
+        "container" : false,
+        "confidence" : "INFERRED",
+        "name" : null,
+        "summary" : "Declare",
+        "range" : {
+          "start" : {
+            "offset" : 75,
+            "line" : 5,
+            "column" : 5
+          },
+          "end" : {
+            "offset" : 93,
+            "line" : 5,
+            "column" : 23
+          }
+        },
+        "ctes" : [ ],
+        "refs" : [ ],
+        "children" : [ ],
+        "structure" : [ ],
+        "executionOrder" : [ ]
+      }, {
+        "id" : 3,
+        "kind" : "SELECT",
+        "category" : "QUERY",
+        "container" : false,
+        "confidence" : "INFERRED",
+        "name" : null,
+        "summary" : "Query src.orders",
+        "range" : {
+          "start" : {
+            "offset" : 99,
+            "line" : 6,
+            "column" : 5
+          },
+          "end" : {
+            "offset" : 170,
+            "line" : 6,
+            "column" : 76
+          }
+        },
+        "ctes" : [ ],
+        "refs" : [ {
+          "name" : "src.orders",
+          "key" : "SRC.ORDERS",
+          "kind" : "TABLE",
+          "access" : "READ",
+          "confidence" : "INFERRED",
+          "range" : {
+            "start" : {
+              "offset" : 130,
+              "line" : 6,
+              "column" : 36
+            },
+            "end" : {
+              "offset" : 140,
+              "line" : 6,
+              "column" : 46
+            }
+          },
+          "via" : null
+        } ],
+        "children" : [ ],
+        "structure" : [ {
+          "id" : 0,
+          "kind" : "QUERY",
+          "name" : null,
+          "role" : null,
+          "range" : {
+            "start" : {
+              "offset" : 99,
+              "line" : 6,
+              "column" : 5
+            },
+            "end" : {
+              "offset" : 169,
+              "line" : 6,
+              "column" : 75
+            }
+          },
+          "sources" : [ {
+            "name" : "src.orders",
+            "kind" : "TABLE",
+            "alias" : "o"
+          } ],
+          "outputs" : [ "@v_max" ],
+          "clauses" : [ "WHERE" ],
+          "phases" : [ {
+            "name" : "FROM",
+            "rank" : 1,
+            "range" : {
+              "start" : {
+                "offset" : 125,
+                "line" : 6,
+                "column" : 31
+              },
+              "end" : {
+                "offset" : 142,
+                "line" : 6,
+                "column" : 48
+              }
+            }
+          }, {
+            "name" : "WHERE",
+            "rank" : 4,
+            "range" : {
+              "start" : {
+                "offset" : 143,
+                "line" : 6,
+                "column" : 49
+              },
+              "end" : {
+                "offset" : 169,
+                "line" : 6,
+                "column" : 75
+              }
+            }
+          }, {
+            "name" : "SELECT",
+            "rank" : 8,
+            "range" : {
+              "start" : {
+                "offset" : 99,
+                "line" : 6,
+                "column" : 5
+              },
+              "end" : {
+                "offset" : 124,
+                "line" : 6,
+                "column" : 30
+              }
+            }
+          } ],
+          "children" : [ ]
+        } ],
+        "executionOrder" : [ {
+          "step" : 1,
+          "block" : 0,
+          "depth" : 0,
+          "phase" : "FROM",
+          "detail" : "src.orders o",
+          "range" : {
+            "start" : {
+              "offset" : 125,
+              "line" : 6,
+              "column" : 31
+            },
+            "end" : {
+              "offset" : 142,
+              "line" : 6,
+              "column" : 48
+            }
+          }
+        }, {
+          "step" : 2,
+          "block" : 0,
+          "depth" : 0,
+          "phase" : "WHERE",
+          "detail" : null,
+          "range" : {
+            "start" : {
+              "offset" : 143,
+              "line" : 6,
+              "column" : 49
+            },
+            "end" : {
+              "offset" : 169,
+              "line" : 6,
+              "column" : 75
+            }
+          }
+        }, {
+          "step" : 3,
+          "block" : 0,
+          "depth" : 0,
+          "phase" : "SELECT",
+          "detail" : "1 column",
+          "range" : {
+            "start" : {
+              "offset" : 99,
+              "line" : 6,
+              "column" : 5
+            },
+            "end" : {
+              "offset" : 124,
+              "line" : 6,
+              "column" : 30
+            }
+          }
+        } ]
+      }, {
+        "id" : 4,
+        "kind" : "INSERT",
+        "category" : "DML",
+        "container" : false,
+        "confidence" : "INFERRED",
+        "name" : null,
+        "summary" : "Insert into dw.daily",
+        "range" : {
+          "start" : {
+            "offset" : 175,
+            "line" : 7,
+            "column" : 5
+          },
+          "end" : {
+            "offset" : 239,
+            "line" : 7,
+            "column" : 69
+          }
+        },
+        "ctes" : [ ],
+        "refs" : [ {
+          "name" : "dw.daily",
+          "key" : "DW.DAILY",
+          "kind" : "TABLE",
+          "access" : "INSERT",
+          "confidence" : "INFERRED",
+          "range" : {
+            "start" : {
+              "offset" : 187,
+              "line" : 7,
+              "column" : 17
+            },
+            "end" : {
+              "offset" : 195,
+              "line" : 7,
+              "column" : 25
+            }
+          },
+          "via" : null
+        } ],
+        "children" : [ ],
+        "structure" : [ ],
+        "executionOrder" : [ ]
+      }, {
+        "id" : 5,
+        "kind" : "DELETE",
+        "category" : "DML",
+        "container" : false,
+        "confidence" : "INFERRED",
+        "name" : null,
+        "summary" : "Delete from dw.stage",
+        "range" : {
+          "start" : {
+            "offset" : 244,
+            "line" : 8,
+            "column" : 5
+          },
+          "end" : {
+            "offset" : 289,
+            "line" : 8,
+            "column" : 50
+          }
+        },
+        "ctes" : [ ],
+        "refs" : [ {
+          "name" : "dw.stage",
+          "key" : "DW.STAGE",
+          "kind" : "TABLE",
+          "access" : "DELETE",
+          "confidence" : "INFERRED",
+          "range" : {
+            "start" : {
+              "offset" : 256,
+              "line" : 8,
+              "column" : 17
+            },
+            "end" : {
+              "offset" : 264,
+              "line" : 8,
+              "column" : 25
+            }
+          },
+          "via" : null
+        } ],
+        "children" : [ ],
+        "structure" : [ ],
+        "executionOrder" : [ ]
+      } ],
+      "structure" : [ ],
+      "executionOrder" : [ ]
+    } ],
+    "structure" : [ ],
+    "executionOrder" : [ ]
+  }, {
+    "id" : 6,
+    "kind" : "CREATE_PROCEDURE",
+    "category" : "PROGRAM",
+    "container" : true,
+    "confidence" : "INFERRED",
+    "name" : "dw.p_run_all",
+    "summary" : "Create procedure dw.p_run_all",
+    "range" : {
+      "start" : {
+        "offset" : 298,
+        "line" : 11,
+        "column" : 1
+      },
+      "end" : {
+        "offset" : 429,
+        "line" : 16,
+        "column" : 5
+      }
+    },
+    "ctes" : [ ],
+    "refs" : [ {
+      "name" : "dw.p_run_all",
+      "key" : "DW.P_RUN_ALL",
+      "kind" : "PROCEDURE",
+      "access" : "CREATE",
+      "confidence" : "CERTAIN",
+      "range" : {
+        "start" : {
+          "offset" : 315,
+          "line" : 11,
+          "column" : 18
+        },
+        "end" : {
+          "offset" : 327,
+          "line" : 11,
+          "column" : 30
+        }
+      },
+      "via" : null
+    } ],
+    "children" : [ {
+      "id" : 7,
+      "kind" : "BLOCK",
+      "category" : "PROGRAM",
+      "container" : true,
+      "confidence" : "INFERRED",
+      "name" : null,
+      "summary" : "Block",
+      "range" : {
+        "start" : {
+          "offset" : 331,
+          "line" : 13,
+          "column" : 1
+        },
+        "end" : {
+          "offset" : 429,
+          "line" : 16,
+          "column" : 5
+        }
+      },
+      "ctes" : [ ],
+      "refs" : [ ],
+      "children" : [ {
+        "id" : 8,
+        "kind" : "CALL",
+        "category" : "PROCEDURAL",
+        "container" : false,
+        "confidence" : "INFERRED",
+        "name" : null,
+        "summary" : "Call dw.p_load",
+        "range" : {
+          "start" : {
+            "offset" : 341,
+            "line" : 14,
+            "column" : 5
+          },
+          "end" : {
+            "offset" : 378,
+            "line" : 14,
+            "column" : 42
+          }
+        },
+        "ctes" : [ ],
+        "refs" : [ {
+          "name" : "dw.p_load",
+          "key" : "DW.P_LOAD",
+          "kind" : "ROUTINE",
+          "access" : "EXECUTE",
+          "confidence" : "CERTAIN",
+          "range" : {
+            "start" : {
+              "offset" : 346,
+              "line" : 14,
+              "column" : 10
+            },
+            "end" : {
+              "offset" : 355,
+              "line" : 14,
+              "column" : 19
+            }
+          },
+          "via" : null
+        }, {
+          "name" : "src.orders",
+          "key" : "SRC.ORDERS",
+          "kind" : "TABLE",
+          "access" : "READ",
+          "confidence" : "INFERRED",
+          "range" : {
+            "start" : {
+              "offset" : 346,
+              "line" : 14,
+              "column" : 10
+            },
+            "end" : {
+              "offset" : 355,
+              "line" : 14,
+              "column" : 19
+            }
+          },
+          "via" : "dw.p_load"
+        }, {
+          "name" : "dw.daily",
+          "key" : "DW.DAILY",
+          "kind" : "TABLE",
+          "access" : "INSERT",
+          "confidence" : "INFERRED",
+          "range" : {
+            "start" : {
+              "offset" : 346,
+              "line" : 14,
+              "column" : 10
+            },
+            "end" : {
+              "offset" : 355,
+              "line" : 14,
+              "column" : 19
+            }
+          },
+          "via" : "dw.p_load"
+        }, {
+          "name" : "dw.stage",
+          "key" : "DW.STAGE",
+          "kind" : "TABLE",
+          "access" : "DELETE",
+          "confidence" : "INFERRED",
+          "range" : {
+            "start" : {
+              "offset" : 346,
+              "line" : 14,
+              "column" : 10
+            },
+            "end" : {
+              "offset" : 355,
+              "line" : 14,
+              "column" : 19
+            }
+          },
+          "via" : "dw.p_load"
+        } ],
+        "children" : [ ],
+        "structure" : [ ],
+        "executionOrder" : [ ]
+      }, {
+        "id" : 9,
+        "kind" : "UPDATE",
+        "category" : "DML",
+        "container" : false,
+        "confidence" : "INFERRED",
+        "name" : null,
+        "summary" : "Update dw.audit",
+        "range" : {
+          "start" : {
+            "offset" : 383,
+            "line" : 15,
+            "column" : 5
+          },
+          "end" : {
+            "offset" : 424,
+            "line" : 15,
+            "column" : 46
+          }
+        },
+        "ctes" : [ ],
+        "refs" : [ {
+          "name" : "dw.audit",
+          "key" : "DW.AUDIT",
+          "kind" : "TABLE",
+          "access" : "UPDATE",
+          "confidence" : "INFERRED",
+          "range" : {
+            "start" : {
+              "offset" : 390,
+              "line" : 15,
+              "column" : 12
+            },
+            "end" : {
+              "offset" : 398,
+              "line" : 15,
+              "column" : 20
+            }
+          },
+          "via" : null
+        } ],
+        "children" : [ ],
+        "structure" : [ ],
+        "executionOrder" : [ ]
+      } ],
+      "structure" : [ ],
+      "executionOrder" : [ ]
+    } ],
+    "structure" : [ ],
+    "executionOrder" : [ ]
+  }, {
+    "id" : 10,
+    "kind" : "CALL",
+    "category" : "PROCEDURAL",
+    "container" : false,
+    "confidence" : "INFERRED",
+    "name" : null,
+    "summary" : "Call dw.p_run_all",
+    "range" : {
+      "start" : {
+        "offset" : 433,
+        "line" : 18,
+        "column" : 1
+      },
+      "end" : {
+        "offset" : 451,
+        "line" : 18,
+        "column" : 19
+      }
+    },
+    "ctes" : [ ],
+    "refs" : [ {
+      "name" : "dw.p_run_all",
+      "key" : "DW.P_RUN_ALL",
+      "kind" : "ROUTINE",
+      "access" : "EXECUTE",
+      "confidence" : "CERTAIN",
+      "range" : {
+        "start" : {
+          "offset" : 438,
+          "line" : 18,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 450,
+          "line" : 18,
+          "column" : 18
+        }
+      },
+      "via" : null
+    }, {
+      "name" : "dw.audit",
+      "key" : "DW.AUDIT",
+      "kind" : "TABLE",
+      "access" : "UPDATE",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 438,
+          "line" : 18,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 450,
+          "line" : 18,
+          "column" : 18
+        }
+      },
+      "via" : "dw.p_run_all"
+    }, {
+      "name" : "src.orders",
+      "key" : "SRC.ORDERS",
+      "kind" : "TABLE",
+      "access" : "READ",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 438,
+          "line" : 18,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 450,
+          "line" : 18,
+          "column" : 18
+        }
+      },
+      "via" : "dw.p_run_all"
+    }, {
+      "name" : "dw.daily",
+      "key" : "DW.DAILY",
+      "kind" : "TABLE",
+      "access" : "INSERT",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 438,
+          "line" : 18,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 450,
+          "line" : 18,
+          "column" : 18
+        }
+      },
+      "via" : "dw.p_run_all"
+    }, {
+      "name" : "dw.stage",
+      "key" : "DW.STAGE",
+      "kind" : "TABLE",
+      "access" : "DELETE",
+      "confidence" : "INFERRED",
+      "range" : {
+        "start" : {
+          "offset" : 438,
+          "line" : 18,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 450,
+          "line" : 18,
+          "column" : 18
+        }
+      },
+      "via" : "dw.p_run_all"
+    } ],
+    "children" : [ ],
+    "structure" : [ ],
+    "executionOrder" : [ ]
+  } ],
+  "lifecycles" : [ {
+    "name" : "src.orders",
+    "key" : "SRC.ORDERS",
+    "kind" : "TABLE",
+    "role" : "SOURCE",
+    "createdInScript" : false,
+    "droppedInScript" : false,
+    "events" : [ {
+      "step" : 3,
+      "access" : "READ",
+      "range" : {
+        "start" : {
+          "offset" : 130,
+          "line" : 6,
+          "column" : 36
+        },
+        "end" : {
+          "offset" : 140,
+          "line" : 6,
+          "column" : 46
+        }
+      },
+      "via" : null
+    }, {
+      "step" : 8,
+      "access" : "READ",
+      "range" : {
+        "start" : {
+          "offset" : 346,
+          "line" : 14,
+          "column" : 10
+        },
+        "end" : {
+          "offset" : 355,
+          "line" : 14,
+          "column" : 19
+        }
+      },
+      "via" : "dw.p_load"
+    }, {
+      "step" : 10,
+      "access" : "READ",
+      "range" : {
+        "start" : {
+          "offset" : 438,
+          "line" : 18,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 450,
+          "line" : 18,
+          "column" : 18
+        }
+      },
+      "via" : "dw.p_run_all"
+    } ]
+  }, {
+    "name" : "dw.daily",
+    "key" : "DW.DAILY",
+    "kind" : "TABLE",
+    "role" : "TARGET",
+    "createdInScript" : false,
+    "droppedInScript" : false,
+    "events" : [ {
+      "step" : 4,
+      "access" : "INSERT",
+      "range" : {
+        "start" : {
+          "offset" : 187,
+          "line" : 7,
+          "column" : 17
+        },
+        "end" : {
+          "offset" : 195,
+          "line" : 7,
+          "column" : 25
+        }
+      },
+      "via" : null
+    }, {
+      "step" : 8,
+      "access" : "INSERT",
+      "range" : {
+        "start" : {
+          "offset" : 346,
+          "line" : 14,
+          "column" : 10
+        },
+        "end" : {
+          "offset" : 355,
+          "line" : 14,
+          "column" : 19
+        }
+      },
+      "via" : "dw.p_load"
+    }, {
+      "step" : 10,
+      "access" : "INSERT",
+      "range" : {
+        "start" : {
+          "offset" : 438,
+          "line" : 18,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 450,
+          "line" : 18,
+          "column" : 18
+        }
+      },
+      "via" : "dw.p_run_all"
+    } ]
+  }, {
+    "name" : "dw.stage",
+    "key" : "DW.STAGE",
+    "kind" : "TABLE",
+    "role" : "TARGET",
+    "createdInScript" : false,
+    "droppedInScript" : false,
+    "events" : [ {
+      "step" : 5,
+      "access" : "DELETE",
+      "range" : {
+        "start" : {
+          "offset" : 256,
+          "line" : 8,
+          "column" : 17
+        },
+        "end" : {
+          "offset" : 264,
+          "line" : 8,
+          "column" : 25
+        }
+      },
+      "via" : null
+    }, {
+      "step" : 8,
+      "access" : "DELETE",
+      "range" : {
+        "start" : {
+          "offset" : 346,
+          "line" : 14,
+          "column" : 10
+        },
+        "end" : {
+          "offset" : 355,
+          "line" : 14,
+          "column" : 19
+        }
+      },
+      "via" : "dw.p_load"
+    }, {
+      "step" : 10,
+      "access" : "DELETE",
+      "range" : {
+        "start" : {
+          "offset" : 438,
+          "line" : 18,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 450,
+          "line" : 18,
+          "column" : 18
+        }
+      },
+      "via" : "dw.p_run_all"
+    } ]
+  }, {
+    "name" : "dw.audit",
+    "key" : "DW.AUDIT",
+    "kind" : "TABLE",
+    "role" : "TARGET",
+    "createdInScript" : false,
+    "droppedInScript" : false,
+    "events" : [ {
+      "step" : 9,
+      "access" : "UPDATE",
+      "range" : {
+        "start" : {
+          "offset" : 390,
+          "line" : 15,
+          "column" : 12
+        },
+        "end" : {
+          "offset" : 398,
+          "line" : 15,
+          "column" : 20
+        }
+      },
+      "via" : null
+    }, {
+      "step" : 10,
+      "access" : "UPDATE",
+      "range" : {
+        "start" : {
+          "offset" : 438,
+          "line" : 18,
+          "column" : 6
+        },
+        "end" : {
+          "offset" : 450,
+          "line" : 18,
+          "column" : 18
+        }
+      },
+      "via" : "dw.p_run_all"
+    } ]
+  } ],
+  "stepCount" : 11,
+  "lineage" : {
+    "nodes" : [ {
+      "id" : 0,
+      "ownerKind" : "TABLE",
+      "owner" : "src.orders",
+      "ownerKey" : "SRC.ORDERS",
+      "column" : "id"
+    }, {
+      "id" : 1,
+      "ownerKind" : "VARIABLE",
+      "owner" : "dw.p_load",
+      "ownerKey" : "var:DW.P_LOAD@23:@V_MAX",
+      "column" : "@v_max"
+    }, {
+      "id" : 2,
+      "ownerKind" : "TABLE",
+      "owner" : "src.orders",
+      "ownerKey" : "SRC.ORDERS",
+      "column" : "order_day"
+    }, {
+      "id" : 3,
+      "ownerKind" : "VARIABLE",
+      "owner" : "dw.p_load",
+      "ownerKey" : "var:DW.P_LOAD@23:@V_MAX",
+      "column" : "*rows*"
+    }, {
+      "id" : 4,
+      "ownerKind" : "PARAMETER",
+      "owner" : "dw.p_load",
+      "ownerKey" : "var:DW.P_LOAD@23:@P_DAY",
+      "column" : "@p_day"
+    }, {
+      "id" : 5,
+      "ownerKind" : "TABLE",
+      "owner" : "dw.daily",
+      "ownerKey" : "DW.DAILY",
+      "column" : "load_day"
+    }, {
+      "id" : 6,
+      "ownerKind" : "TABLE",
+      "owner" : "dw.daily",
+      "ownerKey" : "DW.DAILY",
+      "column" : "max_id"
+    }, {
+      "id" : 7,
+      "ownerKind" : "TABLE",
+      "owner" : "dw.stage",
+      "ownerKey" : "DW.STAGE",
+      "column" : "load_day"
+    }, {
+      "id" : 8,
+      "ownerKind" : "TABLE",
+      "owner" : "dw.stage",
+      "ownerKey" : "DW.STAGE",
+      "column" : "*rows*"
+    } ],
+    "edges" : [ {
+      "from" : 0,
+      "to" : 1,
+      "kind" : "DIRECT",
+      "transform" : "AGGREGATE",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 3,
+      "range" : {
+        "start" : {
+          "offset" : 106,
+          "line" : 6,
+          "column" : 12
+        },
+        "end" : {
+          "offset" : 124,
+          "line" : 6,
+          "column" : 30
+        }
+      }
+    }, {
+      "from" : 2,
+      "to" : 3,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 3,
+      "range" : {
+        "start" : {
+          "offset" : 149,
+          "line" : 6,
+          "column" : 55
+        },
+        "end" : {
+          "offset" : 169,
+          "line" : 6,
+          "column" : 75
+        }
+      }
+    }, {
+      "from" : 4,
+      "to" : 3,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 3,
+      "range" : {
+        "start" : {
+          "offset" : 149,
+          "line" : 6,
+          "column" : 55
+        },
+        "end" : {
+          "offset" : 169,
+          "line" : 6,
+          "column" : 75
+        }
+      }
+    }, {
+      "from" : 4,
+      "to" : 5,
+      "kind" : "DIRECT",
+      "transform" : "PASS_THROUGH",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 4,
+      "range" : {
+        "start" : {
+          "offset" : 223,
+          "line" : 7,
+          "column" : 53
+        },
+        "end" : {
+          "offset" : 229,
+          "line" : 7,
+          "column" : 59
+        }
+      }
+    }, {
+      "from" : 1,
+      "to" : 6,
+      "kind" : "DIRECT",
+      "transform" : "PASS_THROUGH",
+      "role" : null,
+      "confidence" : "INFERRED",
+      "statement" : 4,
+      "range" : {
+        "start" : {
+          "offset" : 231,
+          "line" : 7,
+          "column" : 61
+        },
+        "end" : {
+          "offset" : 237,
+          "line" : 7,
+          "column" : 67
+        }
+      }
+    }, {
+      "from" : 7,
+      "to" : 8,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 5,
+      "range" : {
+        "start" : {
+          "offset" : 271,
+          "line" : 8,
+          "column" : 32
+        },
+        "end" : {
+          "offset" : 288,
+          "line" : 8,
+          "column" : 49
+        }
+      }
+    }, {
+      "from" : 4,
+      "to" : 8,
+      "kind" : "INDIRECT",
+      "transform" : null,
+      "role" : "FILTER",
+      "confidence" : "INFERRED",
+      "statement" : 5,
+      "range" : {
+        "start" : {
+          "offset" : 271,
+          "line" : 8,
+          "column" : 32
+        },
+        "end" : {
+          "offset" : 288,
+          "line" : 8,
+          "column" : 49
+        }
+      }
+    } ]
+  },
+  "findings" : [ ]
+}

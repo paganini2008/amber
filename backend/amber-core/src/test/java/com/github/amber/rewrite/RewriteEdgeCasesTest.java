@@ -333,6 +333,6 @@ class RewriteEdgeCasesTest {
                 """;
         List<Rewrite> list = suggest(Dialect.ORACLE, sql);
         assertEquals(List.of("AMB-S009"), list.stream().map(Rewrite::rule).toList());
-        assertTrue(list.getFirst().rewrittenStatement().startsWith("select id from t union all"));
+        assertTrue(list.get(0).rewrittenStatement().startsWith("select id from t union all"));
     }
 }

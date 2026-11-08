@@ -15,8 +15,12 @@ extraResources:
     to: runtime
   - from: ../../LICENSE
     to: LICENSE
+  - from: ../../THIRD-PARTY-NOTICES.md
+    to: THIRD-PARTY-NOTICES.md
 asar: true
-publish: never
+# No auto-publishing: the release workflow uploads the installers itself.
+publish: null
+afterPack: scripts/after-pack.mjs
 mac:
   category: public.app-category.developer-tools
   icon: build/icon.png
@@ -27,7 +31,7 @@ mac:
 dmg:
   artifactName: Amber-macos-${arch}.${ext}
 win:
-  icon: build/icon.png
+  icon: build/icon.ico
   target:
     - target: nsis
       arch: [x64]

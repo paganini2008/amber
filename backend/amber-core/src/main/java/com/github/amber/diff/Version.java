@@ -110,7 +110,7 @@ final class Version {
         List<String> path() {
             List<String> out = new ArrayList<>();
             for (Node p = parent; p != null; p = p.parent) {
-                out.addFirst(p.describe());
+                out.add(0, p.describe());
             }
             return out;
         }
@@ -171,6 +171,12 @@ final class Version {
 
     /** Parses strictly, falling back to fallback parsing when strict parsing fails, and analyzes. */
     static Version analyze(Dialect dialect, SourceText source, Catalog catalog) {
+        return analyze(dialect, source, catalog, null);
+    }
+
+    /** As {@link #analyze(Dialect, SourceText, Catalog)}, with the user's rule settings applied to findings. */
+    static Version analyze(Dialect dialect, SourceText source, Catalog catalog,
+                           com.github.amber.dialect.findings.RuleConfig rules) {
         DialectFrontend f = DialectFrontends.get(dialect);
         ScriptParse parse = f.parse(source, ParseOptions.STRICT);
         boolean fallback = false;
@@ -182,12 +188,12 @@ final class Version {
         List<Finding> findings;
         String error = null;
         try {
-            findings = Findings.of(script, catalog);
+            findings = Findings.of(script, catalog, rules);
         } catch (RuntimeException e) {
             findings = List.of();                  // findings are hints; never fail the diff
             error = e.toString();
         }
-        return new Version(dialect, source, parse, fallback, script, findings, error);
+        return new Version(dialect, source, parse.withoutTrees(), fallback, script, findings, error);   // trees: ~1 GB / 100k lines
     }
 
     Integer id(Statement st) {

@@ -1,0 +1,196 @@
+/** The window shell: start page, view tabs, title bar, status bar, toasts, error screens, exports. */
+export const app = {
+  views: {
+    label: 'Views',
+    outline: 'Outline',
+    lifecycle: 'Lifecycle',
+    dataflow: 'Data flow',
+    lineage: 'Lineage',
+    er: 'ER diagram',
+    statement: 'Statement',
+    structure: 'Structure',
+    playback: 'Execution playback',
+    diff: 'Change impact'
+  },
+  themes: {
+    system: 'System',
+    amberLight: 'Amber Light',
+    amberDark: 'Amber Dark',
+    resin: 'Resin',
+    highContrast: 'High Contrast'
+  },
+  resize: {
+    outline: 'Resize outline',
+    editor: 'Resize editor',
+    details: 'Resize details'
+  },
+  analysis: {
+    analyze: 'Analyze',
+    again: 'Analyze again',
+    analyzing: 'Analyzing',
+    analyzingFile: 'Analyzing {name}',
+    didNotFinish: 'The analysis did not finish',
+    edited: 'Edited since the last analysis'
+  },
+  start: {
+    title: 'Maintain the legacy SQL nobody wants to touch',
+    lead: 'Open a script of thousands of lines, with tables, procedures and temp tables written by many hands, and see what it really does. Nothing is executed.',
+    questionWhat: 'What does this script really do?',
+    questionBreaks: 'What breaks if I change this column?',
+    questionSafe: 'Is this change safe to make?',
+    questionHandover: 'Handing it over? Export a handover document.',
+    open: 'Open script…',
+    paste: 'Paste SQL…',
+    drop: 'Or drop a .sql file anywhere in this window.',
+    samples: 'Try a sample',
+    samplesLead: 'A small legacy-style script for each database: temp tables, procedures, MERGE and nested queries.',
+    recent: 'Recent'
+  },
+  drop: {
+    open: 'Open the script',
+    openHint: 'Replaces the script that is open now',
+    compare: 'Compare with the open script',
+    compareHint: 'The dropped file is the new version. Is this change safe?'
+  },
+  title: {
+    fileMenu: 'File',
+    noScript: 'No script open',
+    readable: 'Make it readable again',
+    formatScript: 'Format script',
+    formatSelection: 'Format selection',
+    isSafe: 'Is this change safe?',
+    compareSaved: 'Compare with the saved file',
+    compareOlder: 'Compare with an older version…',
+    compareNewer: 'Compare with a newer version…',
+    openSample: 'Open sample',
+    clearRecent: 'Clear recent files',
+    about: 'About Amber',
+    dialect: 'SQL dialect',
+    theme: 'Theme',
+    detailsPanel: 'Details panel',
+    settings: 'Settings'
+  },
+  export: {
+    label: 'Export',
+    currentStructure: 'Current query structure',
+    currentView: 'Current graph, matrix or lineage',
+    png: 'PNG at {scale}×',
+    mermaidStructure: 'Mermaid (nested subgraphs)',
+    mermaidLineage: 'Mermaid (lineage)',
+    mermaidObjects: 'Mermaid (object level)',
+    json: 'Analysis as JSON',
+    handover: 'Handover document for the next maintainer',
+    preview: 'Preview…',
+    markdown: 'Save as Markdown…',
+    html: 'Save as HTML…'
+  },
+  files: {
+    svg: 'SVG image',
+    png: 'PNG image',
+    html: 'HTML page'
+  },
+  outline: {
+    title: 'Outline',
+    steps: '{count, plural, one {# step} other {# steps}}',
+    expandAll: 'Expand all',
+    collapseAll: 'Collapse all',
+    expand: 'Expand',
+    collapse: 'Collapse',
+    noStatements: 'No statements.',
+    openScript: 'Open a script to see its statements.',
+    statements: 'Statements',
+    findings: '{count, plural, one {# finding} other {# findings}}'
+  },
+  status: {
+    error: 'Error',
+    warning: 'Warning',
+    findings: 'Findings',
+    metadata: 'Metadata',
+    references: 'References',
+    suggestedFixes: 'Suggestions: optimized SQL and quick fixes',
+    fixes: 'Suggestions',
+    syntax: 'Syntax',
+    syntaxProblems: 'Syntax problems',
+    formatReport: 'Format report',
+    keptAsWritten: 'Kept as written',
+    findingsUnavailable: 'Findings are not available in this engine version.',
+    notAvailable: 'not available in this engine version',
+    noFindings: 'No findings. Amber\'s rules found nothing risky in this script.',
+    noSyntaxProblems: 'No syntax problems.',
+    possible: 'Possible: ',
+    metadataTitle: 'Metadata used by the analysis',
+    parse: 'Parse: {state, select, failed {failed} partial {fallback, partial} complete {fallback allowed, complete} other {strict ✓}}',
+    lines: '{count, plural, one {# line} other {# lines}}',
+    engine: 'Engine {version}',
+    engineStopped: 'Engine stopped',
+    engineRestarting: 'Engine restarting',
+    engineStarting: 'Engine starting',
+    restart: 'Restart'
+  },
+  error: {
+    title: '{name} does not parse in strict mode',
+    lead: '{count, plural, one {One syntax error stops} other {# syntax errors stop}} the analysis. Check that the dialect is right, fix the script, or analyze with fallback: statements that do not parse are then kept as unparsed blocks and marked as partial.',
+    withFallback: 'Analyze with fallback',
+    unexpected: 'Unexpected "{token}"',
+    lineColumn: 'line {line}, column {column}',
+    expected: 'Expected {tokens}'
+  },
+  partial: {
+    banner: 'Parsed with fallback. {partial, plural, one {# statement was only partly understood and is} other {# statements were only partly understood and are}} shown muted; {errors, plural, one {# syntax error} other {# syntax errors}} in Problems.'
+  },
+  format: {
+    nothing: 'Nothing to report from the last formatting.',
+    explain: 'The formatter keeps a statement exactly as written when it cannot prove the new layout has the same tokens, for example around an unterminated string.',
+    alreadyDone: 'Already formatted: nothing to change.',
+    selectionDone: 'The selected statements are already formatted.',
+    script: 'Formatted the script',
+    statements: 'Formatted {count, plural, one {# statement} other {# statements}}',
+    kept: '{count} kept as written'
+  },
+  compare: {
+    saved: '{name} (saved)',
+    edited: '{name} (edited)'
+  },
+  errors: {
+    notAvailable: 'Not available in this engine version.',
+    cancelled: 'Cancelled.',
+    engineNotRunning: 'The engine is not running.',
+    engineError: 'The engine reported an error.'
+  },
+  toast: {
+    dismiss: 'Dismiss',
+    show: 'Show',
+    checkChange: 'Check the change',
+    openBeforeCompare: 'Open a script first, then compare it with another version.',
+    analyzeFirst: 'Open and analyze a script first.',
+    updateAvailable: 'Amber {version} is available. See Settings → Updates.',
+    openFailed: 'Could not open the file: {reason}',
+    openPathFailed: 'Could not open {path}: {reason}',
+    saved: 'Saved {file}',
+    pickColumn: 'Pick a column in the Lineage view first.',
+    pickStructure: 'Select a statement with a query structure first.',
+    pngFailed: 'Could not create the PNG: {reason}',
+    noHandover: 'This engine version cannot write handover documents.',
+    handoverFailed: 'Could not create the handover document: {reason}',
+    noFileOnDisk: 'This script has no file on disk. Use Compare with… to pick the other version.',
+    savedReadFailed: 'Could not read the saved file: {reason}',
+    noChanges: 'No changes since the file was opened or saved.',
+    readFailed: 'Could not read {name}: {reason}',
+    summaryCopied: 'Change summary copied as Markdown.',
+    referencesFailed: 'Could not find references.',
+    definedOutside: '{name} is defined outside this script.',
+    notFound: 'Nothing named {name} was found in this script.',
+    noFormat: 'This engine version cannot format scripts yet.',
+    formatFailed: 'Could not format: {reason}',
+    changedWhileFormatting: 'The script changed while it was being formatted. Format it again.',
+    fixesStale: 'The script changed since these fixes were suggested. Analyze it again to refresh them.',
+    fixesOverlap: 'These fixes overlap. Apply them one at a time.',
+    appliedOne: 'Applied “{title}”',
+    appliedMany: 'Applied {count, plural, one {# fix} other {# fixes}}',
+    applied: 'Applied',
+    appliedUnsaved: '{label}. The file on disk is unchanged until you save.',
+    noCompare: 'This engine version cannot compare scripts yet.',
+    compareFailed: 'The comparison did not finish.',
+    metadataFailed: 'Could not read metadata.'
+  }
+}
