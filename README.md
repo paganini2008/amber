@@ -85,7 +85,7 @@ flowchart LR
 | To | You need |
 |---|---|
 | Use Amber | Nothing else. Each installer bundles the engine, a trimmed Java runtime and all JDBC drivers. Windows 10/11 x64, macOS 12+ (Apple silicon or Intel), Linux x64 (deb or rpm). |
-| Build or run the engine yourself | JDK **17** or later (tested on 17 and 25), Maven **3.9+** |
+| Build or run the engine yourself | JDK **17** or later (compiled for 17; CI and releases use 25), Maven **3.9+** |
 | Build the desktop app | Node.js **22.12+** |
 | Online mode (optional) | Network access to the database and an account that can read catalog metadata |
 | AI suggestions (optional) | [Ollama](https://ollama.com), or an OpenAI-compatible API and a key |

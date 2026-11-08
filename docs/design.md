@@ -187,7 +187,7 @@ amber/
 │        └─ renderer/                       React app
 ├─ docs/                                    GitHub Pages site (this document lives here)
 │  └─ assets/                               images, screenshots, fonts used by the site and docs
-├─ .github/workflows/                       ci.yml, release.yml, pages.yml
+├─ .github/workflows/                       ci.yml, release.yml
 ├─ LICENSE                                  Apache-2.0
 └─ THIRD-PARTY-NOTICES.md
 ```
@@ -749,7 +749,7 @@ how to open an unsigned app on macOS (Gatekeeper) and Windows (SmartScreen).
 |---|---|---|
 | `ci.yml` | push, pull request | `mvn verify` (unit, corpus, snapshot tests), UI type-check, lint, unit tests |
 | `release.yml` | push of a tag `v*` | Set version from the tag → build `engine.jar` once → matrix: jlink + AppCDS + electron-builder per target → smoke test (app starts, engine answers `analyze`) → GitHub Release with all artifacts and `SHA256SUMS` |
-| `pages.yml` | push to `main` touching `docs/` | Build and publish the GitHub Pages site |
+| (GitHub Pages) | push to `main` | Published by GitHub from `main` → `/docs` ("Deploy from a branch"); no workflow of its own |
 
 - Maven and `package.json` stay at `1.0.0-SNAPSHOT` in the repository. The release workflow sets
   the version from the tag (`v1.0.0` → `1.0.0`).

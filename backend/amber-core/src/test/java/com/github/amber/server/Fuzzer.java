@@ -38,6 +38,24 @@ final class Fuzzer {
      * stateless server does, so this is about ten parses.
      */
     static final long FILE_BUDGET_MS = 30_000;
+    /**
+     * Budgets are measured on a developer machine. Shared CI runners (two slow cores, noisy neighbours) need more
+     * room: {@code AMBER_FUZZ_BUDGET_SCALE}, else 2.5 when {@code CI=true} (set by GitHub Actions), else 1. Hangs
+     * and quadratic blow-ups still fail: they exceed any of these by far, and the watchdog stops them.
+     */
+    static final double MACHINE_SCALE = machineScale(System.getenv());
+
+    static double machineScale(java.util.Map<String, String> env) {
+        String explicit = env.get("AMBER_FUZZ_BUDGET_SCALE");
+        if (explicit != null && !explicit.isBlank()) {
+            try {
+                return Math.max(1.0, Double.parseDouble(explicit.trim()));
+            } catch (NumberFormatException e) {
+                // fall through to the default
+            }
+        }
+        return "true".equalsIgnoreCase(env.get("CI")) ? 2.5 : 1.0;
+    }
     private static final String NOT_PARSED = "The script does not parse";
 
     private final Robust.Recorder rec;
@@ -48,7 +66,7 @@ final class Fuzzer {
 
     /** Runs the operations on {@code mutant} of {@code original}; {@code subject} identifies it for the report. */
     void run(String subject, Dialect dialect, String original, String mutant, long seed) {
-        double scale = Math.max(1.0, mutant.length() / 100_000.0);
+        double scale = Math.max(1.0, mutant.length() / 100_000.0) * MACHINE_SCALE;
         long opBudget = (long) (OP_BUDGET_MS * scale);
         Duration watchdog = Duration.ofMillis(Math.max(60_000, opBudget * 6));
         Random rnd = new Random(seed ^ 0x5DEECE66DL);
@@ -156,7 +174,7 @@ final class Fuzzer {
             total += call(subject, "analyze/as-" + other.id(), "analyze", Robust.params(other, mutant, true), opBudget,
                     watchdog, Robust.Texts.of(mutant), false).millis();
         }
-        long fileBudget = (long) (FILE_BUDGET_MS * Math.max(1.0, mutant.length() / 40_000.0));
+        long fileBudget = (long) (FILE_BUDGET_MS * Math.max(1.0, mutant.length() / 40_000.0) * MACHINE_SCALE);
         if (total > fileBudget) {
             rec.add(subject, "all operations", "took " + total + " ms, budget " + fileBudget + " ms");
         }
