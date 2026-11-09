@@ -430,6 +430,8 @@ export interface DataSource {
   user: string
   password: string
   properties: Record<string, string>
+  /** Absolute path of a JDBC driver .jar the engine loads; null uses the bundled driver (none for Db2). */
+  driverPath: string | null
 }
 
 export interface ServerInfo {

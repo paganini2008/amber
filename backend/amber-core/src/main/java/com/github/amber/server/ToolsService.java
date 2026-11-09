@@ -1,15 +1,36 @@
 package com.github.amber.server;
 
+import com.github.amber.core.Dialect;
+import com.github.amber.core.ir.Statement;
 import com.github.amber.core.meta.TableMeta;
+import com.github.amber.core.source.SourceText;
+import com.github.amber.dialect.DialectFrontends;
+import com.github.amber.dialect.ParseOptions;
+import com.github.amber.dialect.ScriptStatus;
+import com.github.amber.dialect.findings.Finding;
 import com.github.amber.dialect.findings.Findings;
 import com.github.amber.dialect.refs.References;
+import com.github.amber.diff.DiffResult;
+import com.github.amber.diff.ScriptDiff;
 import com.github.amber.docgen.HandoverDoc;
+import com.github.amber.er.ErModel;
+import com.github.amber.er.ErModelBuilder;
+import com.github.amber.format.FormatOptions;
+import com.github.amber.format.Formatter;
+import com.github.amber.rewrite.Edit;
+import com.github.amber.rewrite.Optimizer;
+import com.github.amber.rewrite.RewriteSuggester;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.TreeMap;
 
 /**
  * Maintenance tools on top of one analysis: {@code references} (find usages / go to definition) and
@@ -127,23 +148,23 @@ final class ToolsService {
         this.analysis = analysis;
     }
 
-    com.github.amber.er.ErModel erModel(ErModelRequest req) throws IOException {
+    ErModel erModel(ErModelRequest req) throws IOException {
         if (req == null || req.dialect() == null) {
             throw new IllegalArgumentException("'dialect' is required");
         }
-        var frontend = com.github.amber.dialect.DialectFrontends.get(com.github.amber.core.Dialect.fromId(req.dialect()));
+        var frontend = DialectFrontends.get(Dialect.fromId(req.dialect()));
         var source = AnalysisService.source(new AnalysisService.Request(req.dialect(), req.text(), req.path(),
                 req.encoding(), req.name(), req.allowFallback()));
         var parse = frontend.parse(source, Boolean.TRUE.equals(req.allowFallback())
-                ? com.github.amber.dialect.ParseOptions.FALLBACK : com.github.amber.dialect.ParseOptions.STRICT);
-        if (parse.status() == com.github.amber.dialect.ScriptStatus.FAILED) {
+                ? ParseOptions.FALLBACK : ParseOptions.STRICT);
+        if (parse.status() == ScriptStatus.FAILED) {
             throw new IllegalArgumentException("The script does not parse; fix the syntax errors or allow fallback");
         }
         var catalog = MetadataService.catalog(req.dialect(), req.metadataPacks(), req.ddlFiles(), req.metadata());
-        var options = new com.github.amber.er.ErModelBuilder.Options(Boolean.TRUE.equals(req.includeDataFlow()),
+        var options = new ErModelBuilder.Options(Boolean.TRUE.equals(req.includeDataFlow()),
                 !Boolean.FALSE.equals(req.includeNameMatch()),
-                com.github.amber.er.ErModelBuilder.Options.DEFAULTS.maxOccurrences());
-        return com.github.amber.er.ErModelBuilder.build(frontend, parse, catalog, options);
+                ErModelBuilder.Options.DEFAULTS.maxOccurrences());
+        return ErModelBuilder.build(frontend, parse, catalog, options);
     }
 
     ReferencesResult references(ReferencesRequest req) throws IOException {
@@ -164,17 +185,17 @@ final class ToolsService {
                 r.occurrences().stream().map(OccurrenceDto::of).toList());
     }
 
-    com.github.amber.diff.DiffResult diff(DiffRequest req) throws IOException {
+    DiffResult diff(DiffRequest req) throws IOException {
         if (req == null || req.dialect() == null || req.before() == null || req.after() == null) {
             throw new IllegalArgumentException("'dialect', 'before' and 'after' are required");
         }
         var catalog = MetadataService.catalog(req.dialect(), req.metadataPacks(), req.ddlFiles(), req.metadata());
-        return com.github.amber.diff.ScriptDiff.compare(com.github.amber.core.Dialect.fromId(req.dialect()),
+        return ScriptDiff.compare(Dialect.fromId(req.dialect()),
                 side(req.dialect(), req.before(), "before.sql"), side(req.dialect(), req.after(), "after.sql"), catalog,
                 Dtos.RulesDto.config(req.rules()));
     }
 
-    private static com.github.amber.core.source.SourceText side(String dialect, DiffSide s, String fallbackName)
+    private static SourceText side(String dialect, DiffSide s, String fallbackName)
             throws IOException {
         return AnalysisService.source(new AnalysisService.Request(dialect, s.text(), s.path(), s.encoding(),
                 s.name() == null && s.path() == null ? fallbackName : s.name(), false));
@@ -188,7 +209,7 @@ final class ToolsService {
                 req.encoding(), req.name(), req.allowFallback()));
         var catalog = MetadataService.catalog(req.dialect(), req.metadataPacks(), req.ddlFiles(), req.metadata());
         var rules = Dtos.RulesDto.config(req.rules());
-        var list = com.github.amber.rewrite.RewriteSuggester.suggest(com.github.amber.core.Dialect.fromId(req.dialect()),
+        var list = RewriteSuggester.suggest(Dialect.fromId(req.dialect()),
                 source.text(), catalog, req.statements(), Boolean.TRUE.equals(req.allowFallback()), rules::enabled);
         return new RewriteResult(list.stream().map(r -> new RewriteDto(r.id(), r.rule(), r.title(), r.explanation(),
                 r.statement(), r.edits().stream().map(e -> new EditDto(Dtos.Range.of(e.range()), e.replacement())).toList(),
@@ -204,26 +225,26 @@ final class ToolsService {
         boolean fallback = Boolean.TRUE.equals(req.allowFallback());
         var a = analysis.run(new AnalysisService.Request(req.dialect(), req.text(), req.path(), req.encoding(),
                 req.name(), req.allowFallback(), req.metadataPacks(), req.ddlFiles(), req.metadata()));
-        java.util.Map<Integer, List<String>> ddl = new java.util.TreeMap<>();
+        Map<Integer, List<String>> ddl = new TreeMap<>();
         if (a.script() != null) {
             var steps = a.script().flatten();
-            java.util.Map<com.github.amber.core.ir.Statement, Integer> ids = new java.util.IdentityHashMap<>();
+            Map<Statement, Integer> ids = new IdentityHashMap<>();
             for (int i = 0; i < steps.size(); i++) {
                 ids.put(steps.get(i), i);
             }
             try {
                 for (var f : Findings.of(a.script(), a.catalog(), rules)) {
                     var x = f.suggested();
-                    if (x != null && x.kind() == com.github.amber.dialect.findings.Finding.SqlKind.ADDITIONAL_DDL
+                    if (x != null && x.kind() == Finding.SqlKind.ADDITIONAL_DDL
                             && ids.containsKey(f.statement())) {
-                        ddl.computeIfAbsent(ids.get(f.statement()), k -> new java.util.ArrayList<>()).add(x.sql());
+                        ddl.computeIfAbsent(ids.get(f.statement()), k -> new ArrayList<>()).add(x.sql());
                     }
                 }
             } catch (RuntimeException e) {
                 ddl.clear();                         // hints only
             }
         }
-        var r = com.github.amber.rewrite.Optimizer.optimize(a.frontend().dialect(), a.parse().source().text(),
+        var r = Optimizer.optimize(a.frontend().dialect(), a.parse().source().text(),
                 a.catalog(), req.statements(), Boolean.TRUE.equals(req.includeEdgeCases()), rules::enabled, fallback, ddl);
         return new OptimizeResult(r.statements().stream().map(s -> new OptimizedStatementDto(s.statement(),
                 s.original(), s.optimized(),
@@ -238,16 +259,16 @@ final class ToolsService {
         if (req == null || req.text() == null || req.edits() == null) {
             throw new IllegalArgumentException("'text' and 'edits' are required");
         }
-        var src = new com.github.amber.core.source.SourceText("edit.sql", req.text());
+        var src = new SourceText("edit.sql", req.text());
         for (ApplyEdit e : req.edits()) {
             if (e == null || e.start() < 0 || e.end() < e.start() || e.end() > req.text().length()) {
                 throw new IllegalArgumentException("Edit " + (e == null ? "null" : "[" + e.start() + ", " + e.end() + ")")
                         + " is outside the text (length " + req.text().length() + ")");
             }
         }
-        var edits = req.edits().stream().map(e -> new com.github.amber.rewrite.Edit(src.range(e.start(), e.end()),
+        var edits = req.edits().stream().map(e -> new Edit(src.range(e.start(), e.end()),
                 e.replacement() == null ? "" : e.replacement())).toList();
-        return new ApplyResult(com.github.amber.rewrite.RewriteSuggester.apply(req.text(), edits));
+        return new ApplyResult(RewriteSuggester.apply(req.text(), edits));
     }
 
     FormatResultDto format(FormatRequest req) throws IOException {
@@ -256,7 +277,7 @@ final class ToolsService {
         }
         var src = AnalysisService.source(new AnalysisService.Request(req.dialect(), req.text(), req.path(),
                 req.encoding(), null, false));
-        var o = com.github.amber.format.FormatOptions.DEFAULTS;
+        var o = FormatOptions.DEFAULTS;
         if (req.indentSize() != null) {
             o = o.withIndentSize(req.indentSize());
         }
@@ -264,18 +285,18 @@ final class ToolsService {
             o = o.withMaxLineWidth(req.maxLineWidth());
         }
         if (req.keywordCase() != null) {
-            o = o.withKeywordCase(com.github.amber.format.FormatOptions.KeywordCase.valueOf(
-                    req.keywordCase().toUpperCase(java.util.Locale.ROOT)));
+            o = o.withKeywordCase(FormatOptions.KeywordCase.valueOf(
+                    req.keywordCase().toUpperCase(Locale.ROOT)));
         }
         if (req.commaStyle() != null) {
-            o = o.withCommaStyle(com.github.amber.format.FormatOptions.CommaStyle.valueOf(
-                    req.commaStyle().toUpperCase(java.util.Locale.ROOT)));
+            o = o.withCommaStyle(FormatOptions.CommaStyle.valueOf(
+                    req.commaStyle().toUpperCase(Locale.ROOT)));
         }
-        var d = com.github.amber.core.Dialect.fromId(req.dialect());
+        var d = Dialect.fromId(req.dialect());
         var r = req.start() != null
-                ? com.github.amber.format.Formatter.formatRange(d, src.text(), req.start(),
+                ? Formatter.formatRange(d, src.text(), req.start(),
                         req.end() == null ? req.start() : req.end(), o)
-                : com.github.amber.format.Formatter.format(d, src.text(), o);
+                : Formatter.format(d, src.text(), o);
         return new FormatResultDto(r.text(), r.changed(), r.warnings(), r.skipped().stream().map(Dtos.Range::of).toList());
     }
 
@@ -286,13 +307,13 @@ final class ToolsService {
             throw new IllegalArgumentException("The script does not parse; fix the syntax errors or allow fallback");
         }
         var rules = Dtos.RulesDto.config(req.rules());
-        List<com.github.amber.dialect.findings.Finding> findings;
+        List<Finding> findings;
         try {
             findings = Findings.of(a.script(), a.catalog(), rules);
         } catch (RuntimeException e) {
             findings = List.of();
         }
-        var diagnostics = new java.util.ArrayList<>(a.parse().diagnostics());
+        var diagnostics = new ArrayList<>(a.parse().diagnostics());
         diagnostics.addAll(a.script().diagnostics());
         String md = HandoverDoc.markdown(a.script(), findings, diagnostics);
         boolean html = "html".equalsIgnoreCase(req.format());

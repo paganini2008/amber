@@ -1,5 +1,8 @@
 package com.github.amber.dialect.split;
 
+import java.util.Locale;
+import java.util.Set;
+
 /**
  * A coarse token produced by {@link SqlScanner}. Offsets are 0-based char indexes, end exclusive.
  *
@@ -23,8 +26,8 @@ public record ScanToken(Type type, int start, int end, String text) {
         return type == Type.WORD && text.equalsIgnoreCase(word);
     }
 
-    public boolean isWordIn(java.util.Set<String> upperCaseWords) {
-        return type == Type.WORD && upperCaseWords.contains(text.toUpperCase(java.util.Locale.ROOT));
+    public boolean isWordIn(Set<String> upperCaseWords) {
+        return type == Type.WORD && upperCaseWords.contains(text.toUpperCase(Locale.ROOT));
     }
 
     public boolean isSymbol(char c) {
@@ -32,6 +35,6 @@ public record ScanToken(Type type, int start, int end, String text) {
     }
 
     public String upper() {
-        return text.toUpperCase(java.util.Locale.ROOT);
+        return text.toUpperCase(Locale.ROOT);
     }
 }

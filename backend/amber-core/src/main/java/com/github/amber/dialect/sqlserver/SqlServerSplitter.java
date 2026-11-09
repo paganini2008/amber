@@ -10,6 +10,7 @@ import com.github.amber.dialect.split.UnitCollector;
 import com.github.amber.dialect.split.UnitKind;
 
 import java.util.List;
+import java.util.Set;
 
 /**
  * Splits T-SQL scripts into batches, the way sqlcmd and SSMS do:
@@ -45,7 +46,7 @@ public final class SqlServerSplitter implements ScriptSplitter {
                 continue;
             }
             if (sc.startsLine(t) && (t.isSymbol('!') && sc.peek() != null && sc.peek().isSymbol('!')
-                    || (t.isWordIn(java.util.Set.of("EXIT", "QUIT")) && sc.restOfLineEmpty(t.end()) && batchStart < 0))) {
+                    || (t.isWordIn(Set.of("EXIT", "QUIT")) && sc.restOfLineEmpty(t.end()) && batchStart < 0))) {
                 if (batchStart >= 0) {
                     units.add(UnitKind.SQL, batchStart, batchEnd);   // units stay in order and never overlap
                     batchStart = -1;

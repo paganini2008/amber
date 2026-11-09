@@ -1,5 +1,9 @@
 package com.github.amber.dialect.lineage;
 
+import com.github.amber.core.Dialect;
+import com.github.amber.core.ir.ObjectName;
+import com.github.amber.core.meta.TableMeta;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
@@ -34,9 +38,9 @@ final class DdlText {
      * Table-level foreign keys in CREATE TABLE or ALTER TABLE text:
      * {@code [CONSTRAINT n] FOREIGN KEY [n] (a, b) REFERENCES t [(x, y)]}.
      */
-    static List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> tableForeignKeys(String text,
-                                                                                    com.github.amber.core.Dialect d) {
-        List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> out = new ArrayList<>();
+    static List<TableMeta.ForeignKeyMeta> tableForeignKeys(String text,
+                                                                                    Dialect d) {
+        List<TableMeta.ForeignKeyMeta> out = new ArrayList<>();
         Matcher m = TABLE_FK.matcher(text);
         while (m.find()) {
             var fk = foreignKey(d, m.group(1), columns(m.group(2)), m.group(3), m.group(4));
@@ -48,8 +52,8 @@ final class DdlText {
     }
 
     /** A column definition's own {@code REFERENCES t [(x)]} (also T-SQL {@code FOREIGN KEY REFERENCES}), or null. */
-    static com.github.amber.core.meta.TableMeta.ForeignKeyMeta inlineForeignKey(String definition, String column,
-                                                                              com.github.amber.core.Dialect d) {
+    static TableMeta.ForeignKeyMeta inlineForeignKey(String definition, String column,
+                                                                              Dialect d) {
         if (TABLE_FK.matcher(definition).find()) {
             return null;                              // a table constraint read as a column definition
         }
@@ -57,19 +61,19 @@ final class DdlText {
         return m.find() ? foreignKey(d, m.group(1), List.of(column), m.group(2), m.group(3)) : null;
     }
 
-    private static com.github.amber.core.meta.TableMeta.ForeignKeyMeta foreignKey(com.github.amber.core.Dialect d,
+    private static TableMeta.ForeignKeyMeta foreignKey(Dialect d,
                                                                                 String constraint, List<String> cols,
                                                                                 String refName, String refCols) {
-        var name = com.github.amber.core.ir.ObjectName.parse(d, refName);
+        var name = ObjectName.parse(d, refName);
         if (name == null) {
             return null;
         }
-        List<String> parts = name.parts().stream().map(com.github.amber.core.ir.ObjectName.Part::text).toList();
+        List<String> parts = name.parts().stream().map(ObjectName.Part::text).toList();
         String table = parts.get(parts.size() - 1);
         String schema = parts.size() >= 2 ? parts.get(parts.size() - 2) : null;
         String catalog = parts.size() >= 3 ? parts.get(parts.size() - 3) : null;
         String cname = constraint == null ? null : constraint.replaceAll("^[\"`\\[]|[\"`\\]]$", "");
-        return new com.github.amber.core.meta.TableMeta.ForeignKeyMeta(cname, cols, catalog, schema, table,
+        return new TableMeta.ForeignKeyMeta(cname, cols, catalog, schema, table,
                 refCols == null ? List.of() : columns(refCols));
     }
 

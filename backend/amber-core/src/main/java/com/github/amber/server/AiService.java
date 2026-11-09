@@ -2,6 +2,7 @@ package com.github.amber.server;
 
 import com.github.amber.ai.AiCheck;
 import com.github.amber.ai.AiContextBuilder;
+import com.github.amber.ai.Masking;
 import com.github.amber.core.Dialect;
 import com.github.amber.core.analysis.Lifecycles;
 import com.github.amber.core.ir.Statement;
@@ -65,7 +66,7 @@ final class AiService {
         if (req == null || req.text() == null) {
             throw new IllegalArgumentException("'text' is required");
         }
-        return new MaskTextResult(com.github.amber.ai.Masking.maskText(req.text(), req.mask()));
+        return new MaskTextResult(Masking.maskText(req.text(), req.mask()));
     }
 
     private final AnalysisService analysis;

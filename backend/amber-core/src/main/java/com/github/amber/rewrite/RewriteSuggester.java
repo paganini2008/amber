@@ -20,6 +20,8 @@ import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.function.Predicate;
 
 /**
  * Rule-based rewrite suggestions: for findings with a deterministic fix, the concrete edited SQL, like an
@@ -78,7 +80,7 @@ public final class RewriteSuggester {
      * {@code ruleEnabled} is true (the user's rule settings).
      */
     public static List<Rewrite> suggest(Dialect dialect, String text, Catalog catalog, List<Integer> statementIds,
-                                        boolean allowFallback, java.util.function.Predicate<String> ruleEnabled) {
+                                        boolean allowFallback, Predicate<String> ruleEnabled) {
         DialectFrontend f = DialectFrontends.get(dialect);
         ScriptParse parse = f.parse(SourceText.of(text), allowFallback ? ParseOptions.FALLBACK : ParseOptions.STRICT);
         return suggest(dialect, text, parse, catalog, statementIds, allowFallback, ruleEnabled);
@@ -87,7 +89,7 @@ public final class RewriteSuggester {
     /** As above with the script already parsed (in the mode {@code allowFallback} asks for). */
     static List<Rewrite> suggest(Dialect dialect, String text, ScriptParse parse, Catalog catalog,
                                  List<Integer> statementIds, boolean allowFallback,
-                                 java.util.function.Predicate<String> ruleEnabled) {
+                                 Predicate<String> ruleEnabled) {
         DialectFrontend f = DialectFrontends.get(dialect);
         SourceText source = parse.source();
         if (parse.status() == ScriptStatus.FAILED || (!allowFallback && parse.status() != ScriptStatus.SUCCESS)) {
@@ -110,7 +112,7 @@ public final class RewriteSuggester {
         int[] counter = {0};
         for (int id = 0; id < steps.size(); id++) {
             if (Thread.currentThread().isInterrupted()) {
-                throw new java.util.concurrent.CancellationException("cancelled");    // $/cancel
+                throw new CancellationException("cancelled");    // $/cancel
             }
             Statement st = steps.get(id);
             if ((!wanted.isEmpty() && !wanted.contains(id)) || st.kind().isContainer()
@@ -130,7 +132,7 @@ public final class RewriteSuggester {
     }
 
     private static List<Rewrite> forStatement(RewriteContext ctx, Verifier verifier, int[] counter,
-                                              java.util.function.Predicate<String> ruleEnabled) {
+                                              Predicate<String> ruleEnabled) {
         List<Candidate> candidates = new ArrayList<>();
         for (RewriteRule rule : RULES) {
             if (ctx.ignored(rule.id()) || !ruleEnabled.test(rule.id())) {

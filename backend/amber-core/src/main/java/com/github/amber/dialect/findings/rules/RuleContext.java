@@ -14,6 +14,9 @@ import com.github.amber.core.source.SourceText;
 import com.github.amber.core.source.TextRange;
 import com.github.amber.dialect.findings.Finding;
 import com.github.amber.dialect.findings.Finding.Severity;
+import com.github.amber.dialect.split.ScanToken;
+import com.github.amber.dialect.split.ScannerOptions;
+import com.github.amber.dialect.split.SqlScanner;
 
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -118,12 +121,12 @@ final class RuleContext {
         for (Statement c : st.children()) {
             first = Math.min(first, c.range().start().offset());
         }
-        com.github.amber.dialect.split.SqlScanner sc = new com.github.amber.dialect.split.SqlScanner(source.text(),
-                com.github.amber.dialect.split.ScannerOptions.forDialect(dialect));
+        SqlScanner sc = new SqlScanner(source.text(),
+                ScannerOptions.forDialect(dialect));
         sc.reset(start);
         int level = 0;
         int stop = first;
-        com.github.amber.dialect.split.ScanToken t;
+        ScanToken t;
         while ((t = sc.next()) != null && t.start() < end) {
             if (t.isSymbol('(')) {
                 level++;

@@ -1,8 +1,10 @@
 package com.github.amber.dialect.findings;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.dialect.findings.Finding.Severity;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -21,7 +23,7 @@ public final class RuleCatalog {
 
         /** Lower-case id used in the protocol. */
         public String id() {
-            return name().toLowerCase(java.util.Locale.ROOT);
+            return name().toLowerCase(Locale.ROOT);
         }
     }
 
@@ -41,12 +43,12 @@ public final class RuleCatalog {
 
         /** The title in the current request's language. */
         public String localizedTitle() {
-            return com.github.amber.core.i18n.Messages.t("rule." + id + ".title");
+            return Messages.t("rule." + id + ".title");
         }
 
         /** The description in the current request's language. */
         public String localizedDescription() {
-            return com.github.amber.core.i18n.Messages.t("rule." + id + ".description");
+            return Messages.t("rule." + id + ".description");
         }
     }
 
@@ -85,7 +87,7 @@ public final class RuleCatalog {
     /** A rule whose title and description are the English texts {@code rule.<id>.title|description}. */
     private static RuleInfo r(String id, Severity severity, Category category, boolean needsMetadata,
                               boolean hasQuickFix) {
-        var en = com.github.amber.core.i18n.Messages.en();
+        var en = Messages.en();
         return new RuleInfo(id, severity, en.text("rule." + id + ".title"), en.text("rule." + id + ".description"),
                 category, needsMetadata, hasQuickFix);
     }

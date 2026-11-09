@@ -42,7 +42,7 @@ public final class Messages {
     public static final List<String> SUPPORTED = List.of("en", "zh-CN", "es");
 
     /** Bundle base names under {@code amber/i18n/}, one per area. */
-    static final List<String> BUNDLES = List.of("summary", "findings", "rules", "rewrite", "diff", "ai", "doc", "er");
+    static final List<String> BUNDLES = List.of("summary", "findings", "rules", "rewrite", "diff", "ai", "doc", "er", "db");
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{(\\d+)}");
     private static final ThreadLocal<Messages> CURRENT = new ThreadLocal<>();

@@ -1,6 +1,7 @@
 package com.github.amber.jdbc;
 
 import com.github.amber.core.Dialect;
+import com.github.amber.core.config.Env;
 import com.github.amber.core.ir.ObjectName;
 import com.github.amber.core.meta.TableMeta;
 
@@ -10,6 +11,8 @@ import java.sql.DriverManager;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -17,6 +20,7 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.TreeMap;
 import java.util.concurrent.Executors;
 
 /**
@@ -35,7 +39,7 @@ public final class MetadataReader implements AutoCloseable {
 
     /** Login, network and metadata-call timeout ({@code AMBER_JDBC_TIMEOUT_SECONDS}, default 15). */
     private static final int TIMEOUT_SECONDS = Math.max(1,
-            com.github.amber.core.config.Env.get().integer("AMBER_JDBC_TIMEOUT_SECONDS", 15));
+            Env.get().integer("AMBER_JDBC_TIMEOUT_SECONDS", 15));
 
     /** Result of {@link #test()}. */
     public record ServerInfo(String product, String version, int majorVersion, int minorVersion, String user,
@@ -64,7 +68,7 @@ public final class MetadataReader implements AutoCloseable {
         if (spec.password() != null) {
             props.setProperty("password", spec.password());
         }
-        Connection c = DriverManager.getConnection(spec.jdbcUrl(), props);
+        Connection c = JdbcDrivers.connect(spec, props);     // bundled driver, or the user's jar
         try {
             c.setReadOnly(true);
         } catch (SQLException ignored) {
@@ -142,7 +146,7 @@ public final class MetadataReader implements AutoCloseable {
             }
         }
         List<String> pk = new ArrayList<>();
-        Map<Short, String> pkBySeq = new java.util.TreeMap<>();
+        Map<Short, String> pkBySeq = new TreeMap<>();
         try (ResultSet rs = meta.getPrimaryKeys(catalog, schema, table)) {
             while (rs.next()) {
                 pkBySeq.put(rs.getShort("KEY_SEQ"), rs.getString("COLUMN_NAME"));
@@ -196,7 +200,7 @@ public final class MetadataReader implements AutoCloseable {
                     String refColumn) {
         }
         Map<String, List<Part>> byKey = new LinkedHashMap<>();
-        Map<String, String> current = new java.util.HashMap<>();
+        Map<String, String> current = new HashMap<>();
         try (ResultSet rs = meta.getImportedKeys(catalog, schema, table)) {
             while (rs.next()) {
                 Part p = new Part(rs.getString("FK_NAME"), rs.getString("PKTABLE_CAT"), rs.getString("PKTABLE_SCHEM"),
@@ -221,7 +225,7 @@ public final class MetadataReader implements AutoCloseable {
         }
         List<TableMeta.ForeignKeyMeta> out = new ArrayList<>();
         for (List<Part> parts : byKey.values()) {
-            parts.sort(java.util.Comparator.comparingInt(Part::seq));
+            parts.sort(Comparator.comparingInt(Part::seq));
             Part first = parts.get(0);
             boolean refColumnsKnown = parts.stream().allMatch(x -> x.refColumn() != null);
             out.add(new TableMeta.ForeignKeyMeta(first.name() == null || first.name().isBlank() ? null : first.name(),

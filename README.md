@@ -84,7 +84,7 @@ flowchart LR
 
 | To | You need |
 |---|---|
-| Use Amber | Nothing else. Each installer bundles the engine, a trimmed Java runtime and all JDBC drivers. Windows 10/11 x64, macOS 12+ (Apple silicon or Intel), Linux x64 (deb or rpm). |
+| Use Amber | Nothing else. Each installer bundles the engine and a trimmed Java runtime; JDBC drivers for online mode are downloaded on demand (see [JDBC drivers](#jdbc-drivers)). Windows 10/11 x64, macOS 12+ (Apple silicon or Intel), Linux x64 (deb or rpm). |
 | Build or run the engine yourself | JDK **17** or later (compiled for 17; CI and releases use 25), Maven **3.9+** |
 | Build the desktop app | Node.js **22.12+** |
 | Online mode (optional) | Network access to the database and an account that can read catalog metadata |
@@ -92,16 +92,16 @@ flowchart LR
 
 **Supported databases**
 
-| Database | Parser | Bundled JDBC driver |
+| Database | Parser | JDBC driver (downloaded on demand) |
 |---|---|---|
-| Oracle | grammars-v4 `sql/plsql` | Oracle JDBC (ojdbc11) |
-| SQL Server | grammars-v4 `sql/tsql` | Microsoft JDBC Driver (mssql-jdbc) |
-| PostgreSQL | grammars-v4 `sql/postgresql` + PL/pgSQL body parser | pgjdbc |
-| MySQL | grammars-v4 `sql/mysql` | MySQL Connector/J |
-| MariaDB | grammars-v4 `sql/mariadb` | MariaDB Connector/J |
-| Db2 (LUW) | grammar written for Amber | IBM Data Server Driver for JDBC |
-| H2 | grammar written for Amber | H2 |
-| SQLite | grammars-v4 `sql/sqlite` | sqlite-jdbc |
+| Oracle | grammars-v4 `sql/plsql` | Oracle JDBC `ojdbc11` 23.26.2.0.0 |
+| SQL Server | grammars-v4 `sql/tsql` | Microsoft JDBC Driver `mssql-jdbc` 13.4.0.jre11 |
+| PostgreSQL | grammars-v4 `sql/postgresql` + PL/pgSQL body parser | pgjdbc `postgresql` 42.7.13 |
+| MySQL | grammars-v4 `sql/mysql` | MySQL Connector/J 9.4.0 |
+| MariaDB | grammars-v4 `sql/mariadb` | MariaDB Connector/J 3.5.9 |
+| Db2 (LUW) | grammar written for Amber | IBM JCC `jcc` 12.1.4.0 |
+| H2 | grammar written for Amber | H2 2.4.240 |
+| SQLite | grammars-v4 `sql/sqlite` | sqlite-jdbc 3.50.3.0 |
 
 ## Quick start
 
@@ -312,6 +312,21 @@ always entered in Settings and stored encrypted by the OS keychain, never in a `
 | `AMBER_UPDATE_REPO` | `paganini2008/amber` | Repository the update check reads |
 | `AMBER_UPDATE_TIMEOUT_SEC` | 10 | Update check timeout |
 | `AMBER_MAX_FILE_MB` | 64 | Largest script the app opens |
+| `AMBER_MAVEN_REPO` | `https://repo1.maven.org/maven2` | HTTPS Maven repository (or mirror) JDBC drivers are downloaded from; Settings → Connections → Driver repository wins |
+
+<a id="jdbc-drivers"></a>
+**JDBC drivers (online mode)**
+
+Amber bundles no database driver. When a connection needs one, Amber offers to download it from Maven
+Central (Settings → Connections → Drivers, the connection editor, or the Download driver action next to a
+failed connection test or online load). Before anything is downloaded, a dialog shows the Maven
+coordinates, the repository host, the size and the vendor's license with a link; the download starts only
+after **Accept and download**. Each driver is pinned to one version, size and SHA-256 checksum: a file
+that differs is deleted and never used. Drivers are stored once per database type in
+`<app data>/drivers/<database>/` and used by every connection of that type; a jar chosen in a connection
+always wins. Behind a firewall, set an HTTPS mirror under **Driver repository** (or `AMBER_MAVEN_REPO`
+in development), or download the jar yourself and choose it with **Browse…**. The download uses the
+system proxy settings. Amber does not redistribute the drivers.
 
 **Integration tests with real databases (optional):**
 `backend/amber-core/src/test/resources/online-it.properties` (git-ignored; see the `.example` next to

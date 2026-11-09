@@ -1,7 +1,10 @@
 package com.github.amber.dialect.findings;
 
 import com.github.amber.core.Dialect;
+import com.github.amber.core.ir.Confidence;
 import com.github.amber.core.ir.Script;
+import com.github.amber.core.lineage.Catalog;
+import com.github.amber.core.meta.TableMeta;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.dialect.DialectFrontend;
 import com.github.amber.dialect.DialectFrontends;
@@ -87,18 +90,18 @@ class FindingsTest {
                 + "select id from a where id not in (select c.ref from c);\n";
         ScriptParse parse = pg.parse(SourceText.of(sql));
         Script script = ScriptIrBuilder.build(pg, parse);
-        var catalog = com.github.amber.core.lineage.Catalog.of(List.of(
-                new com.github.amber.core.meta.TableMeta(null, null, "b", "TABLE",
-                        List.of(new com.github.amber.core.meta.TableMeta.ColumnMeta("ref", "int", false)),
+        var catalog = Catalog.of(List.of(
+                new TableMeta(null, null, "b", "TABLE",
+                        List.of(new TableMeta.ColumnMeta("ref", "int", false)),
                         List.of(), List.of(), List.of(), 0, "t"),
-                new com.github.amber.core.meta.TableMeta(null, null, "c", "TABLE",
-                        List.of(new com.github.amber.core.meta.TableMeta.ColumnMeta("REF", "int", true)),
+                new TableMeta(null, null, "c", "TABLE",
+                        List.of(new TableMeta.ColumnMeta("REF", "int", true)),
                         List.of(), List.of(), List.of(), 0, "t")));
         List<Finding> online = Findings.of(script, catalog);
         List<Finding> s004 = online.stream().filter(f -> f.rule().equals("AMB-S004")).toList();
         assertEquals(1, s004.size(), "NOT NULL column b.ref is safe");
         assertEquals(2, s004.get(0).range().start().line());
-        assertEquals(com.github.amber.core.ir.Confidence.CERTAIN, s004.get(0).confidence());
+        assertEquals(Confidence.CERTAIN, s004.get(0).confidence());
         assertEquals(2, Findings.of(script).stream().filter(f -> f.rule().equals("AMB-S004")).count(), "offline: both");
     }
 

@@ -1,5 +1,7 @@
 package com.github.amber.dialect.split;
 
+import com.github.amber.core.Dialect;
+
 /**
  * Lexical rules that differ between dialects and matter for finding statement boundaries.
  *
@@ -36,7 +38,7 @@ public record ScannerOptions(boolean nestedBlockComments, boolean bracketIdentif
     public static final ScannerOptions H2 = new ScannerOptions(true, false, true, false, false, false, false, false, false, false, true, false, false);
 
     /** Lexical rules for a dialect; MariaDB shares MySQL's. */
-    public static ScannerOptions forDialect(com.github.amber.core.Dialect dialect) {
+    public static ScannerOptions forDialect(Dialect dialect) {
         return switch (dialect) {
             case ORACLE -> ORACLE;
             case SQLSERVER -> SQLSERVER;

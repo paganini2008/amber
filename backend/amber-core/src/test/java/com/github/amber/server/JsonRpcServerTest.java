@@ -10,6 +10,8 @@ import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -186,8 +188,8 @@ class JsonRpcServerTest {
 
     @Test
     void wrappedInterruptionsCountAsCancellation() {
-        assertTrue(JsonRpcServer.isCancellation(new java.util.concurrent.CompletionException(new InterruptedException())));
-        assertTrue(JsonRpcServer.isCancellation(new RuntimeException(new java.util.concurrent.CancellationException())));
+        assertTrue(JsonRpcServer.isCancellation(new CompletionException(new InterruptedException())));
+        assertTrue(JsonRpcServer.isCancellation(new RuntimeException(new CancellationException())));
         assertTrue(!JsonRpcServer.isCancellation(new IllegalStateException("boom")));
     }
 }

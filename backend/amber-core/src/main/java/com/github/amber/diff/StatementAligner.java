@@ -5,6 +5,8 @@ import com.github.amber.diff.Version.Node;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.Deque;
 import java.util.HashMap;
@@ -13,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Lines up the statements of two versions, level by level:
@@ -58,7 +61,7 @@ final class StatementAligner {
         }
 
         /** Visits this pair and nested pairs. */
-        void forEach(java.util.function.Consumer<P> visitor) {
+        void forEach(Consumer<P> visitor) {
             visitor.accept(this);
             for (P c : new ArrayList<>(children)) {
                 c.forEach(visitor);
@@ -121,7 +124,7 @@ final class StatementAligner {
         int[] anchorOfB = new int[bs.size()];
         int last = -1;
         int[] matchB = new int[bs.size()];
-        java.util.Arrays.fill(matchB, -1);
+        Arrays.fill(matchB, -1);
         for (int i = 0; i < match.length; i++) {
             if (match[i] >= 0) {
                 matchB[match[i]] = i;
@@ -278,7 +281,7 @@ final class StatementAligner {
         if (removed.isEmpty() || added.isEmpty()) {
             return;
         }
-        Set<P> consumed = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<P> consumed = Collections.newSetFromMap(new IdentityHashMap<>());
         // 1. equal signature (containers included, outermost first)
         Map<String, Deque<P>> bySig = new LinkedHashMap<>();
         for (P r : removed) {

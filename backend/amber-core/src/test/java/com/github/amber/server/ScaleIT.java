@@ -15,6 +15,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.function.IntFunction;
+import java.util.function.Supplier;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -159,7 +160,7 @@ class ScaleIT {
     }
 
     /** Runs {@code op} while a sampler records the peak heap above the level before it started. */
-    private static Measured measure(java.util.function.Supplier<Robust.Outcome> op) {
+    private static Measured measure(Supplier<Robust.Outcome> op) {
         MemoryMXBean mem = ManagementFactory.getMemoryMXBean();
         System.gc();
         long base = mem.getHeapMemoryUsage().getUsed();

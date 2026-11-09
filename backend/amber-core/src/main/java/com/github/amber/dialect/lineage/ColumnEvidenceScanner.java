@@ -13,6 +13,7 @@ import java.util.ArrayList;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -267,7 +268,7 @@ public final class ColumnEvidenceScanner {
                 }
                 if (a < n && isName(t.get(a)) && !reserved(t.get(a))
                         && !(a + 1 < n && (t.get(a + 1).isSymbol('.') || t.get(a + 1).isSymbol('(')))) {
-                    put(aliases, part(t.get(a)).toUpperCase(java.util.Locale.ROOT), table);
+                    put(aliases, part(t.get(a)).toUpperCase(Locale.ROOT), table);
                 }
                 i = e;
             }
@@ -351,12 +352,12 @@ public final class ColumnEvidenceScanner {
             }
             Table table;
             if (e - i == 2) {
-                String q = part(t.get(i)).toUpperCase(java.util.Locale.ROOT);
+                String q = part(t.get(i)).toUpperCase(Locale.ROOT);
                 table = aliases.containsKey(q) ? aliases.get(q) : tables.get(q);
             } else {
                 StringBuilder q = new StringBuilder();
                 for (int k = i; k < e; k += 2) {
-                    q.append(k == i ? "" : ".").append(part(t.get(k)).toUpperCase(java.util.Locale.ROOT));
+                    q.append(k == i ? "" : ".").append(part(t.get(k)).toUpperCase(Locale.ROOT));
                 }
                 table = tables.get(q.toString());
             }
@@ -398,7 +399,7 @@ public final class ColumnEvidenceScanner {
             int e = nameEnd(k);
             Table target = table(k, e);
             if (e == k) {
-                Table aliased = aliases.get(part(t.get(k)).toUpperCase(java.util.Locale.ROOT));
+                Table aliased = aliases.get(part(t.get(k)).toUpperCase(Locale.ROOT));
                 if (aliased != null) {
                     target = aliased;                       // T-SQL UPDATE a SET … FROM t a
                 }

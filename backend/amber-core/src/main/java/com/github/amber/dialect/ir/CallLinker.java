@@ -10,10 +10,12 @@ import com.github.amber.core.ir.Statement;
 import com.github.amber.core.ir.StatementKind;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.core.source.TextRange;
+import com.github.amber.dialect.lineage.CallLineage;
 import com.github.amber.dialect.split.ScanToken;
 import com.github.amber.dialect.split.ScannerOptions;
 import com.github.amber.dialect.split.SqlScanner;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -60,7 +62,7 @@ public final class CallLinker {
             }
         }));
         // Column lineage through calls: arguments into parameters, OUT parameters and results back.
-        com.github.amber.dialect.lineage.CallLineage.link(dialect, source, statements, l::find);
+        CallLineage.link(dialect, source, statements, l::find);
         if (l.routines.isEmpty()) {
             return;
         }
@@ -143,7 +145,7 @@ public final class CallLinker {
     /** The routine and every routine of the script it calls, directly or indirectly. */
     private List<Statement> reachable(Statement routine) {
         List<Statement> order = new ArrayList<>();
-        java.util.ArrayDeque<Statement> queue = new java.util.ArrayDeque<>(List.of(routine));
+        ArrayDeque<Statement> queue = new ArrayDeque<>(List.of(routine));
         Set<Statement> seen = new HashSet<>();
         while (!queue.isEmpty()) {
             Statement r = queue.poll();

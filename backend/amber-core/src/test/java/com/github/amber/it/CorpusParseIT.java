@@ -1,7 +1,9 @@
 package com.github.amber.it;
 
 import com.github.amber.core.Dialect;
+import com.github.amber.core.config.Env;
 import com.github.amber.core.diagnostic.Diagnostic;
+import com.github.amber.core.lineage.LineageGraph;
 import com.github.amber.core.source.SourceDecoder;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.dialect.DialectFrontend;
@@ -9,7 +11,9 @@ import com.github.amber.dialect.DialectFrontends;
 import com.github.amber.dialect.ScriptParse;
 import com.github.amber.dialect.UnitParse;
 import com.github.amber.dialect.UnitStatus;
+import com.github.amber.dialect.findings.Findings;
 import com.github.amber.dialect.ir.ScriptIrBuilder;
+import org.antlr.v4.runtime.atn.PredictionMode;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.DynamicTest;
 import org.junit.jupiter.api.TestFactory;
@@ -52,7 +56,7 @@ class CorpusParseIT {
             Path.of("src/test/resources/corpus-private"));
     /** Per-file parse timeout ({@code AMBER_CORPUS_TIMEOUT_SECONDS} in backend/.env, default 60). */
     private static final Duration TIMEOUT = Duration.ofSeconds(
-            com.github.amber.core.config.Env.get().integer("AMBER_CORPUS_TIMEOUT_SECONDS", 60));
+            Env.get().integer("AMBER_CORPUS_TIMEOUT_SECONDS", 60));
     private static final Map<Dialect, Stats> RESULTS = new ConcurrentSkipListMap<>();
 
     @TestFactory
@@ -88,8 +92,8 @@ class CorpusParseIT {
                     ScriptParse parse = frontend.parse(src);
                     if (parse.success()) {
                         var script = ScriptIrBuilder.build(frontend, parse);   // the IR must build for every parsed script
-                        com.github.amber.dialect.findings.Findings.of(script);
-                        com.github.amber.core.lineage.LineageGraph.of(script);
+                        Findings.of(script);
+                        LineageGraph.of(script);
                     }
                     return parse;
                 });
@@ -148,7 +152,7 @@ class CorpusParseIT {
             for (UnitParse unit : outcome.units()) {
                 if (unit.status() != UnitStatus.SKIPPED) {
                     units++;
-                    if (unit.mode() == org.antlr.v4.runtime.atn.PredictionMode.LL) {
+                    if (unit.mode() == PredictionMode.LL) {
                         llUnits++;
                     }
                 }

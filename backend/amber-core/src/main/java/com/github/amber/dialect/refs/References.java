@@ -1,5 +1,6 @@
 package com.github.amber.dialect.refs;
 
+import com.github.amber.core.Dialect;
 import com.github.amber.core.analysis.Lifecycles;
 
 import com.github.amber.core.ir.Access;
@@ -24,6 +25,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
+import java.util.function.IntPredicate;
 
 /**
  * "Find references" and "go to definition" inside one script: every place a table, view, temp table,
@@ -121,7 +123,7 @@ public final class References {
             }
             Set<String> qualifiers = qualifiers(st, wanted);
             boolean target = st.refs().stream().anyMatch(r -> matches(r.name(), wanted) && r.access() != Access.READ);
-            java.util.function.IntPredicate inScope = offset -> {
+            IntPredicate inScope = offset -> {
                 QueryBlock box = innermost(st.structure(), offset);
                 return box == null ? target : box.sources().stream().anyMatch(s -> sameSource(s, wanted));
             };
@@ -145,7 +147,7 @@ public final class References {
         if (n.isRows() || !n.column().equalsIgnoreCase(column)) {
             return false;
         }
-        ObjectName o = ObjectName.parse(com.github.amber.core.Dialect.POSTGRESQL, n.owner());
+        ObjectName o = ObjectName.parse(Dialect.POSTGRESQL, n.owner());
         String key = n.ownerKey().toUpperCase(Locale.ROOT);
         return key.equals(owner.key()) || key.endsWith("." + owner.simpleKey()) || key.equals(owner.simpleKey())
                 || (o != null && owner.parts().size() == 1 && o.simpleKey().equals(owner.simpleKey()));
@@ -163,7 +165,7 @@ public final class References {
     private static void collectAliases(List<QueryBlock> blocks, ObjectName owner, Set<String> out) {
         for (QueryBlock b : blocks) {
             for (QueryBlock.Source s : b.sources()) {
-                ObjectName n = ObjectName.parse(com.github.amber.core.Dialect.POSTGRESQL, s.name());
+                ObjectName n = ObjectName.parse(Dialect.POSTGRESQL, s.name());
                 if (n != null && s.alias() != null && (n.sameObject(owner) || n.simpleKey().equals(owner.simpleKey()))) {
                     out.add(s.alias().toUpperCase(Locale.ROOT));
                 }
@@ -174,7 +176,7 @@ public final class References {
 
     /** {@code column} tokens in the range, unqualified or qualified by one of {@code qualifiers}. */
     private static List<TextRange> columnTokens(SourceText src, TextRange range, String column, Set<String> qualifiers,
-                                                ScannerOptions options, java.util.function.IntPredicate inScope) {
+                                                ScannerOptions options, IntPredicate inScope) {
         String text = src.slice(range);
         int base = range.start().offset();
         List<ScanToken> tokens = new ArrayList<>();
@@ -223,7 +225,7 @@ public final class References {
     }
 
     private static boolean sameSource(QueryBlock.Source s, ObjectName owner) {
-        ObjectName n = ObjectName.parse(com.github.amber.core.Dialect.POSTGRESQL, s.name());
+        ObjectName n = ObjectName.parse(Dialect.POSTGRESQL, s.name());
         return n != null && (n.sameObject(owner) || n.simpleKey().equals(owner.simpleKey()));
     }
 

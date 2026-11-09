@@ -3,6 +3,7 @@ package com.github.amber.er;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * A small SQL lexer for join conditions: identifiers (bare and quoted), literals, operators and
@@ -134,7 +135,7 @@ final class Tokens {
         }
     }
 
-    private static final java.util.Set<String> TWO_CHAR = java.util.Set.of("<>", "!=", "<=", ">=", "||", "::", "=>",
+    private static final Set<String> TWO_CHAR = Set.of("<>", "!=", "<=", ">=", "||", "::", "=>",
             "*=", "=*", "==", ":=", "->");
 
     private static boolean isNameStart(char c) {

@@ -12,6 +12,7 @@ import com.github.amber.dialect.ParseOptions;
 import com.github.amber.dialect.ScriptParse;
 import com.github.amber.dialect.ir.ScriptIrBuilder;
 import com.github.amber.jdbc.DataSourceSpec;
+import com.github.amber.jdbc.Deadline;
 import com.github.amber.jdbc.MetadataReader;
 import com.github.amber.jdbc.OnlineMetadata;
 
@@ -93,7 +94,7 @@ public final class MetadataService {
             throw new IllegalArgumentException("'dataSource' is required");
         }
         var ds = req.dataSource();
-        return com.github.amber.jdbc.Deadline.within(ds.id() == null ? ds.describe() : ds.id(), () -> {
+        return Deadline.within(ds.id() == null ? ds.describe() : ds.id(), () -> {
             try (MetadataReader r = MetadataReader.open(ds)) {
                 return r.test();
             }

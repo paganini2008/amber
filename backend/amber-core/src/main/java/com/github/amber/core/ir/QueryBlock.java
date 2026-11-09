@@ -4,7 +4,10 @@ import com.github.amber.core.source.TextRange;
 
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /**
  * One box of a statement's nested query structure: a query block, a set operation, a CTE, a derived
@@ -108,13 +111,13 @@ public final class QueryBlock {
 
     public void addPhase(Phase phase) {
         phases.add(phase);
-        phases.sort(java.util.Comparator.comparingInt(Phase::rank)
+        phases.sort(Comparator.comparingInt(Phase::rank)
                 .thenComparingInt(p -> p.range() == null ? 0 : p.range().start().offset()));
     }
 
     /** Drops phases added after index {@code from} whose name an earlier phase already has. */
     public void dedupePhases(int from) {
-        java.util.Set<String> seen = new java.util.HashSet<>();
+        Set<String> seen = new HashSet<>();
         List<Phase> keep = new ArrayList<>();
         for (Phase p : phases) {
             if (seen.add(p.name() + "@" + (p.range() == null ? -1 : p.range().start().offset()))) {
@@ -165,7 +168,7 @@ public final class QueryBlock {
         }
         // Built in traversal order (FROM before the select list); shown in source order.
         if (kind == Kind.QUERY && range != null) {
-            out.children.sort(java.util.Comparator.comparingInt(c -> c.range == null ? 0 : c.range.start().offset()));
+            out.children.sort(Comparator.comparingInt(c -> c.range == null ? 0 : c.range.start().offset()));
         }
         return out;
     }

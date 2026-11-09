@@ -1,5 +1,7 @@
 package com.github.amber.rewrite;
 
+import com.github.amber.dialect.split.ScanToken;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
@@ -193,8 +195,8 @@ final class Block {
 
     private boolean endsExpression(int i) {
         var tok = sql.tok(i);
-        return tok.isSymbol(')') || tok.type() == com.github.amber.dialect.split.ScanToken.Type.STRING
-                || tok.type() == com.github.amber.dialect.split.ScanToken.Type.NUMBER
+        return tok.isSymbol(')') || tok.type() == ScanToken.Type.STRING
+                || tok.type() == ScanToken.Type.NUMBER
                 || (sql.isName(i) && !tok.isWordIn(Set.of("SELECT", "DISTINCT", "ALL", "AND", "OR", "NOT", "CASE",
                 "WHEN", "THEN", "ELSE", "IS", "IN", "LIKE", "BETWEEN")));
     }

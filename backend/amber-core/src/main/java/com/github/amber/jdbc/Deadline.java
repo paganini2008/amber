@@ -1,5 +1,8 @@
 package com.github.amber.jdbc;
 
+import com.github.amber.core.config.Env;
+import com.github.amber.core.i18n.Messages;
+
 import java.sql.SQLTimeoutException;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ExecutionException;
@@ -23,7 +26,7 @@ public final class Deadline {
 
     /** Default seconds for one data source; the desktop app gives up at 60 s, so the engine answers first. */
     public static final int SECONDS = Math.max(1,
-            com.github.amber.core.config.Env.get().integer("AMBER_DB_DEADLINE_SECONDS", 45));
+            Env.get().integer("AMBER_DB_DEADLINE_SECONDS", 45));
 
     private Deadline() {
     }
@@ -39,7 +42,8 @@ public final class Deadline {
             return t;
         });
         try {
-            Future<T> f = exec.submit(work);
+            Messages language = Messages.current();    // the worker speaks the request's language
+            Future<T> f = exec.submit(() -> Messages.call(language, work));
             try {
                 return f.get(seconds, TimeUnit.SECONDS);
             } catch (TimeoutException e) {

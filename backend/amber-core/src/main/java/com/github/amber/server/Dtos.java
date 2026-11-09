@@ -3,12 +3,19 @@ package com.github.amber.server;
 import com.github.amber.core.analysis.ObjectLifecycle;
 import com.github.amber.core.diagnostic.Diagnostic;
 import com.github.amber.core.ir.ObjectRef;
+import com.github.amber.core.ir.QueryBlock;
 import com.github.amber.core.ir.Statement;
+import com.github.amber.core.lineage.ColumnNode;
+import com.github.amber.core.lineage.LineageGraph;
 import com.github.amber.core.source.TextPosition;
 import com.github.amber.core.source.TextRange;
+import com.github.amber.dialect.findings.Finding;
+import com.github.amber.dialect.findings.RuleCatalog;
+import com.github.amber.dialect.findings.RuleConfig;
 
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -69,9 +76,9 @@ public final class Dtos {
 
     /** One box of a statement's nested query structure. */
     public record QueryBlockDto(int id, String kind, String name, String role, Range range,
-                                List<com.github.amber.core.ir.QueryBlock.Source> sources, List<String> outputs,
+                                List<QueryBlock.Source> sources, List<String> outputs,
                                 List<String> clauses, List<PhaseDto> phases, List<QueryBlockDto> children) {
-        static QueryBlockDto of(com.github.amber.core.ir.QueryBlock b) {
+        static QueryBlockDto of(QueryBlock b) {
             return new QueryBlockDto(b.id(), b.kind().name(), b.name(), b.role(), Range.of(b.range()), b.sources(),
                     b.outputs(), b.clauses(),
                     b.phases().stream().map(p -> new PhaseDto(p.name(), p.rank(), Range.of(p.range()))).toList(),
@@ -103,14 +110,14 @@ public final class Dtos {
     public record LineageDto(List<ColumnNodeDto> nodes, List<ColumnEdgeDto> edges) {
     }
 
-    static LineageDto lineage(com.github.amber.core.lineage.LineageGraph graph, List<Statement> steps) {
+    static LineageDto lineage(LineageGraph graph, List<Statement> steps) {
         Map<Statement, Integer> ids = new IdentityHashMap<>();
         for (int i = 0; i < steps.size(); i++) {
             ids.put(steps.get(i), i);
         }
-        Map<String, Integer> nodeIds = new java.util.LinkedHashMap<>();
+        Map<String, Integer> nodeIds = new LinkedHashMap<>();
         List<ColumnNodeDto> nodes = new ArrayList<>();
-        for (com.github.amber.core.lineage.ColumnNode n : graph.nodes()) {
+        for (ColumnNode n : graph.nodes()) {
             nodeIds.put(n.key(), nodes.size());
             nodes.add(new ColumnNodeDto(nodes.size(), n.ownerKind().name(), n.owner(), n.ownerKey(), n.column()));
         }
@@ -138,9 +145,9 @@ public final class Dtos {
     /** The user's rule settings: {@code {"disabled": ["AMB-S009"], "severity": {"AMB-P001": "LOW"}}}. */
     public record RulesDto(List<String> disabled, Map<String, String> severity) {
 
-        static com.github.amber.dialect.findings.RuleConfig config(RulesDto r) {
-            return r == null ? com.github.amber.dialect.findings.RuleConfig.DEFAULT
-                    : com.github.amber.dialect.findings.RuleConfig.of(r.disabled(), r.severity());
+        static RuleConfig config(RulesDto r) {
+            return r == null ? RuleConfig.DEFAULT
+                    : RuleConfig.of(r.disabled(), r.severity());
         }
     }
 
@@ -153,13 +160,13 @@ public final class Dtos {
     }
 
     static RulesResult rules() {
-        return new RulesResult(com.github.amber.dialect.findings.RuleCatalog.all().stream().map(r -> new RuleDto(r.id(),
+        return new RulesResult(RuleCatalog.all().stream().map(r -> new RuleDto(r.id(),
                 r.severity().name(), r.localizedTitle(), r.localizedDescription(), r.category().id(), r.needsMetadata(),
                 r.hasQuickFix()))
                 .toList());
     }
 
-    static List<FindingDto> findings(List<com.github.amber.dialect.findings.Finding> findings, List<Statement> steps) {
+    static List<FindingDto> findings(List<Finding> findings, List<Statement> steps) {
         Map<Statement, Integer> ids = new IdentityHashMap<>();
         for (int i = 0; i < steps.size(); i++) {
             ids.put(steps.get(i), i);

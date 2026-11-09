@@ -5,6 +5,7 @@ import com.github.amber.core.diagnostic.Diagnostic;
 import com.github.amber.core.source.SourceText;
 
 import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -37,7 +38,7 @@ public record ScriptParse(Dialect dialect, SourceText source, ParseOptions optio
 
     /** Preprocessing warnings, then all diagnostics of all units in source order. */
     public List<Diagnostic> diagnostics() {
-        List<Diagnostic> all = new java.util.ArrayList<>(preprocessing);
+        List<Diagnostic> all = new ArrayList<>(preprocessing);
         units.forEach(u -> all.addAll(u.diagnostics()));
         return all;
     }

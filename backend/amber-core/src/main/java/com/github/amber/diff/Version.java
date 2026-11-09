@@ -20,6 +20,7 @@ import com.github.amber.dialect.ScriptParse;
 import com.github.amber.dialect.ScriptStatus;
 import com.github.amber.dialect.findings.Finding;
 import com.github.amber.dialect.findings.Findings;
+import com.github.amber.dialect.findings.RuleConfig;
 import com.github.amber.dialect.ir.ScriptIrBuilder;
 
 import java.util.ArrayList;
@@ -176,7 +177,7 @@ final class Version {
 
     /** As {@link #analyze(Dialect, SourceText, Catalog)}, with the user's rule settings applied to findings. */
     static Version analyze(Dialect dialect, SourceText source, Catalog catalog,
-                           com.github.amber.dialect.findings.RuleConfig rules) {
+                           RuleConfig rules) {
         DialectFrontend f = DialectFrontends.get(dialect);
         ScriptParse parse = f.parse(source, ParseOptions.STRICT);
         boolean fallback = false;

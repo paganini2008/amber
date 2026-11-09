@@ -7,10 +7,6 @@ their licenses require.
 
 This file is shipped inside every installer and is shown on the About screen.
 
-> **Status.** Entries marked **Verify before first public release** have redistribution terms that
-> must be checked by a maintainer before the first public release. Versions listed here must be
-> kept in sync with `backend/pom.xml` and `ui/amber-desktop/package.json`.
-
 ## Summary
 
 | Component | Used for | License |
@@ -25,14 +21,7 @@ This file is shipped inside every installer and is shown on the About screen.
 | H2 grammar (written for Amber) | H2 parser | Apache-2.0 |
 | ANTLR 4 runtime | Parsing | BSD-3-Clause |
 | Jackson (core, databind, annotations) | JSON | Apache-2.0 |
-| Oracle JDBC driver (ojdbc) | Oracle metadata (online mode) | Oracle Free Use Terms and Conditions — **verify before first public release** |
-| Microsoft JDBC Driver for SQL Server (mssql-jdbc) | SQL Server metadata | MIT |
-| PostgreSQL JDBC driver (pgjdbc) | PostgreSQL metadata | BSD-2-Clause |
-| MySQL Connector/J | MySQL metadata | GPL-2.0 with the Universal FOSS Exception — **verify before first public release** |
-| MariaDB Connector/J | MariaDB metadata | LGPL-2.1 |
-| IBM Data Server Driver for JDBC and SQLJ (JCC) | Db2 metadata | IBM license terms — **verify before first public release** |
-| H2 Database Engine | H2 metadata | MPL-2.0 or EPL-1.0 (dual) |
-| sqlite-jdbc (Xerial) | SQLite metadata | Apache-2.0 |
+| JDBC drivers (Oracle, SQL Server, PostgreSQL, MySQL, MariaDB, Db2, H2, SQLite) | Online mode | **Not included**: downloaded on demand by the user from Maven Central (see below) |
 | Eclipse Temurin (OpenJDK) runtime | Bundled Java runtime | GPL-2.0 with the Classpath Exception |
 | Electron | Desktop shell | MIT |
 | Chromium and Node.js (inside Electron) | Desktop shell | Various open-source licenses (see below) |
@@ -122,63 +111,24 @@ NOTICE files included in the Jackson jars are retained in the distribution.
 
 ## JDBC drivers
 
-The drivers are bundled so that online mode can read catalog metadata. Amber never sends user
-statements to a database.
+**Amber does not include or redistribute any JDBC driver.** Online mode, which is optional and reads catalog metadata
+only, needs the driver of the database it connects to. When one is missing, Amber offers to download it from Maven
+Central (or a mirror you set) and shows the driver's license first. The download starts only after you accept, and
+each file is checked against a SHA-256 pinned in Amber. You can also choose a driver .jar yourself. Offline analysis
+needs no driver.
 
-### Oracle JDBC driver (ojdbc)
+The drivers Amber offers to download, and their licenses (accepted by the user when downloading):
 
-- Project: <https://www.oracle.com/database/technologies/appdev/jdbc.html>
-- License: Oracle Free Use Terms and Conditions (FUTC),
-  <https://www.oracle.com/downloads/licenses/oracle-free-license.html>
-- **Verify before first public release**: confirm that the FUTC permits redistributing the driver
-  inside Amber's installers, and which notices must accompany it.
-
-### Microsoft JDBC Driver for SQL Server (mssql-jdbc)
-
-- Project: <https://github.com/microsoft/mssql-jdbc>
-- License: MIT. Copyright (c) Microsoft Corporation.
-
-### PostgreSQL JDBC driver (pgjdbc)
-
-- Project: <https://jdbc.postgresql.org/>, <https://github.com/pgjdbc/pgjdbc>
-- License: BSD-2-Clause. Copyright (c) 1997, PostgreSQL Global Development Group.
-
-### MySQL Connector/J
-
-- Project: <https://dev.mysql.com/downloads/connector/j/>
-- License: GPL-2.0 with the Universal FOSS Exception, version 1.0
-  (<https://oss.oracle.com/licenses/universal-foss-exception/>). Copyright (c) Oracle and/or its
-  affiliates.
-- **Verify before first public release**: confirm that distributing Connector/J alongside
-  Apache-2.0 Amber under the Universal FOSS Exception is allowed as packaged (separate, unmodified
-  jar loaded through JDBC), and which notices and source offers are required.
-
-### MariaDB Connector/J
-
-- Project: <https://mariadb.com/kb/en/about-mariadb-connector-j/>,
-  <https://github.com/mariadb-corporation/mariadb-connector-j>
-- License: LGPL-2.1. Shipped as an unmodified, separate jar that can be replaced by the user.
-  Source code is available from the project's repository.
-
-### IBM Data Server Driver for JDBC and SQLJ (JCC)
-
-- Project: <https://www.ibm.com/support/pages/db2-jdbc-driver-versions-and-downloads>
-- License: IBM license terms that accompany the driver (`com.ibm.db2:jcc`).
-- **Verify before first public release**: confirm that the IBM terms permit redistributing the
-  driver inside Amber's installers, and which notices must accompany it.
-
-### H2 Database Engine
-
-- Project: <https://h2database.com/>
-- License: dual-licensed under the Mozilla Public License 2.0 or the Eclipse Public License 1.0
-  (<https://h2database.com/html/license.html>). Source code is available from
-  <https://github.com/h2database/h2database>.
-
-### sqlite-jdbc
-
-- Project: <https://github.com/xerial/sqlite-jdbc>
-- License: Apache-2.0. Includes SQLite, which is in the public domain. Only the native library for
-  the target platform is shipped in each installer.
+| Database | Maven coordinates | License |
+|---|---|---|
+| Oracle | `com.oracle.database.jdbc:ojdbc11:23.26.2.0.0` | Oracle Free Use Terms and Conditions |
+| SQL Server | `com.microsoft.sqlserver:mssql-jdbc:13.4.0.jre11` | MIT |
+| PostgreSQL | `org.postgresql:postgresql:42.7.13` | BSD-2-Clause |
+| MySQL | `com.mysql:mysql-connector-j:9.4.0` | GPL-2.0 with the Universal FOSS Exception |
+| MariaDB | `org.mariadb.jdbc:mariadb-java-client:3.5.9` | LGPL-2.1-or-later |
+| Db2 | `com.ibm.db2:jcc:12.1.4.0` | IBM International Program License Agreement |
+| H2 | `com.h2database:h2:2.4.240` | MPL-2.0 or EPL-1.0 |
+| SQLite | `org.xerial:sqlite-jdbc:3.50.3.0` | Apache-2.0 |
 
 ## Java runtime: Eclipse Temurin
 

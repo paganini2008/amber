@@ -5,6 +5,7 @@ import com.github.amber.dialect.split.ScanToken;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 
 /**
@@ -54,7 +55,7 @@ final class LeftJoinRule implements RewriteRule {
                         String cond = sql.slice(c[0], c[1] - 1);
                         out.add(new Candidate(id(), Messages.t("rewrite.leftJoin.title"),
                                 Messages.t("rewrite.leftJoin.explanation", cond,
-                                        s.exposed(sql).toLowerCase(java.util.Locale.ROOT)),
+                                        s.exposed(sql).toLowerCase(Locale.ROOT)),
                                 edits, Safety.EQUIVALENT, Messages.t("rewrite.leftJoin.safety")));
                         break;
                     }

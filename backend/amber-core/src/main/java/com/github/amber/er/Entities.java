@@ -4,6 +4,7 @@ import com.github.amber.core.ir.ObjectName;
 import com.github.amber.core.source.TextRange;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -88,7 +89,7 @@ final class Entities {
                 into.names.addAll(i.names);
             }
         }
-        canonical.values().stream().distinct().sorted(java.util.Comparator.comparingInt(x -> x.order))
+        canonical.values().stream().distinct().sorted(Comparator.comparingInt(x -> x.order))
                 .forEach(i -> byKey.put(i.key, i));
         frozen = true;
     }

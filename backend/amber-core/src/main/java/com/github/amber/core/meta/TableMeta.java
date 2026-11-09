@@ -1,6 +1,8 @@
 package com.github.amber.core.meta;
 
 import java.util.List;
+import java.util.Locale;
+import java.util.Optional;
 
 /**
  * What Amber knows about one table or view: columns, keys, indexes and size. Comes from DDL, a
@@ -80,7 +82,7 @@ public record TableMeta(String catalog, String schema, String name, String kind,
     }
 
     /** The column with this name, matched case-insensitively. */
-    public java.util.Optional<ColumnMeta> column(String name) {
+    public Optional<ColumnMeta> column(String name) {
         String n = name == null ? "" : name.replaceAll("^[\"`\\[]|[\"`\\]]$", "");
         return columns.stream().filter(c -> c.name().equalsIgnoreCase(n)).findFirst();
     }
@@ -91,7 +93,7 @@ public record TableMeta(String catalog, String schema, String name, String kind,
 
     /** True when {@code cols} cover the primary key or a unique key (so a join on them cannot fan out). */
     public boolean isUnique(List<String> cols) {
-        List<String> upper = cols.stream().map(c -> c.toUpperCase(java.util.Locale.ROOT)).toList();
+        List<String> upper = cols.stream().map(c -> c.toUpperCase(Locale.ROOT)).toList();
         if (!primaryKey.isEmpty() && upper.containsAll(upper(primaryKey))) {
             return true;
         }
@@ -110,7 +112,7 @@ public record TableMeta(String catalog, String schema, String name, String kind,
 
     /** True when {@code column} is the leading column of some index. */
     public boolean isIndexedLeading(String column) {
-        String c = column.toUpperCase(java.util.Locale.ROOT);
+        String c = column.toUpperCase(Locale.ROOT);
         if (!primaryKey.isEmpty() && primaryKey.get(0).equalsIgnoreCase(c)) {
             return true;
         }
@@ -118,6 +120,6 @@ public record TableMeta(String catalog, String schema, String name, String kind,
     }
 
     private static List<String> upper(List<String> l) {
-        return l.stream().map(s -> s.toUpperCase(java.util.Locale.ROOT)).toList();
+        return l.stream().map(s -> s.toUpperCase(Locale.ROOT)).toList();
     }
 }

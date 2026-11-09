@@ -1,5 +1,8 @@
 package com.github.amber.server;
 
+import com.github.amber.core.Dialect;
+import com.github.amber.core.source.SourceText;
+import com.github.amber.dialect.DialectFrontends;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -57,11 +60,11 @@ class CliTest {
 
     @Test
     void warmupParsesEveryDialectScript() {
-        for (var d : com.github.amber.core.Dialect.values()) {
+        for (var d : Dialect.values()) {
             String sql = Warmup.script(d);
             assertTrue(sql != null && !sql.isBlank(), d::toString);
-            var parse = com.github.amber.dialect.DialectFrontends.get(d)
-                    .parse(com.github.amber.core.source.SourceText.of(sql));
+            var parse = DialectFrontends.get(d)
+                    .parse(SourceText.of(sql));
             assertTrue(parse.success(), () -> d + ": " + parse.diagnostics());
         }
         Warmup.run(new PrintStream(new ByteArrayOutputStream()));

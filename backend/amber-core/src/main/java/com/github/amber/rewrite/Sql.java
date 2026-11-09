@@ -5,7 +5,9 @@ import com.github.amber.dialect.split.ScanToken;
 import com.github.amber.dialect.split.ScannerOptions;
 import com.github.amber.dialect.split.SqlScanner;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Set;
@@ -43,8 +45,8 @@ final class Sql {
         this.t = List.copyOf(list);
         this.depth = new int[t.size()];
         this.match = new int[t.size()];
-        java.util.Arrays.fill(match, -1);
-        java.util.ArrayDeque<Integer> open = new java.util.ArrayDeque<>();
+        Arrays.fill(match, -1);
+        ArrayDeque<Integer> open = new ArrayDeque<>();
         int level = 0;
         for (int i = 0; i < t.size(); i++) {
             if (t.get(i).isSymbol(')')) {

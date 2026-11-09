@@ -12,6 +12,9 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
+import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -64,7 +67,7 @@ final class Robust {
 
         private volatile boolean deferTiming;
         private volatile boolean timingOnly;
-        private final java.util.Set<String> slowCandidates = java.util.concurrent.ConcurrentHashMap.newKeySet();
+        private final Set<String> slowCandidates = ConcurrentHashMap.newKeySet();
 
         /** While set, time-budget problems only mark their subject for a rerun without contention. */
         void deferTiming(boolean defer) {
@@ -76,8 +79,8 @@ final class Robust {
             this.timingOnly = only;
         }
 
-        java.util.List<String> slowCandidates() {
-            return java.util.List.copyOf(new java.util.TreeSet<>(slowCandidates));
+        List<String> slowCandidates() {
+            return List.copyOf(new TreeSet<>(slowCandidates));
         }
 
         void add(String subject, String op, String symptom) {
@@ -161,7 +164,7 @@ final class Robust {
     }
 
     /** Runs any task under the watchdog (used for direct, non-RPC calls). */
-    static Outcome run(java.util.concurrent.Callable<?> task, Duration watchdog) {
+    static Outcome run(Callable<?> task, Duration watchdog) {
         long t0 = System.nanoTime();
         Future<?> f = WORKERS.submit(task);
         try {

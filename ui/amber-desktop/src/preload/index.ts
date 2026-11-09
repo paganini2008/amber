@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
-import type { AmberApi, AiStreamEvent, EngineStatus, MenuCommand, Settings } from '../shared/api'
+import type { AmberApi, AiStreamEvent, DriverProgress, EngineStatus, MenuCommand, Settings } from '../shared/api'
 
 function subscribe<T>(channel: string, listener: (value: T) => void): () => void {
   const handler = (_event: IpcRendererEvent, value: T): void => listener(value)
@@ -45,6 +45,14 @@ const api: AmberApi = {
   db: {
     test: (connectionId) => ipcRenderer.invoke('db:test', connectionId),
     loadMetadata: (request, requestId) => ipcRenderer.invoke('db:loadMetadata', request, requestId)
+  },
+  drivers: {
+    list: () => ipcRenderer.invoke('drivers:list'),
+    status: (id) => ipcRenderer.invoke('drivers:status', id),
+    download: (id, requestId) => ipcRenderer.invoke('drivers:download', id, requestId),
+    cancel: (requestId) => ipcRenderer.invoke('drivers:cancel', requestId),
+    remove: (id) => ipcRenderer.invoke('drivers:remove', id),
+    onProgress: (listener) => subscribe<DriverProgress>('drivers:progress', listener)
   },
   app: {
     info: () => ipcRenderer.invoke('app:info'),

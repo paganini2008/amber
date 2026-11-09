@@ -27,6 +27,18 @@ export const main: En['main'] = {
     unknownConnection: '未知的连接。',
     noConnection: '在线模式未选择任何连接。'
   },
+  drivers: {
+    unknown: '未知的驱动。',
+    badRequest: '无效的下载请求。',
+    cancelled: '下载已取消。',
+    timeout: '下载未能在规定时间内完成。',
+    repository: '驱动仓库必须是 https:// 地址。请在“设置 → 连接”中修改。',
+    http: '仓库返回 HTTP {status}。',
+    size: '下载的文件大小与预期不符，已删除。',
+    hash: '下载的文件与固定的 SHA-256 校验和不符，已删除。',
+    io: '无法保存驱动：{reason}',
+    offline: '无法访问仓库（{reason}）。'
+  },
   ai: {
     cancelled: '已取消',
     httpOnly: '请使用 http 或 https 地址。',

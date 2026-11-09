@@ -1,5 +1,8 @@
 package com.github.amber.dialect.ir;
 
+import com.github.amber.core.analysis.ExecutionOrder;
+import com.github.amber.core.diagnostic.Diagnostic;
+import com.github.amber.core.diagnostic.Severity;
 import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.Confidence;
 import com.github.amber.core.ir.ObjectKind;
@@ -7,20 +10,26 @@ import com.github.amber.core.ir.ObjectName;
 import com.github.amber.core.ir.ObjectRef;
 import com.github.amber.core.ir.Statement;
 import com.github.amber.core.ir.StatementKind;
+import com.github.amber.core.lineage.Catalog;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.core.source.TextRange;
+import com.github.amber.dialect.lineage.LineageExtractor;
+import com.github.amber.dialect.lineage.VariableScopes;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Consumer;
 
 /**
  * Turns the parse tree of one statement unit into IR statements, driven by {@link IrRules}.
@@ -45,21 +54,21 @@ public final class TreeIrBuilder {
     private final IrRules rules;
     private final SourceText source;
     private final int base;
-    private final List<com.github.amber.core.diagnostic.Diagnostic> diagnostics = new ArrayList<>();
-    private final com.github.amber.core.lineage.Catalog catalog;
+    private final List<Diagnostic> diagnostics = new ArrayList<>();
+    private final Catalog catalog;
     /** Variables of the tree (procedural code), created on first use; {@code null} for dialects without variables. */
-    private com.github.amber.dialect.lineage.VariableScopes variables;
+    private VariableScopes variables;
     private boolean variablesChecked;
 
     /**
      * @param base offset of the unit in the script; token offsets in the tree are relative to the unit
      */
     public TreeIrBuilder(IrRules rules, SourceText source, int base) {
-        this(rules, source, base, new com.github.amber.core.lineage.Catalog());
+        this(rules, source, base, new Catalog());
     }
 
     /** @param catalog table columns known so far in the script; updated by DDL and CREATE TABLE AS */
-    public TreeIrBuilder(IrRules rules, SourceText source, int base, com.github.amber.core.lineage.Catalog catalog) {
+    public TreeIrBuilder(IrRules rules, SourceText source, int base, Catalog catalog) {
         this.rules = rules;
         this.source = source;
         this.base = base;
@@ -67,18 +76,18 @@ public final class TreeIrBuilder {
     }
 
     /** Uses a scope prepared by the caller instead of the tree's own (statements of a PL/pgSQL body). */
-    public TreeIrBuilder withVariables(com.github.amber.dialect.lineage.VariableScopes scopes) {
+    public TreeIrBuilder withVariables(VariableScopes scopes) {
         this.variables = scopes;
         this.variablesChecked = true;
         return this;
     }
 
-    private com.github.amber.dialect.lineage.VariableScopes variables() {
+    private VariableScopes variables() {
         if (!variablesChecked) {
             variablesChecked = true;
             var lr = rules.lineage();
             if (lr != null && lr.hooks().variables() != null) {
-                variables = com.github.amber.dialect.lineage.VariableScopes.tree(rules, lr.hooks().variables(), source, base);
+                variables = VariableScopes.tree(rules, lr.hooks().variables(), source, base);
             }
         }
         return variables;
@@ -91,7 +100,7 @@ public final class TreeIrBuilder {
     }
 
     /** Warnings raised while enriching statements (e.g. unparsable PL/pgSQL body statements). */
-    public List<com.github.amber.core.diagnostic.Diagnostic> diagnostics() {
+    public List<Diagnostic> diagnostics() {
         return diagnostics;
     }
 
@@ -185,14 +194,14 @@ public final class TreeIrBuilder {
             return;
         }
         try {
-            var extractor = new com.github.amber.dialect.lineage.LineageExtractor(rules, lr, source, base, catalog)
+            var extractor = new LineageExtractor(rules, lr, source, base, catalog)
                     .variables(variables());
             st.setLineage(extractor.extract(st, ctx));
             st.setStructure(extractor.structure());
-            st.setExecutionOrder(com.github.amber.core.analysis.ExecutionOrder.of(st));
+            st.setExecutionOrder(ExecutionOrder.of(st));
         } catch (RuntimeException | StackOverflowError e) {
-            diagnostics.add(new com.github.amber.core.diagnostic.Diagnostic(
-                    com.github.amber.core.diagnostic.Severity.WARNING, "lineage",
+            diagnostics.add(new Diagnostic(
+                    Severity.WARNING, "lineage",
                     "Column lineage could not be computed for this statement (" + e.getClass().getSimpleName() + ")",
                     st.range(), null, List.of()));
         }
@@ -205,14 +214,14 @@ public final class TreeIrBuilder {
             return;
         }
         try {
-            var lineage = new com.github.amber.dialect.lineage.LineageExtractor(rules, lr, source, base, catalog)
+            var lineage = new LineageExtractor(rules, lr, source, base, catalog)
                     .variables(variables).extract(st, ctx);
             if (lineage != null) {
                 st.setLineage(lineage);
             }
         } catch (RuntimeException | StackOverflowError e) {
-            diagnostics.add(new com.github.amber.core.diagnostic.Diagnostic(
-                    com.github.amber.core.diagnostic.Severity.WARNING, "lineage",
+            diagnostics.add(new Diagnostic(
+                    Severity.WARNING, "lineage",
                     "Variable lineage could not be computed for this block (" + e.getClass().getSimpleName() + ")",
                     st.range(), null, List.of()));
         }
@@ -230,8 +239,8 @@ public final class TreeIrBuilder {
         markTargets(stmtNode, targetNames);
 
         List<ObjectRef> refs = new ArrayList<>();
-        Map<String, ObjectRef> aliases = new java.util.HashMap<>();
-        Set<ParseTree> seen = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        Map<String, ObjectRef> aliases = new HashMap<>();
+        Set<ParseTree> seen = Collections.newSetFromMap(new IdentityHashMap<>());
         collectNames(stmtNode, node -> {
             seen.add(node);
             TargetSpec spec = targetNames.get(node);
@@ -393,7 +402,7 @@ public final class TreeIrBuilder {
         }
     }
 
-    private void collectNames(ParserRuleContext ctx, java.util.function.Consumer<ParseTree> sink) {
+    private void collectNames(ParserRuleContext ctx, Consumer<ParseTree> sink) {
         String rule = rules.ruleName(ctx);
         if (rules.isOpaqueRule(rule)) {
             return;

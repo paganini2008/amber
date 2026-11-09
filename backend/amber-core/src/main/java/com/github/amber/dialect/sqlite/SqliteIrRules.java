@@ -7,6 +7,7 @@ import com.github.amber.core.ir.ObjectRef;
 import com.github.amber.core.ir.StatementKind;
 import com.github.amber.dialect.ir.IrRules;
 import com.github.amber.dialect.ir.TargetSpec;
+import com.github.amber.dialect.lineage.LineageRules;
 import com.github.amber.dialect.sqlite.grammar.SQLiteParser;
 import org.antlr.v4.runtime.ParserRuleContext;
 
@@ -67,7 +68,7 @@ final class SqliteIrRules extends IrRules {
     }
 
     @Override
-    public com.github.amber.dialect.lineage.LineageRules lineage() {
+    public LineageRules lineage() {
         return SqliteLineageRules.INSTANCE;
     }
 

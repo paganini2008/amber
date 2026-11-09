@@ -7,8 +7,12 @@ import com.github.amber.core.ir.ObjectRef;
 import com.github.amber.core.ir.StatementKind;
 import com.github.amber.dialect.ir.IrRules;
 import com.github.amber.dialect.ir.TargetSpec;
+import com.github.amber.dialect.lineage.LineageRules;
 import com.github.amber.dialect.oracle.grammar.PlSqlParser;
 import org.antlr.v4.runtime.ParserRuleContext;
+
+import java.util.Locale;
+import java.util.Set;
 
 /**
  * Meaning of the grammars-v4 PL/SQL rules for Amber's IR.
@@ -109,17 +113,17 @@ final class OracleIrRules extends IrRules {
                 .target(TargetSpec.of("call_statement", "routine_name", Access.EXECUTE, ObjectKind.ROUTINE)));
     }
 
-    private static final java.util.Set<String> TRANSACTION_WORDS = java.util.Set.of("COMMIT", "ROLLBACK", "SAVEPOINT");
+    private static final Set<String> TRANSACTION_WORDS = Set.of("COMMIT", "ROLLBACK", "SAVEPOINT");
 
     @Override
-    public com.github.amber.dialect.lineage.LineageRules lineage() {
+    public LineageRules lineage() {
         return OracleLineageRules.INSTANCE;
     }
 
     @Override
     protected StatementKind refineKind(StatementKind kind, ParserRuleContext ctx) {
         // The grammar's optional CALL keyword lets a bare COMMIT or ROLLBACK parse as a routine call.
-        if (kind == StatementKind.CALL && TRANSACTION_WORDS.contains(ctx.getStart().getText().toUpperCase(java.util.Locale.ROOT))
+        if (kind == StatementKind.CALL && TRANSACTION_WORDS.contains(ctx.getStart().getText().toUpperCase(Locale.ROOT))
                 && ctx.getChildCount() <= 2) {
             return StatementKind.TRANSACTION;
         }

@@ -2,6 +2,7 @@ package com.github.amber.dialect.lineage;
 
 import com.github.amber.core.lineage.ColumnEdge;
 import com.github.amber.core.lineage.ColumnNode;
+import com.github.amber.core.lineage.IndirectRole;
 import com.github.amber.core.lineage.StatementLineage;
 import com.github.amber.core.lineage.Transform;
 import com.github.amber.core.ir.Confidence;
@@ -108,7 +109,7 @@ class VariableScopesTest {
         StatementLineage l = new StatementLineage(List.of(outA, outB), List.of(
                 ColumnEdge.direct(a, outA, Transform.PASS_THROUGH, Confidence.INFERRED, src.range(7, 8)),
                 ColumnEdge.direct(a, other, Transform.PASS_THROUGH, Confidence.INFERRED, null),
-                ColumnEdge.indirect(c, rows, com.github.amber.core.lineage.IndirectRole.FILTER, Confidence.INFERRED,
+                ColumnEdge.indirect(c, rows, IndirectRole.FILTER, Confidence.INFERRED,
                         src.range(25, 30))));
         VariableScopes.Scope s = new VariableScopes.Scope(null, "P@0", "p", true);
         ColumnNode v = s.node("v");

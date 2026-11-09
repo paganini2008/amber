@@ -2,6 +2,7 @@ package com.github.amber.dialect.lineage;
 
 import com.github.amber.core.Dialect;
 import com.github.amber.core.ir.Script;
+import com.github.amber.core.lineage.Catalog;
 import com.github.amber.core.lineage.ColumnEdge;
 import com.github.amber.core.lineage.ColumnNode;
 import com.github.amber.core.lineage.LineageGraph;
@@ -13,6 +14,7 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -108,9 +110,9 @@ class OtherDialectsLineageTest {
     @Test
     void quotedNamesStayWhole() {
         DialectFrontend f = DialectFrontends.get(Dialect.MYSQL);
-        var catalog = com.github.amber.core.lineage.Catalog.of(java.util.List.of());
+        var catalog = Catalog.of(List.of());
         ScriptIrBuilder.build(f, f.parse(SourceText.of("create table t (`my col` int, b int);")), catalog);
-        assertEquals(java.util.List.of("my col", "b"), catalog.tables().get(0).columnNames());
+        assertEquals(List.of("my col", "b"), catalog.tables().get(0).columnNames());
         Set<String> ora = edges(Dialect.ORACLE, "insert into t2 (lvl) select \"LEVEL\" from t;");
         assertTrue(ora.contains("TABLE:t.LEVEL -> t2.lvl PASS_THROUGH"), ora::toString);
     }

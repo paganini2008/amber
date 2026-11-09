@@ -1,10 +1,15 @@
 package com.github.amber.core.lineage;
 
+import com.github.amber.core.meta.TableMeta;
+
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 
 /**
@@ -20,22 +25,22 @@ public final class Catalog {
 
     private final Map<String, List<String>> byKey = new ConcurrentHashMap<>();
     private final Map<String, List<String>> bySimpleKey = new ConcurrentHashMap<>();
-    private final Map<String, com.github.amber.core.meta.TableMeta> metaByKey = new ConcurrentHashMap<>();
-    private final Map<String, com.github.amber.core.meta.TableMeta> metaBySimpleKey = new ConcurrentHashMap<>();
+    private final Map<String, TableMeta> metaByKey = new ConcurrentHashMap<>();
+    private final Map<String, TableMeta> metaBySimpleKey = new ConcurrentHashMap<>();
     /** Upper-case simple names of routines the analyzed script may define (calls of them are followed). */
-    private final java.util.Set<String> routines = ConcurrentHashMap.newKeySet();
+    private final Set<String> routines = ConcurrentHashMap.newKeySet();
     /** Columns the analyzed script shows its tables to have; null until a script is built with this catalog. */
     private volatile ColumnEvidence evidence;
 
     /** A catalog pre-filled with imported metadata (DDL files, packs, online reads). */
-    public static Catalog of(java.util.Collection<com.github.amber.core.meta.TableMeta> tables) {
+    public static Catalog of(Collection<TableMeta> tables) {
         Catalog c = new Catalog();
         tables.forEach(c::add);
         return c;
     }
 
     /** Adds full table metadata; its columns also become the table's column list. */
-    public void add(com.github.amber.core.meta.TableMeta t) {
+    public void add(TableMeta t) {
         String simple = t.name().toUpperCase(Locale.ROOT);
         String key = t.schema() == null || t.schema().isBlank() ? simple
                 : t.schema().toUpperCase(Locale.ROOT) + "." + simple;
@@ -50,7 +55,7 @@ public final class Catalog {
     }
 
     /** Full metadata of a table, when known from imports or online mode. */
-    public Optional<com.github.amber.core.meta.TableMeta> meta(String key, String simpleKey) {
+    public Optional<TableMeta> meta(String key, String simpleKey) {
         var m = metaByKey.get(key);
         if (m == null) {
             m = metaBySimpleKey.get(simpleKey);
@@ -59,8 +64,8 @@ public final class Catalog {
     }
 
     /** Every table with full metadata (for saving a metadata pack). */
-    public List<com.github.amber.core.meta.TableMeta> tables() {
-        return new ArrayList<>(new java.util.LinkedHashSet<>(metaByKey.values()));
+    public List<TableMeta> tables() {
+        return new ArrayList<>(new LinkedHashSet<>(metaByKey.values()));
     }
 
     /** A copy, so one analysis cannot change the shared imported catalog. */

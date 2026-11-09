@@ -133,7 +133,7 @@ class OracleLineageTest {
         DialectFrontend f = DialectFrontends.get(Dialect.ORACLE);
         Script s = ScriptIrBuilder.build(f, f.parse(SourceText.of(
                 "insert into t (a, b) select dw.f_total(x.d), pkg.util.fmt(x.e) from x;")));
-        var edges = com.github.amber.core.lineage.LineageGraph.of(s).edges().stream()
+        var edges = LineageGraph.of(s).edges().stream()
                 .map(e -> e.edge().from() + " -> " + e.edge().to()).toList();
         assertTrue(edges.stream().noneMatch(e -> e.startsWith("x.dw") || e.startsWith("x.pkg") || e.contains(".dw ")), edges::toString);
         assertTrue(edges.contains("x.d -> t.a") && edges.contains("x.e -> t.b"), edges::toString);

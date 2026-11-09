@@ -17,7 +17,9 @@ import org.junit.jupiter.api.TestFactory;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -88,7 +90,7 @@ class ErCorpusTest {
     }
 
     private static void check(ErModel m, Script s, int length) {
-        java.util.Set<String> keys = new java.util.HashSet<>();
+        Set<String> keys = new HashSet<>();
         m.entities().forEach(e -> assertTrue(keys.add(e.key()), "duplicate entity " + e.key()));
         int steps = s.flatten().size();
         for (ErModel.Relationship r : m.relationships()) {

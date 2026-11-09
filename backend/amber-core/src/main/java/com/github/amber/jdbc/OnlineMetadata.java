@@ -1,10 +1,12 @@
 package com.github.amber.jdbc;
 
+import com.github.amber.core.Dialect;
 import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.ObjectKind;
 import com.github.amber.core.ir.ObjectName;
 import com.github.amber.core.ir.ObjectRef;
 import com.github.amber.core.ir.Script;
+import com.github.amber.core.lineage.ColumnNode;
 import com.github.amber.core.meta.TableMeta;
 
 import java.util.ArrayList;
@@ -12,6 +14,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Online mode, minimal: find the objects a script reads or writes that the script does not create
@@ -43,7 +46,7 @@ public final class OnlineMetadata {
 
     /** External data objects the script references: not created by the script, not temp tables or CTEs. */
     private static int score(TableMeta t, Set<String> usedColumns, DataSourceSpec spec,
-                             com.github.amber.core.Dialect scriptDialect) {
+                             Dialect scriptDialect) {
         int score = 0;
         if (scriptDialect != null && spec.dialect() != null && family(spec.dialectEnum()) == family(scriptDialect)) {
             score += 1000;
@@ -57,8 +60,8 @@ public final class OnlineMetadata {
     }
 
     /** MySQL and MariaDB share tables and drivers; every other dialect is its own family. */
-    private static com.github.amber.core.Dialect family(com.github.amber.core.Dialect d) {
-        return d == com.github.amber.core.Dialect.MARIADB ? com.github.amber.core.Dialect.MYSQL : d;
+    private static Dialect family(Dialect d) {
+        return d == Dialect.MARIADB ? Dialect.MYSQL : d;
     }
 
     public static List<ObjectName> referencedObjects(Script script) {
@@ -88,9 +91,9 @@ public final class OnlineMetadata {
             }
             for (var e : st.lineage().edges()) {
                 for (var n : List.of(e.from(), e.to())) {
-                    if (n.ownerKind() == com.github.amber.core.lineage.ColumnNode.OwnerKind.TABLE
-                            && !n.column().equals(com.github.amber.core.lineage.ColumnNode.ROWS)) {
-                        out.computeIfAbsent(n.ownerKey(), k -> new java.util.TreeSet<>(String.CASE_INSENSITIVE_ORDER))
+                    if (n.ownerKind() == ColumnNode.OwnerKind.TABLE
+                            && !n.column().equals(ColumnNode.ROWS)) {
+                        out.computeIfAbsent(n.ownerKey(), k -> new TreeSet<>(String.CASE_INSENSITIVE_ORDER))
                                 .add(n.column());
                     }
                 }
@@ -110,7 +113,7 @@ public final class OnlineMetadata {
      * most of the columns the script uses, then the earlier source in the list.
      */
     public static Result load(List<DataSourceSpec> sources, List<ObjectName> names, Map<String, Set<String>> used,
-                              com.github.amber.core.Dialect scriptDialect) {
+                              Dialect scriptDialect) {
         Map<String, TableMeta> found = new LinkedHashMap<>();
         Map<String, List<String>> where = new LinkedHashMap<>();
         Map<String, String> errors = new LinkedHashMap<>();
@@ -145,6 +148,8 @@ public final class OnlineMetadata {
                         where.computeIfAbsent(name.key(), k -> new ArrayList<>()).add(id);
                     }
                 }
+            } catch (JdbcDriverException e) {
+                errors.put(id, e.getMessage());              // a setup problem, said in plain words
             } catch (Exception e) {
                 errors.put(id, e.getClass().getSimpleName() + ": " + e.getMessage());
             }

@@ -1,8 +1,11 @@
 package com.github.amber.server;
 
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.core.JsonToken;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.github.amber.core.config.Env;
 
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -11,7 +14,11 @@ import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.io.UncheckedIOException;
+import java.nio.channels.ClosedByInterruptException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.AccessDeniedException;
+import java.nio.file.FileSystemException;
+import java.nio.file.NoSuchFileException;
 import java.util.Map;
 import java.util.concurrent.CancellationException;
 import java.util.concurrent.ConcurrentHashMap;
@@ -59,7 +66,7 @@ public final class JsonRpcServer {
         }
         for (Throwable t = e; t != null; t = t.getCause() == t ? null : t.getCause()) {
             if (t instanceof CancellationException || t instanceof InterruptedException
-                    || t instanceof java.nio.channels.ClosedByInterruptException) {
+                    || t instanceof ClosedByInterruptException) {
                 return true;
             }
         }
@@ -77,7 +84,7 @@ public final class JsonRpcServer {
         this.mapper = mapper;
         this.handlers = Map.copyOf(handlers);
         this.log = log;
-        this.pool = Executors.newFixedThreadPool(Math.max(1, com.github.amber.core.config.Env.get().integer("AMBER_RPC_THREADS",
+        this.pool = Executors.newFixedThreadPool(Math.max(1, Env.get().integer("AMBER_RPC_THREADS",
                 Math.max(2, Runtime.getRuntime().availableProcessors()))), r -> {
             Thread t = new Thread(null, r, "amber-rpc", 64L * 1024 * 1024);
             t.setDaemon(true);
@@ -162,7 +169,7 @@ public final class JsonRpcServer {
                 if (id != null && answered.compareAndSet(false, true)) {
                     send(error(id, INVALID_PARAMS, e.getMessage() == null ? e.toString() : e.getMessage()));
                 }
-            } catch (java.nio.file.FileSystemException e) {
+            } catch (FileSystemException e) {
                 if (id != null && answered.compareAndSet(false, true)) {
                     send(error(id, INVALID_PARAMS, fileProblem(e)));     // a path the user gave: not an engine error
                 }
@@ -194,12 +201,12 @@ public final class JsonRpcServer {
         pool.execute(task);
     }
 
-    private static String fileProblem(java.nio.file.FileSystemException e) {
+    private static String fileProblem(FileSystemException e) {
         String file = e.getFile();
-        if (e instanceof java.nio.file.NoSuchFileException) {
+        if (e instanceof NoSuchFileException) {
             return "File not found: " + file;
         }
-        if (e instanceof java.nio.file.AccessDeniedException) {
+        if (e instanceof AccessDeniedException) {
             return "Access denied: " + file;
         }
         return "Cannot access " + file + ": " + e.getMessage();
@@ -210,16 +217,16 @@ public final class JsonRpcServer {
      * parser that skips the other members without materializing them; null when it cannot be found.
      */
     JsonNode idOf(String line) {
-        try (com.fasterxml.jackson.core.JsonParser p = mapper.getFactory().createParser(line)) {
-            if (p.nextToken() != com.fasterxml.jackson.core.JsonToken.START_OBJECT) {
+        try (JsonParser p = mapper.getFactory().createParser(line)) {
+            if (p.nextToken() != JsonToken.START_OBJECT) {
                 return null;
             }
-            while (p.nextToken() == com.fasterxml.jackson.core.JsonToken.FIELD_NAME) {
+            while (p.nextToken() == JsonToken.FIELD_NAME) {
                 String name = p.currentName();
-                com.fasterxml.jackson.core.JsonToken value = p.nextToken();
+                JsonToken value = p.nextToken();
                 if ("id".equals(name)) {
-                    return value != null && value.isScalarValue() && value != com.fasterxml.jackson.core.JsonToken.VALUE_TRUE
-                            && value != com.fasterxml.jackson.core.JsonToken.VALUE_FALSE ? mapper.readTree(p) : null;
+                    return value != null && value.isScalarValue() && value != JsonToken.VALUE_TRUE
+                            && value != JsonToken.VALUE_FALSE ? mapper.readTree(p) : null;
                 }
                 p.skipChildren();
             }

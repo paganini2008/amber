@@ -1,5 +1,7 @@
 package com.github.amber.core.ir;
 
+import com.github.amber.core.analysis.ExecutionOrder;
+import com.github.amber.core.lineage.StatementLineage;
 import com.github.amber.core.source.TextRange;
 
 import java.util.ArrayList;
@@ -26,9 +28,9 @@ public final class Statement {
     private final List<Statement> children = new ArrayList<>();
     private ObjectName name;
     private String summary = "";
-    private com.github.amber.core.lineage.StatementLineage lineage;
+    private StatementLineage lineage;
     private List<QueryBlock> structure = List.of();
-    private List<com.github.amber.core.analysis.ExecutionOrder.Step> executionOrder = List.of();
+    private List<ExecutionOrder.Step> executionOrder = List.of();
 
     public Statement(StatementKind kind, TextRange range, Confidence confidence) {
         this.kind = kind;
@@ -78,11 +80,11 @@ public final class Statement {
     }
 
     /** Column lineage of this statement, or {@code null} when not computed for its kind or dialect. */
-    public com.github.amber.core.lineage.StatementLineage lineage() {
+    public StatementLineage lineage() {
         return lineage;
     }
 
-    public void setLineage(com.github.amber.core.lineage.StatementLineage lineage) {
+    public void setLineage(StatementLineage lineage) {
         this.lineage = lineage;
     }
 
@@ -96,11 +98,11 @@ public final class Statement {
     }
 
     /** Logical processing order of this statement's query (see {@code ExecutionOrder}); empty without a query. */
-    public List<com.github.amber.core.analysis.ExecutionOrder.Step> executionOrder() {
+    public List<ExecutionOrder.Step> executionOrder() {
         return executionOrder;
     }
 
-    public void setExecutionOrder(List<com.github.amber.core.analysis.ExecutionOrder.Step> steps) {
+    public void setExecutionOrder(List<ExecutionOrder.Step> steps) {
         this.executionOrder = steps == null ? List.of() : List.copyOf(steps);
     }
 

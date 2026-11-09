@@ -26,6 +26,18 @@ export const main = {
     unknownConnection: 'Unknown connection.',
     noConnection: 'No connection selected for online mode.'
   },
+  drivers: {
+    unknown: 'Unknown driver.',
+    badRequest: 'Invalid download request.',
+    cancelled: 'Download cancelled.',
+    timeout: 'The download did not finish in time.',
+    repository: 'The driver repository must be an https:// URL. Fix it under Settings → Connections.',
+    http: 'The repository answered HTTP {status}.',
+    size: 'The downloaded file does not have the expected size, so it was deleted.',
+    hash: 'The downloaded file does not match the pinned SHA-256 checksum, so it was deleted.',
+    io: 'The driver could not be saved: {reason}',
+    offline: 'Could not reach the repository ({reason}).'
+  },
   ai: {
     cancelled: 'Cancelled',
     httpOnly: 'Use an http or https URL.',

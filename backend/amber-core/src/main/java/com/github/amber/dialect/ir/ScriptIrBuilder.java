@@ -1,5 +1,6 @@
 package com.github.amber.dialect.ir;
 
+import com.github.amber.core.diagnostic.Diagnostic;
 import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.Confidence;
 import com.github.amber.core.ir.ObjectKind;
@@ -8,11 +9,14 @@ import com.github.amber.core.ir.ObjectRef;
 import com.github.amber.core.ir.Script;
 import com.github.amber.core.ir.Statement;
 import com.github.amber.core.ir.StatementKind;
+import com.github.amber.core.lineage.Catalog;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.dialect.DialectFrontend;
 import com.github.amber.dialect.ScriptParse;
 import com.github.amber.dialect.ScriptStatus;
 import com.github.amber.dialect.UnitParse;
+import com.github.amber.dialect.lineage.CallLineage;
+import com.github.amber.dialect.lineage.ColumnEvidenceScanner;
 import com.github.amber.dialect.split.UnitKind;
 
 import java.util.ArrayList;
@@ -34,7 +38,7 @@ public final class ScriptIrBuilder {
     }
 
     public static Script build(DialectFrontend frontend, ScriptParse parse) {
-        return build(frontend, parse, new com.github.amber.core.lineage.Catalog());
+        return build(frontend, parse, new Catalog());
     }
 
     /**
@@ -42,16 +46,16 @@ public final class ScriptIrBuilder {
      *                DDL is added to it as statements are read, and the script's column evidence
      *                ({@link com.github.amber.core.lineage.ColumnEvidence}) is set on it, so pass a copy if it is shared
      */
-    public static Script build(DialectFrontend frontend, ScriptParse parse, com.github.amber.core.lineage.Catalog catalog) {
+    public static Script build(DialectFrontend frontend, ScriptParse parse, Catalog catalog) {
         if (parse.status() == ScriptStatus.FAILED) {
             throw new IllegalArgumentException("Script has syntax errors; fix them or parse with fallback allowed");
         }
         SourceText source = parse.source();
         IrRules rules = frontend.irRules();
         List<Statement> statements = new ArrayList<>();
-        List<com.github.amber.core.diagnostic.Diagnostic> diagnostics = new ArrayList<>(parse.diagnostics());
-        com.github.amber.dialect.lineage.CallLineage.collectRoutineNames(parse.dialect(), source, catalog);
-        catalog.setEvidence(com.github.amber.dialect.lineage.ColumnEvidenceScanner.scan(parse.dialect(), source));
+        List<Diagnostic> diagnostics = new ArrayList<>(parse.diagnostics());
+        CallLineage.collectRoutineNames(parse.dialect(), source, catalog);
+        catalog.setEvidence(ColumnEvidenceScanner.scan(parse.dialect(), source));
         for (UnitParse unit : parse.units()) {
             switch (unit.status()) {
                 case SKIPPED -> statements.add(new Statement(

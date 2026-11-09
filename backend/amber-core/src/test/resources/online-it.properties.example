@@ -11,3 +11,10 @@ pg.url=jdbc:postgresql://db.example.local:5432/demo
 pg.user=reader
 pg.password=change-me
 pg.tables=shop.orders,shop.addresses
+
+# Optional per source: <id>.driver = absolute path to a JDBC driver .jar (the app's "JDBC driver (.jar)").
+# IBM Db2's driver is not bundled with Amber; here the test-scope com.ibm.db2:jcc on the class path is used
+# when no driver is given.
+# db2.dialect=db2
+# db2.url=jdbc:db2://db.example.local:50000/DEMO
+# db2.driver=/path/to/jcc-12.1.4.0.jar

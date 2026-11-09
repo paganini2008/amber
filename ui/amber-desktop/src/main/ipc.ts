@@ -1,11 +1,13 @@
 import { readFile, stat, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
-import { app, dialog, ipcMain, nativeTheme, shell, type BrowserWindow } from 'electron'
+import { app, dialog, ipcMain, nativeTheme, net, shell, type BrowserWindow } from 'electron'
 import type {
   AiMessage,
   AiProviderId,
   AppInfo,
   ConnectionProfile,
+  DriverProgress,
+  DriverStatus,
   LoadMetadataRequest,
   OpenedFile,
   PickFilesRequest,
@@ -16,7 +18,17 @@ import type {
   WireResult
 } from '../shared/api'
 import { RPC_ERROR, type AnalyzeParams, type EngineMethod } from '../shared/protocol'
-import { resolveDataSources, toDataSource } from './db/datasource'
+import { artifactUrl, driverById, driverForDialect, DRIVERS, type DriverArtifact } from '../shared/drivers'
+import { resolveDataSources, toDataSource, type DownloadedDriver } from './db/datasource'
+import {
+  DriverDownloadError,
+  downloadDriver,
+  effectiveRepository,
+  installedDriver,
+  installedDriverSync,
+  isRequestId,
+  removeDriver
+} from './drivers/download'
 import { listOllamaModels, listOpenAiModels, streamChat, testProvider, type ProviderConfig } from './ai/gateway'
 import type { EngineSupervisor } from './engine/supervisor'
 import { RpcError, errorMessage, toRpcError } from './engine/rpc-client'
@@ -78,6 +90,13 @@ export function registerIpc(ctx: IpcContext): void {
   const { engine, settings } = ctx
   const engineRequests = new Map<string, AbortController>()
   const aiRequests = new Map<string, AbortController>()
+  const driverRequests = new Map<string, AbortController>()
+  // Downloaded JDBC drivers, one folder per dialect. userData already honours AMBER_DEV_USER_DATA.
+  const driversRoot = join(app.getPath('userData'), 'drivers')
+  const downloaded: DownloadedDriver = (dialect) => {
+    const d = driverForDialect(dialect)
+    return d ? installedDriverSync(driversRoot, d) : null
+  }
 
   const broadcastSettings = (value: Settings): Settings => {
     ctx.applyTheme(value)
@@ -245,17 +264,69 @@ export function registerIpc(ctx: IpcContext): void {
   ipcMain.handle('db:test', async (_e, connectionId: string) => {
     const profile = settings.get().connections.find((c) => c.id === connectionId)
     if (!profile) return fail(new RpcError(RPC_ERROR.INVALID_PARAMS, tm('main.db.unknownConnection')))
-    return runEngine('db.test', { dataSource: toDataSource(profile, await settings.getDbPassword(connectionId)) }, undefined, ctx.config.dbTimeoutSec * 1000)
+    return runEngine('db.test', { dataSource: toDataSource(profile, await settings.getDbPassword(connectionId), downloaded) }, undefined, ctx.config.dbTimeoutSec * 1000)
   })
   ipcMain.handle('db:loadMetadata', async (_e, request: LoadMetadataRequest, requestId: string) => {
     const ids = Array.isArray(request?.connectionIds) ? request.connectionIds.map(String) : []
-    const { dataSources } = await resolveDataSources(settings.get().connections, ids, (id) => settings.getDbPassword(id))
+    const { dataSources } = await resolveDataSources(settings.get().connections, ids, (id) => settings.getDbPassword(id), downloaded)
     if (dataSources.length === 0) return fail(new RpcError(RPC_ERROR.INVALID_PARAMS, tm('main.db.noConnection')))
-    const params: Record<string, unknown> = { dialect: String(request.dialect), dataSources }
+    // locale: the engine words its own errors (e.g. a missing Db2 driver jar) in the app's language.
+    const params: Record<string, unknown> = { dialect: String(request.dialect), dataSources, locale: settings.get().language }
     if (typeof request.path === 'string') params.path = request.path
     else params.text = typeof request.text === 'string' ? request.text : ''
     // A database that accepts the connection but never answers must not keep online mode waiting forever.
     return runEngine('db.loadMetadata', params, requestId, ctx.config.dbTimeoutSec * 1000)
+  })
+
+  // JDBC drivers: downloaded on demand, only after the user accepted the vendor's license in the page.
+  const repository = (): string => effectiveRepository(settings.get().driverRepository, ctx.config.mavenRepo)
+  const driverStatus = async (d: DriverArtifact): Promise<DriverStatus> => {
+    const repo = repository()
+    const path = await installedDriver(driversRoot, d)
+    return { id: d.id, installed: path !== null, path, repository: repo, url: artifactUrl(repo, d) }
+  }
+  const unknownDriver = (): Result<never> => fail(new RpcError(RPC_ERROR.INVALID_PARAMS, tm('main.drivers.unknown')))
+  ipcMain.handle('drivers:list', () => Promise.all(DRIVERS.map(driverStatus)))
+  ipcMain.handle('drivers:status', async (_e, id: unknown) => {
+    const d = driverById(id)
+    return d ? ok(await driverStatus(d)) : unknownDriver()
+  })
+  ipcMain.handle('drivers:download', async (event, id: unknown, requestId: unknown) => {
+    const d = driverById(id)
+    if (!d) return unknownDriver()
+    if (!isRequestId(requestId) || driverRequests.has(requestId)) return fail(new RpcError(RPC_ERROR.INVALID_PARAMS, tm('main.drivers.badRequest')))
+    const controller = new AbortController()
+    driverRequests.set(requestId, controller)
+    try {
+      await downloadDriver(d, {
+        fetch: (url, init) => net.fetch(url, init),
+        root: driversRoot,
+        repository: repository(),
+        signal: controller.signal,
+        onProgress: (received, total) => {
+          const progress: DriverProgress = { requestId, id: d.id, received, total }
+          if (!event.sender.isDestroyed()) event.sender.send('drivers:progress', progress)
+        }
+      })
+      return ok(await driverStatus(d))
+    } catch (error) {
+      return fail(driverError(error))
+    } finally {
+      driverRequests.delete(requestId)
+    }
+  })
+  ipcMain.handle('drivers:cancel', (_e, requestId: unknown) => {
+    if (isRequestId(requestId)) driverRequests.get(requestId)?.abort()
+  })
+  ipcMain.handle('drivers:remove', async (_e, id: unknown) => {
+    const d = driverById(id)
+    if (!d) return unknownDriver()
+    try {
+      await removeDriver(driversRoot, d)
+      return ok(await driverStatus(d))
+    } catch (error) {
+      return fail(error)
+    }
   })
 
   // App
@@ -295,6 +366,30 @@ export function registerIpc(ctx: IpcContext): void {
   })
 
   nativeTheme.on('updated', () => ctx.applyTheme(settings.get()))
+}
+
+/** A failed driver download as an RpcError: a localized message, and the reason in `data` for the page. */
+export function driverError(error: unknown): RpcError {
+  if (!(error instanceof DriverDownloadError)) return toRpcError(error)
+  const data = { reason: error.reason }
+  switch (error.reason) {
+    case 'cancelled':
+      return new RpcError(RPC_ERROR.REQUEST_CANCELLED, tm('main.drivers.cancelled'), data)
+    case 'timeout':
+      return new RpcError(RPC_ERROR.TIMEOUT, tm('main.drivers.timeout'), data)
+    case 'repository':
+      return new RpcError(RPC_ERROR.INVALID_PARAMS, tm('main.drivers.repository'), data)
+    case 'http':
+      return new RpcError(RPC_ERROR.INTERNAL_ERROR, tm('main.drivers.http', { status: error.status ?? 0 }), data)
+    case 'size':
+      return new RpcError(RPC_ERROR.INTERNAL_ERROR, tm('main.drivers.size'), data)
+    case 'hash':
+      return new RpcError(RPC_ERROR.INTERNAL_ERROR, tm('main.drivers.hash'), data)
+    case 'io':
+      return new RpcError(RPC_ERROR.INTERNAL_ERROR, tm('main.drivers.io', { reason: error.message }), data)
+    default:
+      return new RpcError(RPC_ERROR.INTERNAL_ERROR, tm('main.drivers.offline', { reason: error.message }), data)
+  }
 }
 
 export function isSafeExternalUrl(url: string): boolean {

@@ -11,6 +11,7 @@ import { RewriteDialog } from './components/Fixes'
 import { OptimizedDialog } from './components/Optimized'
 import { OutlinePanel } from './components/OutlinePanel'
 import { SettingsDialog } from './components/SettingsDialog'
+import { DriverDownloadDialog } from './components/DriverDownloadDialog'
 import { Splitter, usePaneSize } from './components/Splitter'
 import { ErrorScreen, PartialBanner, ProblemsBar, SeverityIcon } from './components/StatusParts'
 import { TitleBar } from './components/TitleBar'
@@ -149,6 +150,7 @@ export function App(): React.JSX.Element {
       <HandoverDialog />
       <RewriteDialog />
       <OptimizedDialog />
+      <DriverDownloadDialog />
       <PlaybackClock />
       <Toasts />
       <ContextMenu />

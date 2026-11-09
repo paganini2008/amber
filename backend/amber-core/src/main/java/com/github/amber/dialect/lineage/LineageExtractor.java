@@ -1,5 +1,6 @@
 package com.github.amber.dialect.lineage;
 
+import com.github.amber.core.Dialect;
 import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.Confidence;
 import com.github.amber.core.ir.ObjectKind;
@@ -15,6 +16,7 @@ import com.github.amber.core.lineage.ColumnNode.OwnerKind;
 import com.github.amber.core.lineage.IndirectRole;
 import com.github.amber.core.lineage.StatementLineage;
 import com.github.amber.core.lineage.Transform;
+import com.github.amber.core.meta.TableMeta;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.core.source.TextRange;
 import com.github.amber.dialect.ir.IrRules;
@@ -24,13 +26,23 @@ import com.github.amber.dialect.split.SqlScanner;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.Token;
 import org.antlr.v4.runtime.tree.ParseTree;
+import org.antlr.v4.runtime.tree.TerminalNode;
 
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Computes the column lineage of one statement from its parse tree, driven by {@link LineageRules}.
@@ -73,23 +85,23 @@ public final class LineageExtractor {
     /** Nested query structure built while the lineage is traversed; the root collects top-level boxes. */
     private final QueryBlock structureRoot = new QueryBlock(QueryBlock.Kind.QUERY, null, null, null);
     /** The box opened for each query block node, so a query root can find the box of its own last block. */
-    private final java.util.Map<ParserRuleContext, QueryBlock> boxOf = new java.util.IdentityHashMap<>();
-    private final java.util.ArrayDeque<QueryBlock> open = new java.util.ArrayDeque<>(List.of(structureRoot));
-    private final Set<ParserRuleContext> opened = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    private final Map<ParserRuleContext, QueryBlock> boxOf = new IdentityHashMap<>();
+    private final ArrayDeque<QueryBlock> open = new ArrayDeque<>(List.of(structureRoot));
+    private final Set<ParserRuleContext> opened = Collections.newSetFromMap(new IdentityHashMap<>());
     /** Variables visible to the statements of the tree, or {@code null} when variables are not followed. */
     private VariableScopes variables;
     /** The scope of the statement being extracted. */
     private VariableScopes.Scope varScope;
     /** Select items that assign a variable ({@code SELECT @v = expr}), with the variable name. */
-    private final Map<Out, String> assignedItems = new java.util.IdentityHashMap<>();
+    private final Map<Out, String> assignedItems = new IdentityHashMap<>();
     /** Calls of possible script routines already analyzed, by the offset of their opening parenthesis. */
-    private final Map<Integer, ColumnNode> calls = new java.util.HashMap<>();
+    private final Map<Integer, ColumnNode> calls = new HashMap<>();
     /** Calls whose subtree is being walked (nested nodes that span the same call are the same call). */
-    private final Set<Integer> activeCalls = new java.util.HashSet<>();
+    private final Set<Integer> activeCalls = new HashSet<>();
     /** Variables an UPDATE assigns ({@code SET @v = col}); they also take the statement's filters. */
     private final List<ColumnNode> assignedVars = new ArrayList<>();
     /** The query or blocks of an INSERT's VALUES source, whose rows become positional outputs. */
-    private final Set<ParserRuleContext> valuesSources = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    private final Set<ParserRuleContext> valuesSources = Collections.newSetFromMap(new IdentityHashMap<>());
 
     public LineageExtractor(IrRules ir, LineageRules lr, SourceText source, int base, Catalog catalog) {
         this.ir = ir;
@@ -127,10 +139,10 @@ public final class LineageExtractor {
         open.pop();
     }
 
-    private static final java.util.regex.Pattern SET_OPERATOR = java.util.regex.Pattern.compile(
+    private static final Pattern SET_OPERATOR = Pattern.compile(
             "(?i)\\b(UNION(?:\\s+ALL|\\s+DISTINCT)?|INTERSECT(?:\\s+ALL)?|EXCEPT(?:\\s+ALL)?|MINUS)\\b");
 
-    private static final java.util.regex.Pattern CLAUSE_KEYWORD = java.util.regex.Pattern.compile(
+    private static final Pattern CLAUSE_KEYWORD = Pattern.compile(
             "(?i)\\b(SELECT|FROM|JOIN|WHERE|HAVING|ON|SET)\\b");
 
     /** Clause keywords that describe a query block, in display order. */
@@ -145,12 +157,12 @@ public final class LineageExtractor {
             box.addSource(new QueryBlock.Source(src.owner.display, src.owner.kind.name(), alias));
         }
         outs.forEach(o -> box.addOutput(o.name));
-        List<org.antlr.v4.runtime.tree.TerminalNode> tokens = clauseTokens(block, block, false);
+        List<TerminalNode> tokens = clauseTokens(block, block, false);
         clauseLabels(counts(tokens)).forEach(box::addClause);
         addPhases(box, tokens, range(block).end().offset());
     }
 
-    private static List<String> clauseLabels(java.util.Map<String, Integer> found) {
+    private static List<String> clauseLabels(Map<String, Integer> found) {
         List<String> out = new ArrayList<>();
         for (String k : CLAUSE_ORDER) {
             Integer n = found.get(k);
@@ -170,16 +182,16 @@ public final class LineageExtractor {
     }
 
     /** Clause keyword tokens of a block in source order: outside nested queries and parentheses (JOIN anywhere). */
-    private List<org.antlr.v4.runtime.tree.TerminalNode> clauseTokens(ParseTree node, ParserRuleContext block,
+    private List<TerminalNode> clauseTokens(ParseTree node, ParserRuleContext block,
                                                                      boolean root) {
-        List<org.antlr.v4.runtime.tree.TerminalNode> out = new ArrayList<>();
+        List<TerminalNode> out = new ArrayList<>();
         scanClauses(node, block, root, out, new int[1]);
         return out;
     }
 
     private void scanClauses(ParseTree node, ParserRuleContext block, boolean root,
-                             List<org.antlr.v4.runtime.tree.TerminalNode> out, int[] depth) {
-        if (node instanceof org.antlr.v4.runtime.tree.TerminalNode t) {
+                             List<TerminalNode> out, int[] depth) {
+        if (node instanceof TerminalNode t) {
             String w = t.getText().toUpperCase(Locale.ROOT);
             if (w.equals("(")) {
                 depth[0]++;
@@ -206,8 +218,8 @@ public final class LineageExtractor {
         }
     }
 
-    private static java.util.Map<String, Integer> counts(List<org.antlr.v4.runtime.tree.TerminalNode> tokens) {
-        java.util.Map<String, Integer> found = new java.util.HashMap<>();
+    private static Map<String, Integer> counts(List<TerminalNode> tokens) {
+        Map<String, Integer> found = new HashMap<>();
         for (var t : tokens) {
             found.merge(t.getText().toUpperCase(Locale.ROOT), 1, Integer::sum);
         }
@@ -215,22 +227,22 @@ public final class LineageExtractor {
     }
 
     /** Logical processing rank of a clause keyword; the database applies lower ranks first. */
-    private static final java.util.Map<String, Integer> PHASE_RANK = java.util.Map.ofEntries(
-            java.util.Map.entry("FROM", 1), java.util.Map.entry("START", 2), java.util.Map.entry("CONNECT", 3),
-            java.util.Map.entry("WHERE", 4), java.util.Map.entry("GROUP", 5), java.util.Map.entry("HAVING", 6),
-            java.util.Map.entry("WINDOW", 7), java.util.Map.entry("SELECT", 8), java.util.Map.entry("QUALIFY", 9),
-            java.util.Map.entry("DISTINCT", 10), java.util.Map.entry("ORDER", 11), java.util.Map.entry("OFFSET", 12),
-            java.util.Map.entry("LIMIT", 13), java.util.Map.entry("FETCH", 13), java.util.Map.entry("TOP", 13));
+    private static final Map<String, Integer> PHASE_RANK = Map.ofEntries(
+            Map.entry("FROM", 1), Map.entry("START", 2), Map.entry("CONNECT", 3),
+            Map.entry("WHERE", 4), Map.entry("GROUP", 5), Map.entry("HAVING", 6),
+            Map.entry("WINDOW", 7), Map.entry("SELECT", 8), Map.entry("QUALIFY", 9),
+            Map.entry("DISTINCT", 10), Map.entry("ORDER", 11), Map.entry("OFFSET", 12),
+            Map.entry("LIMIT", 13), Map.entry("FETCH", 13), Map.entry("TOP", 13));
 
-    private static final java.util.regex.Pattern TOP_ARGUMENT = java.util.regex.Pattern.compile(
-            "\\s*(\\([^)]*\\)|[\\w@:]+)(\\s+PERCENT)?(\\s+WITH\\s+TIES)?", java.util.regex.Pattern.CASE_INSENSITIVE);
+    private static final Pattern TOP_ARGUMENT = Pattern.compile(
+            "\\s*(\\([^)]*\\)|[\\w@:]+)(\\s+PERCENT)?(\\s+WITH\\s+TIES)?", Pattern.CASE_INSENSITIVE);
 
     /**
      * Adds the logical phases of a block (FROM, WHERE, GROUP BY, …, SELECT, DISTINCT, ORDER BY, LIMIT) with
      * their source ranges: each clause runs from its keyword to the next clause keyword.
      */
-    private void addPhases(QueryBlock box, List<org.antlr.v4.runtime.tree.TerminalNode> tokens, int endOffset) {
-        List<org.antlr.v4.runtime.tree.TerminalNode> delimiters = new ArrayList<>();
+    private void addPhases(QueryBlock box, List<TerminalNode> tokens, int endOffset) {
+        List<TerminalNode> delimiters = new ArrayList<>();
         for (var t : tokens) {
             String w = t.getText().toUpperCase(Locale.ROOT);
             if (PHASE_RANK.containsKey(w) && !w.equals("DISTINCT") && !w.equals("TOP")) {
@@ -247,7 +259,7 @@ public final class LineageExtractor {
             int from = tokenStart(t);
             int to = from + t.getText().length();
             if (w.equals("TOP")) {
-                java.util.regex.Matcher m = TOP_ARGUMENT.matcher(source.text()).region(to, source.length());
+                Matcher m = TOP_ARGUMENT.matcher(source.text()).region(to, source.length());
                 if (m.lookingAt()) {
                     to = m.end();
                 }
@@ -275,12 +287,12 @@ public final class LineageExtractor {
         box.addPhase(new QueryBlock.Phase(name, PHASE_RANK.get(keyword), source.range(from, Math.max(from, end))));
     }
 
-    private int tokenStart(org.antlr.v4.runtime.tree.TerminalNode t) {
+    private int tokenStart(TerminalNode t) {
         return Math.min(base + t.getSymbol().getStartIndex(), source.length());
     }
 
     /** {@code START WITH}, {@code FOR UPDATE}, {@code TOP n}, {@code OFFSET n}: keywords that need a partner. */
-    private boolean isClauseKeyword(org.antlr.v4.runtime.tree.TerminalNode t, String w) {
+    private boolean isClauseKeyword(TerminalNode t, String w) {
         int at = t.getSymbol().getStopIndex() + 1 + base;
         String rest = source.text().substring(Math.min(at, source.length()),
                 Math.min(source.length(), at + 24)).stripLeading().toUpperCase(Locale.ROOT);
@@ -324,7 +336,7 @@ public final class LineageExtractor {
                 prev = head;
                 head = head.replaceAll("\\([^()]*\\)", " ");     // keywords of nested subqueries do not count
             }
-            java.util.regex.Matcher k = CLAUSE_KEYWORD.matcher(head);
+            Matcher k = CLAUSE_KEYWORD.matcher(head);
             while (k.find()) {
                 clause = k.group(1).toUpperCase(Locale.ROOT);
             }
@@ -336,7 +348,7 @@ public final class LineageExtractor {
         int start = range(sub).start().offset();
         String before = source.text().substring(Math.max(0, start - 40), start).toUpperCase(Locale.ROOT)
                 .replaceAll("[\\s(]+$", "");
-        java.util.regex.Matcher m = java.util.regex.Pattern.compile("\\b(NOT\\s+IN|NOT\\s+EXISTS|IN|EXISTS|ANY|ALL|SOME)$")
+        Matcher m = Pattern.compile("\\b(NOT\\s+IN|NOT\\s+EXISTS|IN|EXISTS|ANY|ALL|SOME)$")
                 .matcher(before);
         String predicate = m.find() ? m.group(1).replaceAll("\\s+", " ") : "scalar";
         return clause == null ? predicate : clause + " " + predicate;
@@ -621,12 +633,12 @@ public final class LineageExtractor {
         return outputs;
     }
 
-    private static final java.util.regex.Pattern AS_ALIAS = java.util.regex.Pattern.compile(
+    private static final Pattern AS_ALIAS = Pattern.compile(
             "(?is).*\\s+AS\\s+([\\p{L}_\"`\\[][\\p{L}\\p{N}_$#\"`\\]]*)\\s*");
 
     /** Name of a RETURNING item: its alias, its column, or its text. */
     private String returningName(String value) {
-        java.util.regex.Matcher m = AS_ALIAS.matcher(value);
+        Matcher m = AS_ALIAS.matcher(value);
         if (m.matches()) {
             return m.group(1).replace("\"", "").replace("`", "").replace("[", "").replace("]", "");
         }
@@ -697,16 +709,16 @@ public final class LineageExtractor {
     // ----- calls of routines the script may define --------------------------------------------------
 
     private static final String NAME_RE = "[\\p{L}_\"\\[`][\\p{L}\\p{N}_$#\"\\]`]*";
-    private static final java.util.regex.Pattern CALL_HEAD = java.util.regex.Pattern.compile(
+    private static final Pattern CALL_HEAD = Pattern.compile(
             "(?s)\\s*(" + NAME_RE + "(?:\\s*\\.\\s*" + NAME_RE + ")*)\\s*\\(");
-    private static final java.util.regex.Pattern FIELD_TAIL = java.util.regex.Pattern.compile(
+    private static final Pattern FIELD_TAIL = Pattern.compile(
             "(?s)(?:\\s*\\.\\s*" + NAME_RE + ")+\\s*");
-    private static final java.util.regex.Pattern CALL_STATEMENT = java.util.regex.Pattern.compile(
+    private static final Pattern CALL_STATEMENT = Pattern.compile(
             "(?is)\\s*(?:(?:CALL|EXEC|EXECUTE)\\s+)?(?:@[\\p{L}\\p{N}_@#$]+\\s*=\\s*)?(" + NAME_RE
                     + "(?:\\s*\\.\\s*" + NAME_RE + ")*)");
-    private static final java.util.regex.Pattern NAMED_ARGUMENT = java.util.regex.Pattern.compile(
+    private static final Pattern NAMED_ARGUMENT = Pattern.compile(
             "(?s)(@?" + NAME_RE + ")\\s*(=>|:=|=(?![=>]))\\s*");
-    private static final java.util.regex.Pattern OUTPUT_ARGUMENT = java.util.regex.Pattern.compile(
+    private static final Pattern OUTPUT_ARGUMENT = Pattern.compile(
             "(?is)(.*?)\\s+(?:OUTPUT|OUT)\\s*");
 
     /**
@@ -721,7 +733,7 @@ public final class LineageExtractor {
     }
 
     private Call callAt(ParserRuleContext node) {
-        boolean collections = variables != null && ir.dialect() == com.github.amber.core.Dialect.ORACLE;
+        boolean collections = variables != null && ir.dialect() == Dialect.ORACLE;
         if (!collections && !catalog.hasRoutines() || node.getStart() == null || node.getStop() == null) {
             return null;
         }
@@ -729,7 +741,7 @@ public final class LineageExtractor {
             return null;
         }
         String t = text(node);
-        java.util.regex.Matcher m = CALL_HEAD.matcher(t);
+        Matcher m = CALL_HEAD.matcher(t);
         if (!m.lookingAt()) {
             return null;
         }
@@ -754,7 +766,7 @@ public final class LineageExtractor {
      * Null when the node is neither.
      */
     private ColumnNode callRead(Call call, ParserRuleContext node, Scope scope) {
-        if (!call.name().contains(".") && variables != null && ir.dialect() == com.github.amber.core.Dialect.ORACLE) {
+        if (!call.name().contains(".") && variables != null && ir.dialect() == Dialect.ORACLE) {
             ColumnNode v = variable(call.name());
             if (v != null) {
                 return v;
@@ -779,7 +791,7 @@ public final class LineageExtractor {
     /** CALL / EXEC / a PL/SQL procedure call statement of a routine the script may define. */
     private StatementLineage call(ParserRuleContext node) {
         String t = text(node);
-        java.util.regex.Matcher m = CALL_STATEMENT.matcher(t);
+        Matcher m = CALL_STATEMENT.matcher(t);
         if (!m.lookingAt()) {
             return null;
         }
@@ -836,13 +848,13 @@ public final class LineageExtractor {
                 continue;
             }
             String slot = "#" + position;
-            java.util.regex.Matcher named = NAMED_ARGUMENT.matcher(text.substring(s[0], s[1]));
+            Matcher named = NAMED_ARGUMENT.matcher(text.substring(s[0], s[1]));
             if (named.lookingAt() && (!named.group(2).equals("=") || named.group(1).startsWith("@"))) {
                 slot = named.group(1);
                 s[0] += named.end();
             }
-            if (ir.dialect() == com.github.amber.core.Dialect.SQLSERVER) {
-                java.util.regex.Matcher out = OUTPUT_ARGUMENT.matcher(text.substring(s[0], s[1]));
+            if (ir.dialect() == Dialect.SQLSERVER) {
+                Matcher out = OUTPUT_ARGUMENT.matcher(text.substring(s[0], s[1]));
                 if (out.matches()) {
                     s[1] = s[0] + out.group(1).length();
                 }
@@ -983,7 +995,7 @@ public final class LineageExtractor {
     /** T-SQL {@code UPDATE … SET @v = expr} and {@code SET @v = col = expr} (both take {@code expr}). */
     private void assignVariable(ParserRuleContext set, Scope scope, Owner owner, List<ColumnNode> outputs) {
         if (variables == null || set.getChildCount() < 3
-                || !(set.getChild(0) instanceof org.antlr.v4.runtime.tree.TerminalNode target)
+                || !(set.getChild(0) instanceof TerminalNode target)
                 || !target.getText().startsWith("@") || target.getText().startsWith("@@")) {
             return;
         }
@@ -1069,7 +1081,7 @@ public final class LineageExtractor {
         }
     }
 
-    private static final java.util.regex.Pattern INDEX_COLUMNS = java.util.regex.Pattern.compile("(?is)\\bON\\b[^(]*\\(([^)]*)\\)");
+    private static final Pattern INDEX_COLUMNS = Pattern.compile("(?is)\\bON\\b[^(]*\\(([^)]*)\\)");
 
     /** {@code CREATE [UNIQUE] INDEX … ON t (a, b)}: adds the index to the table's metadata. */
     private void recordIndex(Statement st, ParserRuleContext node) {
@@ -1078,7 +1090,7 @@ public final class LineageExtractor {
             return;
         }
         String text = text(node);
-        java.util.regex.Matcher m = INDEX_COLUMNS.matcher(text);
+        Matcher m = INDEX_COLUMNS.matcher(text);
         if (!m.find()) {
             return;
         }
@@ -1092,13 +1104,13 @@ public final class LineageExtractor {
         boolean unique = text.toUpperCase(Locale.ROOT).matches("(?s)\\s*CREATE\\s+UNIQUE\\b.*");
         var existing = catalog.meta(table.name().key(), table.name().simpleKey());
         List<String> parts = table.name().parts().stream().map(ObjectName.Part::text).toList();
-        var base = existing.orElse(new com.github.amber.core.meta.TableMeta(null,
+        var base = existing.orElse(new TableMeta(null,
                 parts.size() > 1 ? String.join(".", parts.subList(0, parts.size() - 1)) : null, parts.get(parts.size() - 1),
                 "TABLE", List.of(), List.of(), List.of(), List.of(), -1, "script DDL"));
-        List<com.github.amber.core.meta.TableMeta.IndexMeta> indexes = new ArrayList<>(base.indexes());
-        indexes.add(new com.github.amber.core.meta.TableMeta.IndexMeta(st.name() == null ? null : st.name().toString(),
+        List<TableMeta.IndexMeta> indexes = new ArrayList<>(base.indexes());
+        indexes.add(new TableMeta.IndexMeta(st.name() == null ? null : st.name().toString(),
                 cols, unique));
-        catalog.add(new com.github.amber.core.meta.TableMeta(base.catalog(), base.schema(), base.name(), base.kind(),
+        catalog.add(new TableMeta(base.catalog(), base.schema(), base.name(), base.kind(),
                 base.columns(), base.primaryKey(), base.uniqueKeys(), indexes, base.rowEstimate(), base.source(),
                 base.foreignKeys()));
     }
@@ -1115,18 +1127,18 @@ public final class LineageExtractor {
         }
         var existing = catalog.meta(table.name().key(), table.name().simpleKey());
         List<String> parts = table.name().parts().stream().map(ObjectName.Part::text).toList();
-        var base = existing.orElse(new com.github.amber.core.meta.TableMeta(null,
+        var base = existing.orElse(new TableMeta(null,
                 parts.size() > 1 ? String.join(".", parts.subList(0, parts.size() - 1)) : null, parts.get(parts.size() - 1),
                 "TABLE", List.of(), List.of(), List.of(), List.of(), -1, "script DDL"));
         catalog.add(base.withForeignKeys(mergeForeignKeys(base.foreignKeys(), added)));
     }
 
     /** {@code have} plus the keys of {@code more} not already in it (same columns and referenced table). */
-    private static List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> mergeForeignKeys(
-            List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> have,
-            List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> more) {
-        List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> out = new ArrayList<>(have);
-        Set<String> seen = new java.util.HashSet<>();
+    private static List<TableMeta.ForeignKeyMeta> mergeForeignKeys(
+            List<TableMeta.ForeignKeyMeta> have,
+            List<TableMeta.ForeignKeyMeta> more) {
+        List<TableMeta.ForeignKeyMeta> out = new ArrayList<>(have);
+        Set<String> seen = new HashSet<>();
         for (var fk : have) {
             seen.add(fkKey(fk));
         }
@@ -1138,7 +1150,7 @@ public final class LineageExtractor {
         return out;
     }
 
-    private static String fkKey(com.github.amber.core.meta.TableMeta.ForeignKeyMeta fk) {
+    private static String fkKey(TableMeta.ForeignKeyMeta fk) {
         return (fk.columns() + "->" + fk.refSchema() + "." + fk.refTable() + fk.refColumns()).toUpperCase(Locale.ROOT);
     }
 
@@ -1148,9 +1160,9 @@ public final class LineageExtractor {
             return;
         }
         List<String> cols = new ArrayList<>();
-        List<com.github.amber.core.meta.TableMeta.ColumnMeta> metas = new ArrayList<>();
+        List<TableMeta.ColumnMeta> metas = new ArrayList<>();
         List<String> pk = new ArrayList<>();
-        List<com.github.amber.core.meta.TableMeta.ForeignKeyMeta> fks = new ArrayList<>();
+        List<TableMeta.ForeignKeyMeta> fks = new ArrayList<>();
         for (ParserRuleContext def : findAll(node, lr.columnDefinition())) {
             ParserRuleContext name = lr.columnNameRule() == null ? null : first(def, lr.columnNameRule());
             String t = name != null ? text(name) : firstWord(def);
@@ -1160,7 +1172,7 @@ public final class LineageExtractor {
                 String col = name == null ? t : parsed != null ? parsed.simpleName() : lastPart(t);
                 cols.add(col);
                 String defText = text(def);
-                metas.add(new com.github.amber.core.meta.TableMeta.ColumnMeta(col, DdlText.type(defText, t),
+                metas.add(new TableMeta.ColumnMeta(col, DdlText.type(defText, t),
                         !DdlText.notNull(defText)));
                 if (DdlText.inlinePrimaryKey(defText)) {
                     pk.add(col);
@@ -1178,7 +1190,7 @@ public final class LineageExtractor {
                 pk.addAll(DdlText.tablePrimaryKey(stmtText));
             }
             List<String> parts = target.name().parts().stream().map(ObjectName.Part::text).toList();
-            catalog.add(new com.github.amber.core.meta.TableMeta(null,
+            catalog.add(new TableMeta(null,
                     parts.size() > 1 ? String.join(".", parts.subList(0, parts.size() - 1)) : null,
                     parts.get(parts.size() - 1), "TABLE", metas, pk, DdlText.uniqueKeys(stmtText), List.of(), -1, "script DDL",
                     mergeForeignKeys(fks, DdlText.tableForeignKeys(stmtText, ir.dialect()))));
@@ -1273,11 +1285,11 @@ public final class LineageExtractor {
         boolean set = blocks.size() > 1;
         QueryBlock setBox = null;
         if (set) {
-            java.util.LinkedHashSet<String> ops = new java.util.LinkedHashSet<>();
+            LinkedHashSet<String> ops = new LinkedHashSet<>();
             for (int i = 1; i < blocks.size(); i++) {
                 int a = range(blocks.get(i - 1)).end().offset();
                 int b = range(blocks.get(i)).start().offset();
-                java.util.regex.Matcher m = SET_OPERATOR.matcher(source.text().substring(Math.min(a, b), b));
+                Matcher m = SET_OPERATOR.matcher(source.text().substring(Math.min(a, b), b));
                 if (m.find()) {
                     ops.add(m.group(1).toUpperCase(Locale.ROOT).replaceAll("\\s+", " "));
                 }
@@ -1307,7 +1319,7 @@ public final class LineageExtractor {
         }
         // ORDER BY / LIMIT / FETCH written on the query root (outside every block) belong to the whole query.
         if (!lr.queryBlocks().contains(ir.ruleName(q)) && !blocks.isEmpty()) {
-            List<org.antlr.v4.runtime.tree.TerminalNode> tokens = clauseTokens(q, q, true);
+            List<TerminalNode> tokens = clauseTokens(q, q, true);
             QueryBlock target = setBox != null ? setBox : boxOf.get(blocks.get(blocks.size() - 1));
             if (target != null && !tokens.isEmpty()) {
                 for (String label : clauseLabels(counts(tokens))) {
@@ -1583,7 +1595,7 @@ public final class LineageExtractor {
 
     private void collectSources(ParserRuleContext node, Scope scope) {
         for (int i = 0; i < node.getChildCount(); i++) {
-            if (node.getChild(i) instanceof org.antlr.v4.runtime.tree.TerminalNode token && ir.nameToken(token) != null) {
+            if (node.getChild(i) instanceof TerminalNode token && ir.nameToken(token) != null) {
                 ObjectName name = ObjectName.parse(ir.dialect(), token.getText());   // T-SQL FROM @t
                 if (name != null) {
                     String alias = aliasNear(token);
@@ -1743,7 +1755,7 @@ public final class LineageExtractor {
         for (int i = 0; i < node.getChildCount(); i++) {
             if (node.getChild(i) instanceof ParserRuleContext c) {
                 refsIn(c, scope, out);
-            } else if (variables != null && node.getChild(i) instanceof org.antlr.v4.runtime.tree.TerminalNode t) {
+            } else if (variables != null && node.getChild(i) instanceof TerminalNode t) {
                 ColumnNode v = prefixedVariable(t.getText());     // T-SQL @v, MySQL @v, PostgreSQL $1
                 if (v != null) {
                     out.add(v);
@@ -1754,7 +1766,7 @@ public final class LineageExtractor {
 
     private static final Set<String> DATE_PART_FUNCTIONS = Set.of("TIMESTAMPDIFF", "TIMESTAMPADD", "DATEADD",
             "DATEDIFF", "DATEDIFF_BIG", "DATEPART", "DATENAME", "DATETRUNC", "EXTRACT", "DATE_PART");
-    private static final java.util.regex.Pattern DATE_PART_CALL = java.util.regex.Pattern.compile(
+    private static final Pattern DATE_PART_CALL = Pattern.compile(
             "(?i)\\b([A-Z_]+)\\s*\\(\\s*$");
 
     /**
@@ -1776,11 +1788,11 @@ public final class LineageExtractor {
         if (text.charAt(i) != '.') {
             return false;
         }
-        java.util.regex.Matcher m = CALL_REST.matcher(text).region(i, text.length());
+        Matcher m = CALL_REST.matcher(text).region(i, text.length());
         return m.lookingAt();
     }
 
-    private static final java.util.regex.Pattern CALL_REST = java.util.regex.Pattern.compile(
+    private static final Pattern CALL_REST = Pattern.compile(
             "(\\s*\\.\\s*[\\p{L}_\"][\\p{L}\\p{N}_$#\"]*)+\\s*\\(");
 
     /** A bare unit word that is the first argument of a date function is not a column. */
@@ -1790,7 +1802,7 @@ public final class LineageExtractor {
         }
         int start = range(node).start().offset();
         String before = source.text().substring(Math.max(0, start - 30), start);
-        java.util.regex.Matcher m = DATE_PART_CALL.matcher(before);
+        Matcher m = DATE_PART_CALL.matcher(before);
         return m.find() && DATE_PART_FUNCTIONS.contains(m.group(1).toUpperCase(Locale.ROOT));
     }
 
@@ -1945,7 +1957,7 @@ public final class LineageExtractor {
     /** T-SQL {@code SELECT @v = expr}: the item assigns {@code @v} instead of producing a column. */
     private boolean assigningItem(ParserRuleContext item, Scope scope, List<Out> outs) {
         if (variables == null || variables.rules().atNames() == VariableRules.AtNames.NONE || item.getChildCount() < 3
-                || !(item.getChild(0) instanceof org.antlr.v4.runtime.tree.TerminalNode target)
+                || !(item.getChild(0) instanceof TerminalNode target)
                 || !target.getText().startsWith("@") || target.getText().startsWith("@@")
                 || !isAssignmentOperator(item.getChild(1))) {
             return false;
@@ -2082,7 +2094,7 @@ public final class LineageExtractor {
         boolean after = false;
         for (int i = 0; i < n.getChildCount(); i++) {
             ParseTree c = n.getChild(i);
-            if (c instanceof org.antlr.v4.runtime.tree.TerminalNode t) {
+            if (c instanceof TerminalNode t) {
                 after |= t.getText().equalsIgnoreCase("RETURN");
             } else if (after && c instanceof ParserRuleContext expr) {
                 flow(List.of(expr), to, "=", range(n), outputs);
@@ -2110,7 +2122,7 @@ public final class LineageExtractor {
     private List<ParserRuleContext> valueAfterOperator(ParserRuleContext n) {
         for (int i = 0; i < n.getChildCount(); i++) {
             ParseTree c = n.getChild(i);
-            if (c instanceof org.antlr.v4.runtime.tree.TerminalNode t) {
+            if (c instanceof TerminalNode t) {
                 String w = t.getText();
                 if (w.equals(":=") || w.equals("=") || w.equalsIgnoreCase("DEFAULT")) {
                     List<ParserRuleContext> after = new ArrayList<>();
@@ -2189,7 +2201,7 @@ public final class LineageExtractor {
         }
         VariableScopes.Cursor cursor = variables.cursor(varScope, cursorName);
         if (cursor == null) {
-            vars.stream().filter(java.util.Objects::nonNull).forEach(v -> addOutput(outputs, v));
+            vars.stream().filter(Objects::nonNull).forEach(v -> addOutput(outputs, v));
             return;
         }
         for (int i = 0; i < cursor.columns().size(); i++) {
@@ -2391,15 +2403,15 @@ public final class LineageExtractor {
     }
 
     /** Child positions of nodes with many children (long FROM or select lists), built on first use. */
-    private final java.util.Map<ParserRuleContext, java.util.Map<ParseTree, Integer>> childIndex =
-            new java.util.IdentityHashMap<>();
+    private final Map<ParserRuleContext, Map<ParseTree, Integer>> childIndex =
+            new IdentityHashMap<>();
 
     private int indexIn(ParserRuleContext parent, ParseTree child) {
         if (parent.children.size() <= 32) {
             return parent.children.indexOf(child);
         }
         return childIndex.computeIfAbsent(parent, p -> {
-            java.util.Map<ParseTree, Integer> m = new java.util.IdentityHashMap<>();
+            Map<ParseTree, Integer> m = new IdentityHashMap<>();
             for (int i = 0; i < p.children.size(); i++) {
                 m.put(p.children.get(i), i);
             }
@@ -2417,7 +2429,7 @@ public final class LineageExtractor {
         for (int depth = 0; depth < 3 && level.getParent() instanceof ParserRuleContext parent; depth++) {
             int idx = indexIn(parent, level);
             for (int i = idx + 1; i < parent.getChildCount(); i++) {
-                if (parent.getChild(i) instanceof org.antlr.v4.runtime.tree.TerminalNode comma
+                if (parent.getChild(i) instanceof TerminalNode comma
                         && ",".equals(comma.getText())) {
                     return null;
                 }
@@ -2520,7 +2532,7 @@ public final class LineageExtractor {
     }
 
     private TextRange rangeOf(ParseTree node) {
-        if (node instanceof org.antlr.v4.runtime.tree.TerminalNode t) {
+        if (node instanceof TerminalNode t) {
             int a = Math.min(base + Math.max(0, t.getSymbol().getStartIndex()), source.length());
             int b = Math.min(base + t.getSymbol().getStopIndex() + 1, source.length());
             return source.range(a, Math.max(a, b));

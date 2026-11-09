@@ -51,6 +51,12 @@ export interface ConnectionProfile {
   user: string
   /** Optional JDBC URL; when set it is used instead of host, port and database. */
   url?: string
+  /**
+   * Optional absolute path of a JDBC driver .jar, sent to the engine as `driverPath`. Amber bundles no
+   * driver: when this is empty, main uses the driver downloaded for the dialect (Settings → Connections →
+   * Drivers), if any. Not a secret, so it is kept in settings.
+   */
+  driverPath?: string
   /** True when a password is stored in the main process. */
   hasPassword: boolean
 }
@@ -104,6 +110,11 @@ export interface Settings {
   format: FormatSettings
   /** Settings → Rules: disabled rule ids and severity overrides, passed with every engine call that computes findings. */
   rules: RuleSettings
+  /**
+   * Settings → Connections → Driver repository: an HTTPS Maven repository (mirror) drivers are downloaded
+   * from. Empty uses the default (Maven Central, or AMBER_MAVEN_REPO in development).
+   */
+  driverRepository: string
   recentFiles: string[]
 }
 
@@ -166,6 +177,27 @@ export type AiStreamEvent =
   | { requestId: string; type: 'done' }
   | { requestId: string; type: 'error'; message: string }
 
+/** A downloadable JDBC driver on this computer (see shared/drivers.ts). */
+export interface DriverStatus {
+  /** Catalog id, which is the dialect id. */
+  id: string
+  /** True when the pinned jar is downloaded and its checksum matches. */
+  installed: boolean
+  /** The downloaded jar, or null. */
+  path: string | null
+  /** The repository base URL a download would use. */
+  repository: string
+  /** The full URL of the jar in that repository. */
+  url: string
+}
+
+export interface DriverProgress {
+  requestId: string
+  id: string
+  received: number
+  total: number
+}
+
 export type MenuCommand =
   | 'open-file'
   | 'paste-sql'
@@ -221,6 +253,18 @@ export interface AmberApi {
   db: {
     test(connectionId: string): Promise<Result<ServerInfo>>
     loadMetadata(request: LoadMetadataRequest, requestId: string): Promise<Result<LoadMetadataResult>>
+  }
+  /** On-demand JDBC drivers: downloaded in main, after the user accepted the vendor's license. */
+  drivers: {
+    /** Every catalog driver, installed or not. */
+    list(): Promise<DriverStatus[]>
+    status(id: string): Promise<Result<DriverStatus>>
+    /** Downloads (or reuses a verified copy of) the driver; progress arrives through onProgress. */
+    download(id: string, requestId: string): Promise<Result<DriverStatus>>
+    cancel(requestId: string): Promise<void>
+    /** Deletes the downloaded jar. */
+    remove(id: string): Promise<Result<DriverStatus>>
+    onProgress(listener: (event: DriverProgress) => void): () => void
   }
   app: {
     info(): Promise<AppInfo>

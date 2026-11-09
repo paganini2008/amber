@@ -1,10 +1,11 @@
 import clsx from 'clsx'
-import { ChevronDown, Database, FileCode2, Package, RefreshCw, Save, X } from 'lucide-react'
+import { ChevronDown, Database, Download, FileCode2, Package, RefreshCw, Save, X } from 'lucide-react'
 import { useMemo } from 'react'
 import type { MetadataImportResult, MetadataPack } from '@shared/protocol'
 import { fmt, t } from '@/i18n'
 import { api, describeError, newRequestId } from '@/lib/api'
 import { fileName, mergePacks, summarizeLoad, type MetadataFiles } from '@/lib/metadata'
+import { needsDriverDownload, openDriverDownload, useDriverStatuses } from '@/lib/drivers'
 import { useStore } from '@/store'
 import { Button, Menu, MenuContent, MenuItem, MenuLabel, MenuSeparator, MenuTrigger, Spinner } from './ui'
 import { DbIcon } from './DbIcon'
@@ -166,6 +167,9 @@ export function MetadataPanel(): React.JSX.Element {
   )
   const names = useMemo(() => new Map((settings?.connections ?? []).map((c) => [c.id, c.name])), [settings?.connections])
   const dialects = useMemo(() => new Map((settings?.connections ?? []).map((c) => [c.id, c.dialect])), [settings?.connections])
+  const connections = useMemo(() => new Map((settings?.connections ?? []).map((c) => [c.id, c])), [settings?.connections])
+  // A connection without a driver gets a Download action next to the engine's "not installed" error.
+  const drivers = useDriverStatuses()
   const r = online.result
 
   return (
@@ -196,16 +200,25 @@ export function MetadataPanel(): React.JSX.Element {
               {t('online.panel.loaded', { count: r.tables })}
             </p>
             <ul className="space-y-0.5 text-xs">
-              {sources.map((s) => (
+              {sources.map((s) => {
+                const connection = connections.get(s.id)
+                return (
                 <li key={s.id} className="flex items-center gap-2">
                   <span className="flex items-center gap-1.5 font-medium text-ink">
                     <DbIcon dialect={dialects.get(s.id)} size={14} />
                     {s.name}
                   </span>
                   {s.error ? (
-                    <span className="min-w-0 text-risk-high" title={s.error}>
-                      {s.error}
-                    </span>
+                    <>
+                      <span className="min-w-0 text-risk-high" title={s.error}>
+                        {s.error}
+                      </span>
+                      {connection && needsDriverDownload(drivers, connection.dialect, connection.driverPath) ? (
+                        <Button size="sm" variant="primary" className="shrink-0" onClick={() => openDriverDownload(connection.dialect, () => refreshMetadata())}>
+                          <Download size={12} /> {t('settings.drivers.downloadDriver')}
+                        </Button>
+                      ) : null}
+                    </>
                   ) : (
                     <span className="text-ink-muted">
                       {t('common.tables', { count: s.tables })}
@@ -213,7 +226,8 @@ export function MetadataPanel(): React.JSX.Element {
                     </span>
                   )}
                 </li>
-              ))}
+                )
+              })}
             </ul>
             {r.ambiguous?.length ? (
               <div className="text-xs">

@@ -5,11 +5,13 @@ import com.github.amber.core.ir.Statement;
 
 import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -103,7 +105,7 @@ public final class LineageGraph {
     }
 
     private List<Edge> walk(ColumnNode start, boolean up, boolean includeIndirect) {
-        Set<Edge> result = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<Edge> result = Collections.newSetFromMap(new IdentityHashMap<>());
         Set<String> seen = new LinkedHashSet<>();
         Deque<String> queue = new ArrayDeque<>();
         queue.add(start.key());
@@ -122,7 +124,7 @@ public final class LineageGraph {
             if (up && includeIndirect) {
                 ColumnNode n = nodes.get(key);
                 if (n != null && !n.isRows()) {
-                    queue.add(n.ownerKey() + "." + ColumnNode.ROWS.toUpperCase(java.util.Locale.ROOT));
+                    queue.add(n.ownerKey() + "." + ColumnNode.ROWS.toUpperCase(Locale.ROOT));
                 }
             }
             if (!up && includeIndirect) {

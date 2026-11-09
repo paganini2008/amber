@@ -1,10 +1,15 @@
 package com.github.amber.dialect.ir;
 
 import com.github.amber.core.Dialect;
+import com.github.amber.core.diagnostic.Diagnostic;
 import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.ObjectKind;
 import com.github.amber.core.ir.ObjectRef;
+import com.github.amber.core.ir.Statement;
 import com.github.amber.core.ir.StatementKind;
+import com.github.amber.core.lineage.Catalog;
+import com.github.amber.core.source.SourceText;
+import com.github.amber.dialect.lineage.LineageRules;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
@@ -149,15 +154,15 @@ public class IrRules {
      *
      * @param source the text the statement was built from; offsets are script offsets
      */
-    public List<com.github.amber.core.diagnostic.Diagnostic> enrich(com.github.amber.core.ir.Statement statement,
+    public List<Diagnostic> enrich(Statement statement,
                                                                    ParserRuleContext node,
-                                                                   com.github.amber.core.source.SourceText source,
-                                                                   com.github.amber.core.lineage.Catalog catalog) {
+                                                                   SourceText source,
+                                                                   Catalog catalog) {
         return List.of();
     }
 
     /** Column-lineage rules of this dialect, or {@code null} when lineage is not mapped yet. */
-    public com.github.amber.dialect.lineage.LineageRules lineage() {
+    public LineageRules lineage() {
         return null;
     }
 

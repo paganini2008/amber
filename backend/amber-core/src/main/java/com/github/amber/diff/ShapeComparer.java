@@ -10,11 +10,13 @@ import com.github.amber.diff.StatementAligner.P;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Query-shape impact of modified statements: the nested {@link QueryBlock} trees are flattened, aligned
@@ -129,7 +131,7 @@ final class ShapeComparer {
         List<String> ob = upper(qb.outputs());
         List<String> oa = upper(qa.outputs());
         if (!ob.equals(oa)) {
-            if (new java.util.TreeSet<>(ob).equals(new java.util.TreeSet<>(oa)) && ob.size() == oa.size()) {
+            if (new TreeSet<>(ob).equals(new TreeSet<>(oa)) && ob.size() == oa.size()) {
                 add(ctx, p, out, ShapeChangeKind.OUTPUT_ORDER_CHANGED, path, qb.outputs() + " → " + qa.outputs(),
                         Messages.t("diff.shape.outputsReordered", path), b, a, Risk.MEDIUM);
             } else {
@@ -229,7 +231,7 @@ final class ShapeComparer {
 
     /** Sources of a block: comparison key (CTEs by position, derived tables alike) to display name. */
     private static Map<String, String> sources(QueryBlock b, Map<String, String> ctes) {
-        Map<String, String> out = new java.util.LinkedHashMap<>();
+        Map<String, String> out = new LinkedHashMap<>();
         for (QueryBlock.Source s : b.sources()) {
             String display = s.name() == null ? "(derived)" : s.name();
             String key;

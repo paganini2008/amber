@@ -1,6 +1,7 @@
 package com.github.amber.dialect.findings;
 
 import com.github.amber.core.Dialect;
+import com.github.amber.core.ir.Script;
 import com.github.amber.core.lineage.Catalog;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.dialect.DialectFrontend;
@@ -26,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class FindingsBudgetTest {
 
-    private static com.github.amber.core.ir.Script script() throws IOException {
+    private static Script script() throws IOException {
         DialectFrontend f = DialectFrontends.get(Dialect.ORACLE);
         String sql = new String(FindingsBudgetTest.class.getResourceAsStream("/sql/findings/risky_oracle.sql")
                 .readAllBytes(), StandardCharsets.UTF_8);

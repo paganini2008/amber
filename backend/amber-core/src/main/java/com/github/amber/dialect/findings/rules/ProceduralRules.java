@@ -6,7 +6,9 @@ import com.github.amber.core.ir.Confidence;
 import com.github.amber.core.ir.ObjectName;
 import com.github.amber.core.ir.Statement;
 import com.github.amber.core.ir.StatementKind;
+import com.github.amber.core.source.TextRange;
 import com.github.amber.dialect.findings.Finding.Severity;
+import com.github.amber.dialect.findings.Finding;
 import com.github.amber.dialect.split.ScanToken;
 
 import java.util.ArrayList;
@@ -642,7 +644,7 @@ final class ProceduralRules {
             }
             int last = close + 1 + test.indexOf(' ');
             String exists = test.startsWith("=") ? "NOT EXISTS" : "EXISTS";
-            com.github.amber.dialect.findings.Finding.SuggestedSql sql = null;
+            Finding.SuggestedSql sql = null;
             if (RuleContext.readable(st) && (k.wordIn(i - 1, Set.of("WHERE", "AND", "OR", "ON", "HAVING", "WHEN"))
                     || k.sym(i - 1, '(')) && (!k.in(last + 1) || !k.type(last + 1, ScanToken.Type.WORD)
                     || k.wordIn(last + 1, Set.of("AND", "OR", "THEN", "GROUP", "ORDER", "UNION")))) {
@@ -682,8 +684,8 @@ final class ProceduralRules {
         return op + " " + n;
     }
 
-    private void report(Statement st, com.github.amber.core.source.TextRange range, String exists,
-                        com.github.amber.dialect.findings.Finding.SuggestedSql sql) {
+    private void report(Statement st, TextRange range, String exists,
+                        Finding.SuggestedSql sql) {
         String hint = switch (ctx.dialect) {
             case ORACLE -> Messages.t("rules.P008.hint.oracle");
             case SQLSERVER -> Messages.t("rules.P008.hint.sqlserver");

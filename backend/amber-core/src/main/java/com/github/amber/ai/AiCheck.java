@@ -19,9 +19,13 @@ import com.github.amber.dialect.ParseOptions;
 import com.github.amber.dialect.ScriptParse;
 import com.github.amber.dialect.ScriptStatus;
 import com.github.amber.dialect.ir.ScriptIrBuilder;
+import com.github.amber.dialect.split.ScanToken;
+import com.github.amber.dialect.split.ScannerOptions;
+import com.github.amber.dialect.split.SqlScanner;
 
 import java.util.ArrayList;
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Deque;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -133,9 +137,9 @@ public final class AiCheck {
      */
     private static List<String> rowShaping(Script script) {
         List<String> out = new ArrayList<>();
-        var sc = new com.github.amber.dialect.split.SqlScanner(script.source().text(),
-                com.github.amber.dialect.split.ScannerOptions.forDialect(script.dialect()));
-        com.github.amber.dialect.split.ScanToken prev = null;
+        var sc = new SqlScanner(script.source().text(),
+                ScannerOptions.forDialect(script.dialect()));
+        ScanToken prev = null;
         for (var t = sc.next(); t != null; prev = t, t = sc.next()) {
             if (t.isWord("BY") && prev != null && prev.isWord("ORDER")) {
                 out.add("ORDER BY");
@@ -144,7 +148,7 @@ public final class AiCheck {
                 out.add(t.text().toUpperCase(Locale.ROOT));
             }
         }
-        java.util.Collections.sort(out);
+        Collections.sort(out);
         return out;
     }
 
