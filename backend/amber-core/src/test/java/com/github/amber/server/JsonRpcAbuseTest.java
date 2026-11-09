@@ -2,6 +2,7 @@ package com.github.amber.server;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ObjectNode;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -104,7 +105,7 @@ class JsonRpcAbuseTest {
         @Override
         public synchronized void write(int b) throws IOException {
             if (b == '\n') {
-                var answer = (com.fasterxml.jackson.databind.node.ObjectNode) MAPPER.readTree(line.toString(StandardCharsets.UTF_8));
+                var answer = (ObjectNode) MAPPER.readTree(line.toString(StandardCharsets.UTF_8));
                 if (line.size() > 100_000) {
                     answer.putObject("result").put("large", true);     // keep big analyses out of the heap
                 }
@@ -197,7 +198,7 @@ class JsonRpcAbuseTest {
         try (Session s = new Session()) {
             for (var e : calls.entrySet()) {
                 ObjectMapper m = MAPPER;
-                var node = (com.fasterxml.jackson.databind.node.ObjectNode) m.readTree(e.getValue());
+                var node = (ObjectNode) m.readTree(e.getValue());
                 node.put("jsonrpc", "2.0");
                 node.put("id", e.getKey());
                 node.put("extra", "ignored");
@@ -341,7 +342,7 @@ class JsonRpcAbuseTest {
     /** A result that cannot be serialized, a StackOverflowError and an OutOfMemoryError: each answered -32603. */
     @Test
     void handlerFailuresAreAnsweredAsInternalErrors() throws Exception {
-        java.util.Map<String, JsonRpcServer.Handler> handlers = new java.util.HashMap<>(Methods.handlers(MAPPER));
+        Map<String, JsonRpcServer.Handler> handlers = new HashMap<>(Methods.handlers(MAPPER));
         handlers.put("test.selfReference", p -> new SelfReference());
         handlers.put("test.overflow", p -> {
             throw new StackOverflowError();

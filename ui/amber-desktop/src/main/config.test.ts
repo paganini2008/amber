@@ -61,7 +61,8 @@ describe('readConfig', () => {
         AMBER_UPDATE_REPO: 'no slash',
         AMBER_LOG_LEVEL: 'loud',
         AMBER_ENGINE_MAX_RESTARTS: 'many',
-        AMBER_MAX_FILE_MB: '0'
+        AMBER_MAX_FILE_MB: '0',
+        AMBER_MAVEN_REPO: 'http://plain-http-mirror/maven2'
       },
       false
     )
@@ -82,10 +83,11 @@ describe('readConfig', () => {
       AMBER_ENGINE_RESTART_WINDOW_SEC: '30',
       AMBER_MAX_FILE_MB: '128',
       AMBER_DB_TIMEOUT_SEC: '20',
-      AMBER_DEV_USER_DATA: '/tmp/amber-clean'
+      AMBER_DEV_USER_DATA: '/tmp/amber-clean',
+      AMBER_MAVEN_REPO: 'https://nexus.corp/repository/central/'
     }
     const dev = readConfig(env, false)
-    expect(dev).toMatchObject({ engineJar: '/b/engine.jar', java: '/j/java', devCdpPort: 9334, devUserData: '/tmp/amber-clean', defaultAiTimeoutSec: 300, updateRepo: 'me/amber-fork', logLevel: 'debug', maxFileMb: 128, dbTimeoutSec: 20 })
+    expect(dev).toMatchObject({ engineJar: '/b/engine.jar', java: '/j/java', devCdpPort: 9334, devUserData: '/tmp/amber-clean', defaultAiTimeoutSec: 300, updateRepo: 'me/amber-fork', logLevel: 'debug', maxFileMb: 128, dbTimeoutSec: 20, mavenRepo: 'https://nexus.corp/repository/central' })
     const packaged = readConfig(env, true)
     expect(packaged).toMatchObject({ engineJar: null, java: null, devCdpPort: null, devUserData: null, defaultOllamaUrl: 'http://gpu-box:11434' })
     expect(logs(dev, 'debug')).toBe(true)

@@ -3,6 +3,7 @@ package com.github.amber.server;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.amber.core.Dialect;
+import com.github.amber.core.source.SourceDecoder;
 import com.github.amber.format.FormatContract;
 import com.github.amber.format.FormatOptions;
 
@@ -13,6 +14,7 @@ import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Random;
 import java.util.stream.Stream;
 
@@ -45,7 +47,7 @@ final class Fuzzer {
      */
     static final double MACHINE_SCALE = machineScale(System.getenv());
 
-    static double machineScale(java.util.Map<String, String> env) {
+    static double machineScale(Map<String, String> env) {
         String explicit = env.get("AMBER_FUZZ_BUDGET_SCALE");
         if (explicit != null && !explicit.isBlank()) {
             try {
@@ -287,7 +289,7 @@ final class Fuzzer {
                 for (Path p : walk.filter(Files::isRegularFile).filter(x -> !x.toString().endsWith(".errors"))
                         .filter(x -> !x.getFileName().toString().startsWith(".")).sorted().toList()) {
                     out.add(new Input(CORPUS.relativize(p).toString(), d,
-                            com.github.amber.core.source.SourceDecoder.decode(Files.readAllBytes(p)).text()));
+                            SourceDecoder.decode(Files.readAllBytes(p)).text()));
                 }
             } catch (IOException e) {
                 throw new UncheckedIOException(e);

@@ -1,5 +1,6 @@
 package com.github.amber.rewrite;
 
+import java.util.Comparator;
 import java.util.List;
 
 /**
@@ -21,7 +22,7 @@ record Candidate(String rule, String title, String explanation, List<Edit> edits
     }
 
     Candidate {
-        edits = edits.stream().sorted(java.util.Comparator.comparingInt(Edit::start)).toList();
+        edits = edits.stream().sorted(Comparator.comparingInt(Edit::start)).toList();
         expectedDifferences = List.copyOf(expectedDifferences);
     }
 

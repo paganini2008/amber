@@ -5,11 +5,14 @@ import com.github.amber.dialect.split.ScanToken;
 import com.github.amber.dialect.split.ScannerOptions;
 import com.github.amber.dialect.split.SqlScanner;
 
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Replaces object names, column names and string literals with neutral aliases before SQL is sent to
@@ -120,7 +123,7 @@ public final class Masking {
         if (text == null || text.isBlank() || mapping == null || mapping.isEmpty()) {
             return text;
         }
-        List<Map.Entry<String, String>> names = new java.util.ArrayList<>();
+        List<Map.Entry<String, String>> names = new ArrayList<>();
         for (Map.Entry<String, String> e : mapping.entrySet()) {
             if (!e.getKey().startsWith("'") && e.getValue().length() > 1) {
                 names.add(e);
@@ -129,9 +132,9 @@ public final class Masking {
         names.sort((a, b) -> b.getValue().length() - a.getValue().length());
         String out = text;
         for (Map.Entry<String, String> e : names) {
-            out = java.util.regex.Pattern.compile("(?<![\\p{L}\\p{N}_$#])" + java.util.regex.Pattern.quote(e.getValue())
-                            + "(?![\\p{L}\\p{N}_$#])", java.util.regex.Pattern.CASE_INSENSITIVE | java.util.regex.Pattern.UNICODE_CASE)
-                    .matcher(out).replaceAll(java.util.regex.Matcher.quoteReplacement(e.getKey()));
+            out = Pattern.compile("(?<![\\p{L}\\p{N}_$#])" + Pattern.quote(e.getValue())
+                            + "(?![\\p{L}\\p{N}_$#])", Pattern.CASE_INSENSITIVE | Pattern.UNICODE_CASE)
+                    .matcher(out).replaceAll(Matcher.quoteReplacement(e.getKey()));
         }
         return out;
     }

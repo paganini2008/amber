@@ -1,5 +1,9 @@
 package com.github.amber.dialect.mysql;
 
+import com.github.amber.core.Dialect;
+import com.github.amber.core.source.SourceText;
+import com.github.amber.dialect.DialectFrontends;
+import org.junit.jupiter.api.Assertions;
 import org.junit.jupiter.api.Test;
 
 import static com.github.amber.dialect.SplitAssertions.assertSplit;
@@ -86,8 +90,8 @@ class MySqlSplitterTest {
                 "SQL: select 1",
                 "CLIENT_COMMAND: \\. other.sql",
                 "SQL: select 2;");
-        var parse = com.github.amber.dialect.DialectFrontends.get(com.github.amber.core.Dialect.MYSQL)
-                .parse(com.github.amber.core.source.SourceText.of("/*!40101 SET NAMES utf8mb4 */;\n/*!40014 SET UNIQUE_CHECKS=0 */;\n"));
-        org.junit.jupiter.api.Assertions.assertTrue(parse.success(), parse.diagnostics()::toString);
+        var parse = DialectFrontends.get(Dialect.MYSQL)
+                .parse(SourceText.of("/*!40101 SET NAMES utf8mb4 */;\n/*!40014 SET UNIQUE_CHECKS=0 */;\n"));
+        Assertions.assertTrue(parse.success(), parse.diagnostics()::toString);
     }
 }

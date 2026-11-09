@@ -6,6 +6,7 @@ import com.github.amber.core.ir.Confidence;
 import com.github.amber.core.ir.Statement;
 import com.github.amber.core.meta.TableMeta;
 import com.github.amber.dialect.findings.Finding.Severity;
+import com.github.amber.dialect.findings.Finding;
 import com.github.amber.dialect.split.ScanToken;
 
 import java.util.ArrayList;
@@ -178,7 +179,7 @@ final class QueryShapeRules {
             String left = k.slice(i, cmp - 1);
             String c = k.comparison(cmp);
             String hint = "";
-            com.github.amber.dialect.findings.Finding.SuggestedSql sql = null;
+            Finding.SuggestedSql sql = null;
             if ((op.equals("+") || op.equals("-")) && cmp == ce + 3 && k.type(ce + 2, ScanToken.Type.NUMBER)
                     && c != null && !c.equals("<>") && !c.equals("!=")) {
                 int v = cmp + c.length();
@@ -219,7 +220,7 @@ final class QueryShapeRules {
 
     /** {@code messageKey} names the message; its {@code .indexed} variant is used when the column has a known index. */
     private void report(Statement st, Toks k, Scope s, Scope.ColRef ref, int from, int to, String messageKey,
-                        Object[] args, String suggestion, com.github.amber.dialect.findings.Finding.SuggestedSql sql) {
+                        Object[] args, String suggestion, Finding.SuggestedSql sql) {
         TableMeta m = ctx.meta(ref.src().name()).orElse(null);
         boolean indexed = m != null && m.column(ref.column()).isPresent()
                 && ctx.indexedLeading(ref.src().name(), m, ref.column());

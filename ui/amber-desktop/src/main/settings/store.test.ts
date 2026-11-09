@@ -61,6 +61,17 @@ describe('SettingsStore', () => {
     expect(await store.getDbPassword('c1')).toBeNull()
   })
 
+  it('keeps the Db2 driver jar path in settings, not in the secrets', async () => {
+    const { store, dir } = makeStore()
+    const jar = '/opt/drivers/jcc-12.1.4.0.jar'
+    const profile = { id: 'd1', name: 'Db2', dialect: 'db2', host: 'db2.local', port: 50000, database: 'DEMO', user: 'reader', driverPath: jar }
+    expect((await store.saveConnection(profile, 'pw')).connections[0]).toMatchObject({ id: 'd1', driverPath: jar, hasPassword: true })
+    expect(JSON.parse(readFileSync(join(dir, 'settings.json'), 'utf8')).connections[0].driverPath).toBe(jar)
+    expect(readFileSync(join(dir, 'secrets.json'), 'utf8')).not.toContain('jcc')
+    const reopened = new SettingsStore(join(dir, 'settings.json'), join(dir, 'secrets.json'), box)
+    expect(reopened.get().connections[0]).toMatchObject({ id: 'd1', dialect: 'db2', driverPath: jar, hasPassword: true })
+  })
+
   it('refuses to save a secret when secure storage is unavailable, without blocking', async () => {
     const dir = mkdtempSync(join(tmpdir(), 'amber-settings-'))
     const locked: SecretBox = { ...box, available: async () => false }
@@ -89,6 +100,15 @@ describe('SettingsStore', () => {
     expect(reloaded.get().online).toEqual({ enabled: true, connectionIds: ['b', 'a'] })
     expect(reloaded.get().connections.find((c) => c.id === 'a')?.url).toBe('jdbc:sqlite:/tmp/a.db')
     expect(reloaded.deleteConnection('b').online.connectionIds).toEqual(['a'])
+  })
+
+  it('keeps only an HTTPS driver repository; empty means the default', () => {
+    const { store, dir } = makeStore()
+    expect(store.get().driverRepository).toBe('')
+    expect(store.update({ driverRepository: 'https://nexus.corp/repository/central/' }).driverRepository).toBe('https://nexus.corp/repository/central')
+    expect(new SettingsStore(join(dir, 'settings.json'), join(dir, 'secrets.json'), box).get().driverRepository).toBe('https://nexus.corp/repository/central')
+    expect(store.update({ driverRepository: 'http://mirror/m2' }).driverRepository).toBe('')
+    expect(store.update({ driverRepository: 'https://u:p@mirror/m2' }).driverRepository).toBe('')
   })
 
   it('keeps format options within sensible bounds', () => {

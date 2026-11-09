@@ -3,9 +3,12 @@ package com.github.amber.dialect.postgresql;
 import com.github.amber.core.Dialect;
 import com.github.amber.core.diagnostic.Diagnostic;
 import com.github.amber.core.diagnostic.Severity;
+import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.Confidence;
+import com.github.amber.core.ir.ObjectKind;
 import com.github.amber.core.ir.Statement;
 import com.github.amber.core.ir.StatementKind;
+import com.github.amber.core.lineage.Catalog;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.core.source.TextRange;
 import com.github.amber.dialect.UnitParse;
@@ -22,10 +25,12 @@ import com.github.amber.dialect.split.ScannerOptions;
 import com.github.amber.dialect.split.SqlScanner;
 import com.github.amber.dialect.split.StatementUnit;
 import com.github.amber.dialect.split.UnitKind;
+import org.antlr.v4.runtime.ParserRuleContext;
 
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.Objects;
 import java.util.Set;
 
 /**
@@ -71,7 +76,7 @@ final class PlPgSqlParser {
     private final SourceText original;
     private final int end;
     private final int start;
-    private final com.github.amber.core.lineage.Catalog catalog;
+    private final Catalog catalog;
     private final List<Diagnostic> diagnostics = new ArrayList<>();
     private SourceText shadowSource;
     private SqlScanner sc;
@@ -87,7 +92,7 @@ final class PlPgSqlParser {
      * @param bodyEnd   offset just after the last char inside the quotes
      */
     PlPgSqlParser(PostgreSqlFrontend frontend, SourceText source, int bodyStart, int bodyEnd,
-                  com.github.amber.core.lineage.Catalog catalog) {
+                  Catalog catalog) {
         this.frontend = frontend;
         this.catalog = catalog;
         this.original = source;
@@ -104,7 +109,7 @@ final class PlPgSqlParser {
      * The scope of the routine (or {@code DO} block) whose body is parsed: named after it, with its
      * parameters ({@code func_arg} nodes of {@code node}) in order. Called before the body is parsed.
      */
-    void routine(Statement routine, org.antlr.v4.runtime.ParserRuleContext node) {
+    void routine(Statement routine, ParserRuleContext node) {
         String display = routine.name() != null ? routine.name().toString() : "block@L" + routine.range().start().line();
         scope = new VariableScopes.Scope(null, display.toUpperCase(Locale.ROOT) + "@" + routine.range().start().offset(),
                 display, routine.kind() != StatementKind.BLOCK);
@@ -112,12 +117,12 @@ final class PlPgSqlParser {
         addParameters(node);
     }
 
-    private void addParameters(org.antlr.v4.runtime.ParserRuleContext node) {
+    private void addParameters(ParserRuleContext node) {
         for (int i = 0; i < node.getChildCount(); i++) {
-            if (node.getChild(i) instanceof org.antlr.v4.runtime.ParserRuleContext c) {
+            if (node.getChild(i) instanceof ParserRuleContext c) {
                 String rule = PostgreSqlIrRules.INSTANCE.ruleName(c);
                 if (rule.equals("func_arg")) {
-                    org.antlr.v4.runtime.ParserRuleContext name = descendant(c, "param_name");
+                    ParserRuleContext name = descendant(c, "param_name");
                     scope.addParameter(name != null ? name.getText() : "$" + (scope.parameterNames().size() + 1));
                 } else if (!rule.equals("func_as") && !rule.equals("func_return")) {
                     addParameters(c);
@@ -126,13 +131,13 @@ final class PlPgSqlParser {
         }
     }
 
-    private static org.antlr.v4.runtime.ParserRuleContext descendant(org.antlr.v4.runtime.ParserRuleContext node, String rule) {
+    private static ParserRuleContext descendant(ParserRuleContext node, String rule) {
         for (int i = 0; i < node.getChildCount(); i++) {
-            if (node.getChild(i) instanceof org.antlr.v4.runtime.ParserRuleContext c) {
+            if (node.getChild(i) instanceof ParserRuleContext c) {
                 if (PostgreSqlIrRules.INSTANCE.ruleName(c).equals(rule)) {
                     return c;
                 }
-                org.antlr.v4.runtime.ParserRuleContext found = descendant(c, rule);
+                ParserRuleContext found = descendant(c, rule);
                 if (found != null) {
                     return found;
                 }
@@ -560,7 +565,7 @@ final class PlPgSqlParser {
      */
     private StatementLineage expressionLineage(List<ColumnNode> vars, int from, int to) {
         int start = from - 7;
-        if (start < 0 || to <= from || vars.isEmpty() || vars.stream().anyMatch(java.util.Objects::isNull)) {
+        if (start < 0 || to <= from || vars.isEmpty() || vars.stream().anyMatch(Objects::isNull)) {
             return null;
         }
         char[] scratch = shadow.clone();
@@ -933,8 +938,8 @@ final class PlPgSqlParser {
     private static final class Summary {
         static String reads(Statement st) {
             return String.join(", ", st.refs().stream()
-                    .filter(r -> r.access() == com.github.amber.core.ir.Access.READ
-                            && r.kind() != com.github.amber.core.ir.ObjectKind.CTE)
+                    .filter(r -> r.access() == Access.READ
+                            && r.kind() != ObjectKind.CTE)
                     .map(r -> r.name().toString()).distinct().toList());
         }
     }

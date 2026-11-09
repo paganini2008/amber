@@ -1,6 +1,8 @@
 package com.github.amber.server;
 
 import com.github.amber.jdbc.DataSourceSpec;
+import com.github.amber.jdbc.JdbcDriverException;
+import org.h2.Driver;
 import org.junit.jupiter.api.AfterAll;
 import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
@@ -120,5 +122,32 @@ class MetadataServiceTest {
                 List.of(ds("a", URL_A), ds("b", URL_B)), null));
         assertEquals("b", r.ambiguous().get(0).chosen(), "only b has the column site");
         assertTrue(r.pack().tables().stream().anyMatch(t -> t.column("site").isPresent()));
+    }
+
+    @Test
+    void driverPathTravelsThroughJsonRpcAndProblemsAreClear(@TempDir Path dir) throws Exception {
+        var mapper = Main.mapper();
+        var handlers = Methods.handlers(mapper);
+        String h2Jar = Path.of(Driver.class.getProtectionDomain().getCodeSource().getLocation().toURI()).toString();
+        var ok = mapper.valueToTree(handlers.get("db.test").handle(mapper.readTree("{\"dataSource\":{\"id\":\"a\","
+                + "\"dialect\":\"h2\",\"url\":\"" + URL_A + "\",\"driverPath\":" + mapper.writeValueAsString(h2Jar) + "}}")));
+        assertEquals("H2", ok.get("product").asText());
+
+        String missing = dir.resolve("jcc.jar").toString();
+        // db.test: an invalid-params error (IllegalArgumentException), message in English
+        var e = assertThrows(JdbcDriverException.class, () -> handlers.get("db.test").handle(
+                mapper.readTree("{\"dataSource\":{\"id\":\"d\",\"dialect\":\"db2\",\"host\":\"h\",\"database\":\"D\","
+                        + "\"driverPath\":" + mapper.writeValueAsString(missing) + "},\"locale\":\"es\"}")));
+        assertTrue(e.getMessage().startsWith("The JDBC driver file " + missing + " does not exist."), e::getMessage);
+
+        // db.loadMetadata: listed under errors, in the request's language; the other source still loads
+        var r = (MetadataService.LoadResult) handlers.get("db.loadMetadata").handle(mapper.readTree(
+                "{\"dialect\":\"h2\",\"text\":\"select * from inv.item\",\"locale\":\"es\",\"dataSources\":["
+                        + "{\"id\":\"d\",\"dialect\":\"db2\",\"host\":\"h\",\"database\":\"D\",\"driverPath\":"
+                        + mapper.writeValueAsString(missing) + "},"
+                        + "{\"id\":\"a\",\"dialect\":\"h2\",\"url\":\"" + URL_A + "\"}]}"));
+        assertEquals("El archivo del controlador JDBC " + missing + " no existe. Puede que se haya movido o borrado; "
+                + "vuelva a elegir el archivo .jar en los ajustes de la conexión.", r.errors().get("d"));
+        assertEquals(1, r.tables(), r::toString);
     }
 }

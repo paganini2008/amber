@@ -5,15 +5,19 @@ import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.ObjectName;
 import com.github.amber.core.ir.ObjectRef;
 import com.github.amber.core.ir.Statement;
+import com.github.amber.core.ir.StatementKind;
 import com.github.amber.core.lineage.Catalog;
 import com.github.amber.core.meta.TableMeta;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.dialect.split.ScanToken;
 
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -115,7 +119,7 @@ record RewriteContext(Dialect dialect, SourceText source, Statement statement, i
     /** True when every column name is a name token of the statement that created the table. */
     private boolean writtenIn(Statement create, List<String> columns) {
         Sql ddl = new Sql(dialect, source.text(), create.range().start().offset(), create.range().end().offset());
-        java.util.Set<String> names = new java.util.HashSet<>();
+        Set<String> names = new HashSet<>();
         for (int i = 0; i < ddl.size(); i++) {
             if (ddl.isName(i)) {
                 names.add(Sql.key(ddl.tok(i).text()));
@@ -159,12 +163,12 @@ record RewriteContext(Dialect dialect, SourceText source, Statement statement, i
 
     /** True when the statement runs once per row of a loop or is a cursor declaration. */
     boolean inCursorOrLoop() {
-        return statement.kind() == com.github.amber.core.ir.StatementKind.CURSOR
-                || (parent != null && parent.kind() == com.github.amber.core.ir.StatementKind.LOOP);
+        return statement.kind() == StatementKind.CURSOR
+                || (parent != null && parent.kind() == StatementKind.LOOP);
     }
 
     static Map<String, Integer> counts(List<Statement> steps, boolean firstIndex) {
-        Map<String, Integer> out = new java.util.HashMap<>();
+        Map<String, Integer> out = new HashMap<>();
         for (int i = 0; i < steps.size(); i++) {
             for (ObjectRef r : steps.get(i).refs()) {
                 if (r.access() == Access.CREATE || r.access() == Access.ALTER || r.access() == Access.DROP) {

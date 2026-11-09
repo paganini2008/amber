@@ -3,6 +3,7 @@ package com.github.amber.server;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.github.amber.core.i18n.Messages;
 import org.junit.jupiter.api.Test;
 
 import java.io.ByteArrayInputStream;
@@ -12,6 +13,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.Iterator;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -93,7 +95,7 @@ class LocalizedMethodsTest {
     /** Params of each localized method, without {@code locale}. */
     static Map<String, String> requests() throws Exception {
         String script = "\"dialect\":\"oracle\",\"text\":" + text(SCRIPT) + ",\"allowFallback\":true";
-        Map<String, String> r = new java.util.LinkedHashMap<>();
+        Map<String, String> r = new LinkedHashMap<>();
         r.put("analyze", "{" + script + "," + META + "}");
         r.put("doc.generate", "{" + script + "," + META + "}");
         r.put("doc.generate#html", "{" + script + ",\"format\":\"html\"}");
@@ -236,7 +238,7 @@ class LocalizedMethodsTest {
             stripTimes(n);
             assertEquals(en, n, e.getKey() + " numeric locale");
         }
-        assertEquals("zh-CN", com.github.amber.core.i18n.Messages.of("zh_CN").tag());
+        assertEquals("zh-CN", Messages.of("zh_CN").tag());
     }
 
     @Test
@@ -282,7 +284,7 @@ class LocalizedMethodsTest {
         } finally {
             pool.shutdownNow();
         }
-        assertEquals("en", com.github.amber.core.i18n.Messages.current().tag(), "the test thread is untouched");
+        assertEquals("en", Messages.current().tag(), "the test thread is untouched");
     }
 
     /** The same through the JSON-RPC server: interleaved requests on its worker pool. */

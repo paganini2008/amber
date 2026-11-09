@@ -12,6 +12,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -77,7 +79,7 @@ class RuleConfigTest {
         Set<String> used = new HashSet<>();
         for (String file : List.of("Findings.java", "rules/IndexRules.java", "rules/ConversionRule.java",
                 "rules/QueryShapeRules.java", "rules/ProceduralRules.java")) {
-            String src = java.nio.file.Files.readString(java.nio.file.Path.of(
+            String src = Files.readString(Path.of(
                     "src/main/java/com/github/amber/dialect/findings/" + file), StandardCharsets.UTF_8);
             Matcher m = id.matcher(src);
             while (m.find()) {

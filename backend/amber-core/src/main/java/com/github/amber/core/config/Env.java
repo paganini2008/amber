@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Engine configuration from {@code backend/.env} plus the process environment (which wins). The file is
@@ -145,7 +146,7 @@ public final class Env {
     }
 
     /** Keys defined in the {@code .env} file (for diagnostics; values are not exposed). */
-    public java.util.Set<String> fileKeys() {
+    public Set<String> fileKeys() {
         return Collections.unmodifiableSet(file.keySet());
     }
 }

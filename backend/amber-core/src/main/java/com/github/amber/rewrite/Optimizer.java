@@ -19,7 +19,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
+import java.util.TreeSet;
+import java.util.concurrent.CancellationException;
 import java.util.function.Predicate;
+import java.util.function.UnaryOperator;
 
 /**
  * "Apply all" for rule-based rewrites: per statement, every non-conflicting rewrite is applied together, then
@@ -77,13 +80,13 @@ public final class Optimizer {
                                   boolean includeEdgeCases, Predicate<String> ruleEnabled, boolean allowFallback,
                                   Map<Integer, List<String>> additionalDdl) {
         return optimize(dialect, text, catalog, statementIds, includeEdgeCases, ruleEnabled, allowFallback,
-                additionalDdl, java.util.function.UnaryOperator.identity());
+                additionalDdl, UnaryOperator.identity());
     }
 
     /** As above; {@code edited} sees every edited text before it is verified (a seam for tests). */
     static Result optimize(Dialect dialect, String text, Catalog catalog, List<Integer> statementIds,
                            boolean includeEdgeCases, Predicate<String> ruleEnabled, boolean allowFallback,
-                           Map<Integer, List<String>> additionalDdl, java.util.function.UnaryOperator<String> edited) {
+                           Map<Integer, List<String>> additionalDdl, UnaryOperator<String> edited) {
         Catalog base = catalog == null ? new Catalog() : catalog;
         Predicate<String> enabled = ruleEnabled == null ? r -> true : ruleEnabled;
         DialectFrontend f = DialectFrontends.get(dialect);
@@ -98,7 +101,7 @@ public final class Optimizer {
         String cur = text;
         for (int pass = 1; pass <= MAX_PASSES; pass++) {
             if (Thread.currentThread().isInterrupted()) {
-                throw new java.util.concurrent.CancellationException("cancelled");    // $/cancel
+                throw new CancellationException("cancelled");    // $/cancel
             }
             List<Rewrite> all = RewriteSuggester.suggest(dialect, cur, parses.of(cur), base, statementIds,
                     allowFallback, r -> true);
@@ -145,13 +148,13 @@ public final class Optimizer {
             applied.clear();
         }
         Map<Integer, List<String>> ddl = additionalDdl == null ? Map.of() : additionalDdl;
-        java.util.Set<Integer> ids = new java.util.TreeSet<>(applied.keySet());
+        Set<Integer> ids = new TreeSet<>(applied.keySet());
         ids.addAll(ddl.keySet());
         List<StatementResult> out = new ArrayList<>();
         Map<Integer, String> replacements = new TreeMap<>();
         for (int id : ids) {
             if (Thread.currentThread().isInterrupted()) {
-                throw new java.util.concurrent.CancellationException("cancelled");    // $/cancel
+                throw new CancellationException("cancelled");    // $/cancel
             }
             if ((!wanted.isEmpty() && !wanted.contains(id)) || id < 0 || id >= steps0.size()) {
                 continue;
@@ -205,7 +208,7 @@ public final class Optimizer {
      * (later statements first, so earlier offsets stay valid), keeping only those that do.
      */
     private static Applying applyVerified(Parses parses, String cur, List<Rewrite> chosen, int count,
-                                          Catalog base, java.util.function.UnaryOperator<String> edited) {
+                                          Catalog base, UnaryOperator<String> edited) {
         Map<Integer, List<Edit>> byStatement = new TreeMap<>(Comparator.reverseOrder());
         for (Rewrite r : chosen) {
             byStatement.computeIfAbsent(r.statement(), k -> new ArrayList<>()).addAll(r.edits());
@@ -218,10 +221,10 @@ public final class Optimizer {
             return new Applying(all, byStatement.keySet());
         }
         String text = cur;
-        Set<Integer> kept = new java.util.TreeSet<>();
+        Set<Integer> kept = new TreeSet<>();
         for (Map.Entry<Integer, List<Edit>> group : byStatement.entrySet()) {
             if (Thread.currentThread().isInterrupted()) {
-                throw new java.util.concurrent.CancellationException("cancelled");    // $/cancel
+                throw new CancellationException("cancelled");    // $/cancel
             }
             String candidate = edited.apply(RewriteSuggester.apply(text, group.getValue()));
             List<Statement> st = steps(parses, candidate, base);

@@ -14,6 +14,7 @@ import com.github.amber.dialect.ir.ScriptIrBuilder;
 
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 
 /**
  * Applies a candidate's edits, parses the result strictly and compares it structurally with the original
@@ -137,7 +138,7 @@ final class Verifier {
         for (int i = sql.size() - 1; i >= 0; i--) {
             if (sql.depth[i] == 0 && sql.word(i, "INTO")) {
                 int end = i + 1;
-                while (end < sql.size() && !(sql.depth[end] == 0 && sql.wordIn(end, java.util.Set.of("FROM", "WHERE",
+                while (end < sql.size() && !(sql.depth[end] == 0 && sql.wordIn(end, Set.of("FROM", "WHERE",
                         "GROUP", "HAVING", "ORDER", "LIMIT", "OFFSET", "UNION", "EXCEPT", "INTERSECT", "FOR"))
                         || sql.sym(end, ';'))) {
                     end++;

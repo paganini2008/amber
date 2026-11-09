@@ -1,5 +1,6 @@
 package com.github.amber.er;
 
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.er.ErModel.Cardinality;
 import com.github.amber.er.ErModel.Certainty;
 
@@ -7,6 +8,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -70,7 +72,7 @@ final class MermaidWriter {
             }
             if (cols.size() > shown) {
                 sb.append("        more ").append(unique("more_columns", names)).append(" \"")
-                        .append(quote(com.github.amber.core.i18n.Messages.t("er.mermaid.more", cols.size() - shown)))
+                        .append(quote(Messages.t("er.mermaid.more", cols.size() - shown)))
                         .append("\"\n");
             }
             sb.append("    }\n");
@@ -105,8 +107,8 @@ final class MermaidWriter {
             cols += " = " + String.join(", ", r.to().columns());
         }
         String suffix = switch (r.evidence()) {
-            case DATA_FLOW -> " " + com.github.amber.core.i18n.Messages.t("er.mermaid.dataFlow");
-            case NAME_MATCH -> " " + com.github.amber.core.i18n.Messages.t("er.mermaid.nameMatch");
+            case DATA_FLOW -> " " + Messages.t("er.mermaid.dataFlow");
+            case NAME_MATCH -> " " + Messages.t("er.mermaid.nameMatch");
             default -> r.cardinality() == Cardinality.UNKNOWN ? " (?)" : "";
         };
         return (cols + suffix).strip();
@@ -146,7 +148,7 @@ final class MermaidWriter {
 
     private static String unique(String id, Set<String> used) {
         String out = id;
-        for (int n = 2; !used.add(out.toLowerCase(java.util.Locale.ROOT)); n++) {
+        for (int n = 2; !used.add(out.toLowerCase(Locale.ROOT)); n++) {
             out = id + "_" + n;
         }
         return out;

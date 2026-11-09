@@ -9,6 +9,7 @@ import com.github.amber.core.i18n.Messages;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
 /**
@@ -93,7 +94,7 @@ public final class Summaries {
         return names(st, r -> r.kind() != ObjectKind.CTE && r.kind() != ObjectKind.INDEX);
     }
 
-    private static String names(Statement st, java.util.function.Predicate<ObjectRef> filter) {
+    private static String names(Statement st, Predicate<ObjectRef> filter) {
         Set<String> names = st.refs().stream().filter(filter).map(r -> r.name().toString())
                 .collect(Collectors.toCollection(LinkedHashSet::new));
         String separator = t("summary.names.separator");

@@ -2,6 +2,7 @@ package com.github.amber.dialect;
 
 import com.github.amber.core.Dialect;
 import com.github.amber.core.source.SourceText;
+import com.github.amber.dialect.ir.IrRules;
 import com.github.amber.dialect.split.ScriptSplitter;
 import com.github.amber.dialect.split.StatementUnit;
 import com.github.amber.dialect.split.WholeScriptSplitter;
@@ -27,7 +28,7 @@ public interface DialectFrontend {
      * How this dialect's parse trees map to Amber's IR, or {@code null} when the dialect has no
      * mapping yet (statements are then only scanned at token level).
      */
-    default com.github.amber.dialect.ir.IrRules irRules() {
+    default IrRules irRules() {
         return null;
     }
 

@@ -4,6 +4,7 @@ import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.ObjectKind;
 import com.github.amber.core.ir.ObjectName;
 import com.github.amber.core.ir.Statement;
+import com.github.amber.core.ir.StatementKind;
 import com.github.amber.core.source.TextRange;
 
 import java.util.List;
@@ -75,7 +76,7 @@ public record ObjectLifecycle(ObjectName name, ObjectKind kind, List<Event> even
     private static boolean isCreateAsSelect(Event e) {
         var kind = e.statement().kind();
         return e.access() == Access.CREATE
-                && (kind == com.github.amber.core.ir.StatementKind.CREATE_TABLE_AS
-                || kind == com.github.amber.core.ir.StatementKind.SELECT_INTO);
+                && (kind == StatementKind.CREATE_TABLE_AS
+                || kind == StatementKind.SELECT_INTO);
     }
 }

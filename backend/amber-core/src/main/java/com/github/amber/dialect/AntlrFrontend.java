@@ -1,6 +1,7 @@
 package com.github.amber.dialect;
 
 import com.github.amber.core.diagnostic.Diagnostic;
+import com.github.amber.core.diagnostic.Severity;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.dialect.split.StatementUnit;
 import org.antlr.v4.runtime.BailErrorStrategy;
@@ -12,9 +13,15 @@ import org.antlr.v4.runtime.Lexer;
 import org.antlr.v4.runtime.Parser;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.atn.PredictionMode;
+import org.antlr.v4.runtime.dfa.DFA;
 import org.antlr.v4.runtime.misc.ParseCancellationException;
 
 import java.time.Duration;
+import java.util.Arrays;
+import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * Shared parsing driver for ANTLR grammars, using two-stage prediction: a fast SLL pass that bails
@@ -45,7 +52,7 @@ public abstract class AntlrFrontend<L extends Lexer, P extends Parser> implement
         return unitText;
     }
 
-    private static final java.util.regex.Pattern VERSIONED = java.util.regex.Pattern.compile("/\\*!\\d*");
+    private static final Pattern VERSIONED = Pattern.compile("/\\*!\\d*");
 
     /**
      * Blanks the {@code /*!40101} opener and its {@code *\/} of MySQL versioned comments so the grammar
@@ -56,14 +63,14 @@ public abstract class AntlrFrontend<L extends Lexer, P extends Parser> implement
             return text;
         }
         char[] out = text.toCharArray();
-        java.util.regex.Matcher m = VERSIONED.matcher(text);
+        Matcher m = VERSIONED.matcher(text);
         int from = 0;
         while (m.find(from)) {
             int close = text.indexOf("*/", m.end());
             if (close < 0) {
                 break;
             }
-            java.util.Arrays.fill(out, m.start(), m.end(), ' ');
+            Arrays.fill(out, m.start(), m.end(), ' ');
             out[close] = ' ';
             out[close + 1] = ' ';
             from = close + 2;
@@ -98,7 +105,7 @@ public abstract class AntlrFrontend<L extends Lexer, P extends Parser> implement
     /** The cache size is checked every this many units parsed by one frontend. */
     static volatile int dfaCheckEvery = 256;
 
-    private final java.util.concurrent.atomic.AtomicInteger unitsParsed = new java.util.concurrent.atomic.AtomicInteger();
+    private final AtomicInteger unitsParsed = new AtomicInteger();
 
     private void limitDfaCache(L lexer, P parser) {
         if (unitsParsed.incrementAndGet() % Math.max(1, dfaCheckEvery) != 0) {
@@ -112,9 +119,9 @@ public abstract class AntlrFrontend<L extends Lexer, P extends Parser> implement
     }
 
     /** DFA states cached for a parser or lexer grammar (shared by all its instances). */
-    static long dfaStates(org.antlr.v4.runtime.dfa.DFA[] dfas) {
+    static long dfaStates(DFA[] dfas) {
         long n = 0;
-        for (org.antlr.v4.runtime.dfa.DFA dfa : dfas) {
+        for (DFA dfa : dfas) {
             n += dfa.states.size();
         }
         return n;
@@ -123,9 +130,9 @@ public abstract class AntlrFrontend<L extends Lexer, P extends Parser> implement
     /** A unit that could not be parsed at all: one syntax error over the whole unit, no tree. */
     private static UnitParse failed(StatementUnit unit, String reason, PredictionMode mode, long started) {
         // kept as a syntax error: with fallback the rest of the script is still analyzed
-        Diagnostic d = new Diagnostic(com.github.amber.core.diagnostic.Severity.ERROR, "syntax", reason, unit.range(),
-                null, java.util.List.of());
-        return new UnitParse(unit, UnitStatus.FAILED, null, mode, java.util.List.of(d),
+        Diagnostic d = new Diagnostic(Severity.ERROR, "syntax", reason, unit.range(),
+                null, List.of());
+        return new UnitParse(unit, UnitStatus.FAILED, null, mode, List.of(d),
                 Duration.ofNanos(System.nanoTime() - started));
     }
 

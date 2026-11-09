@@ -1,6 +1,7 @@
 import * as Tabs from '@radix-ui/react-tabs'
-import { AlignLeft, Database, ListChecks, Plus, RefreshCw, ScanSearch, SlidersHorizontal, Sparkles, Trash, type LucideIcon } from 'lucide-react'
+import { AlignLeft, CircleCheck, Database, Download, ListChecks, Plus, RefreshCw, ScanSearch, SlidersHorizontal, Sparkles, Trash, type LucideIcon } from 'lucide-react'
 import { useEffect, useMemo, useRef, useState } from 'react'
+import { DRIVERS, normalizeRepositoryUrl } from '@shared/drivers'
 import { isOpenAiHost, modelOptions, OLLAMA_PRESETS, OPENAI_PRESETS } from '@shared/aiModels'
 import { LANGUAGES, type AiProviderId, type ConnectionProfile, type Settings, type SettingsPatch, type ThemeId } from '@shared/api'
 import type { ServerInfo } from '@shared/protocol'
@@ -10,10 +11,12 @@ import { resolveLanguage } from '@/i18n/core'
 import { api, describeError } from '@/lib/api'
 import { dialectName } from '@/lib/kinds'
 import { useStore } from '@/store'
+import { downloadLabel, driverSize, needsDriverDownload, openDriverDownload, refreshDrivers, useDriverStatuses } from '@/lib/drivers'
 import { ModelCombobox } from './ModelCombobox'
 import { RulesSettings } from './RulesSettings'
 import { Button, Dialog, Field, Select, Spinner, Switch, inputClass } from './ui'
 import { DbIcon } from './DbIcon'
+import { ConnectionDriverField } from './ConnectionDriverField'
 
 const dialectOptions = (): { value: string; label: string }[] =>
   ['oracle', 'sqlserver', 'postgresql', 'mysql', 'mariadb', 'db2', 'h2', 'sqlite'].map((d) => ({ value: d, label: dialectName(d), icon: <DbIcon dialect={d} size={14} /> }))
@@ -414,6 +417,7 @@ function ConnectionsSettings({ settings }: { settings: Settings }): React.JSX.El
   const [results, setResults] = useState<Record<string, { ok: boolean; message: string }>>({})
   const [testing, setTesting] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
+  const drivers = useDriverStatuses()
 
   const save = async (): Promise<void> => {
     if (!editing) return
@@ -427,14 +431,23 @@ function ConnectionsSettings({ settings }: { settings: Settings }): React.JSX.El
     }
   }
 
+  const browseDriver = async (): Promise<void> => {
+    const [path] = await api().files.pickFiles({
+      title: t('settings.connections.driverPickTitle'),
+      filters: [{ name: t('settings.connections.driverFilter'), extensions: ['jar'] }],
+      multiple: false
+    })
+    if (path) setEditing((e) => (e ? { ...e, driverPath: path } : e))
+  }
+
   const test = async (id: string): Promise<void> => {
     setTesting(id)
     const r = await api().db.test(id)
     setTesting(null)
-    setResults({
-      ...results,
+    setResults((all) => ({
+      ...all,
       [id]: r.ok ? { ok: true, message: connectedMessage(r.value) } : { ok: false, message: describeError(r.error) }
-    })
+    }))
   }
 
   return (
@@ -459,7 +472,7 @@ function ConnectionsSettings({ settings }: { settings: Settings }): React.JSX.El
               <Button size="sm" onClick={() => void test(c.id)} disabled={testing !== null}>
                 {testing === c.id ? <Spinner size={11} /> : null} {t('settings.connections.test')}
               </Button>
-              <Button size="sm" onClick={() => setEditing({ id: c.id, name: c.name, dialect: c.dialect, host: c.host, port: c.port, database: c.database, user: c.user, url: c.url ?? '' })}>
+              <Button size="sm" onClick={() => setEditing({ id: c.id, name: c.name, dialect: c.dialect, host: c.host, port: c.port, database: c.database, user: c.user, url: c.url ?? '', driverPath: c.driverPath ?? '' })}>
                 {t('common.edit')}
               </Button>
               <Button size="sm" variant="danger" aria-label={t('settings.connections.deleteNamed', { name: c.name })} onClick={() => void api().settings.deleteConnection(c.id)}>
@@ -467,8 +480,13 @@ function ConnectionsSettings({ settings }: { settings: Settings }): React.JSX.El
               </Button>
             </div>
             {results[c.id] ? (
-              <div className="mt-2">
+              <div className="mt-2 flex flex-wrap items-start gap-2">
                 <TestResult result={results[c.id]!} />
+                {!results[c.id]!.ok && needsDriverDownload(drivers, c.dialect, c.driverPath) ? (
+                  <Button size="sm" variant="primary" onClick={() => openDriverDownload(c.dialect, () => void test(c.id))}>
+                    <Download size={12} /> {t('settings.drivers.downloadDriver')}
+                  </Button>
+                ) : null}
               </div>
             ) : null}
           </li>
@@ -508,6 +526,14 @@ function ConnectionsSettings({ settings }: { settings: Settings }): React.JSX.El
               onChange={(e) => setEditing({ ...editing, url: e.target.value })}
             />
           </Field>
+          <ConnectionDriverField
+            dialect={editing.dialect}
+            value={editing.driverPath}
+            installed={Boolean(drivers[editing.dialect]?.installed)}
+            onChange={(driverPath) => setEditing({ ...editing, driverPath })}
+            onBrowse={() => void browseDriver()}
+            onDownload={() => openDriverDownload(editing.dialect)}
+          />
           <Field label={t('settings.connections.user')} htmlFor="c-user">
             <input id="c-user" className={inputClass} value={editing.user} autoComplete="off" onChange={(e) => setEditing({ ...editing, user: e.target.value })} />
           </Field>
@@ -529,7 +555,112 @@ function ConnectionsSettings({ settings }: { settings: Settings }): React.JSX.El
           <Plus size={13} /> {t('settings.connections.add')}
         </Button>
       )}
+      <DriversSettings settings={settings} />
     </div>
+  )
+}
+
+/**
+ * Settings → Connections → Drivers: every database type with its pinned driver version, whether it is
+ * downloaded, and Download (through the license dialog) or Remove; then the repository to download from.
+ */
+function DriversSettings({ settings }: { settings: Settings }): React.JSX.Element {
+  const drivers = useDriverStatuses()
+  const [repo, setRepo] = useState(settings.driverRepository)
+  const [busy, setBusy] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => setRepo(settings.driverRepository), [settings.driverRepository])
+  const repoInvalid = repo.trim() !== '' && normalizeRepositoryUrl(repo) === null
+  const effective = Object.values(drivers)[0]?.repository
+  const saveRepo = async (): Promise<void> => {
+    if (repoInvalid) return
+    const value = repo.trim() ? normalizeRepositoryUrl(repo)! : ''
+    if (value === settings.driverRepository) return
+    await api().settings.update({ driverRepository: value })
+    await refreshDrivers()
+  }
+  const remove = async (id: string): Promise<void> => {
+    setBusy(id)
+    const r = await api().drivers.remove(id)
+    setBusy(null)
+    setError(r.ok ? null : describeError(r.error))
+    await refreshDrivers()
+  }
+  return (
+    <section className="space-y-2 border-t border-line pt-4" aria-labelledby="drivers-title">
+      <h3 id="drivers-title" className="text-sm font-semibold">
+        {t('settings.drivers.title')}
+      </h3>
+      <p className="text-sm text-ink-muted">{t('settings.drivers.lead')}</p>
+      <ul className="divide-y divide-line rounded-[6px] border border-line">
+        {DRIVERS.map((d) => {
+          const installed = Boolean(drivers[d.id]?.installed)
+          return (
+            <li key={d.id} className="flex items-center gap-3 px-3 py-1.5">
+              <DbIcon dialect={d.id} size={16} />
+              <div className="min-w-0 flex-1">
+                <div className="text-sm text-ink">{dialectName(d.id)}</div>
+                <div className="truncate text-xs text-ink-muted" title={`${d.groupId}:${d.artifactId}:${d.version}`}>
+                  {d.name} {d.version} · {driverSize(d.size)}
+                </div>
+              </div>
+              {installed ? (
+                <span className="inline-flex items-center gap-1 text-xs text-amber-ink">
+                  <CircleCheck size={13} aria-hidden /> {t('settings.drivers.installed')}
+                </span>
+              ) : (
+                <span className="text-xs text-ink-muted">{t('settings.drivers.notInstalled')}</span>
+              )}
+              {installed ? (
+                <Button
+                  size="sm"
+                  variant="danger"
+                  disabled={busy !== null}
+                  aria-label={t('settings.drivers.removeNamed', { database: dialectName(d.id) })}
+                  onClick={() => void remove(d.id)}
+                >
+                  {busy === d.id ? <Spinner size={11} /> : <Trash size={12} />} {t('settings.drivers.remove')}
+                </Button>
+              ) : (
+                <Button size="sm" aria-label={downloadLabel(d)} onClick={() => openDriverDownload(d.id)}>
+                  <Download size={12} /> {t('settings.drivers.download')}
+                </Button>
+              )}
+            </li>
+          )
+        })}
+      </ul>
+      {error ? <p className="text-sm text-risk-high">{error}</p> : null}
+      <Field
+        label={t('settings.drivers.repository')}
+        htmlFor="drivers-repo"
+        hint={
+          repoInvalid ? (
+            <span id="drivers-repo-error" role="alert" className="text-risk-high">
+              {t('settings.drivers.repositoryInvalid')}
+            </span>
+          ) : (
+            t('settings.drivers.repositoryHint', { url: (settings.driverRepository ? null : effective) ?? 'https://repo1.maven.org/maven2' })
+          )
+        }
+      >
+        <input
+          id="drivers-repo"
+          className={`${inputClass} code ${repoInvalid ? 'border-risk-high' : ''}`}
+          value={repo}
+          autoComplete="off"
+          spellCheck={false}
+          placeholder={(settings.driverRepository ? null : effective) ?? 'https://repo1.maven.org/maven2'}
+          aria-invalid={repoInvalid}
+          aria-describedby={repoInvalid ? 'drivers-repo-error' : undefined}
+          onChange={(e) => setRepo(e.target.value)}
+          onBlur={() => void saveRepo()}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') void saveRepo()
+          }}
+        />
+      </Field>
+    </section>
   )
 }
 

@@ -7,6 +7,7 @@ import com.github.amber.core.ir.Statement;
 import com.github.amber.core.ir.StatementKind;
 import com.github.amber.core.meta.TableMeta;
 import com.github.amber.dialect.findings.Finding.Severity;
+import com.github.amber.dialect.findings.Finding;
 import com.github.amber.dialect.split.ScanToken;
 
 import java.util.ArrayList;
@@ -285,7 +286,7 @@ final class ConversionRule {
     }
 
     /** The statement with the literal written in the column's type, when that is mechanical; else null. */
-    private com.github.amber.dialect.findings.Finding.SuggestedSql fixed(Statement st, Toks k, int v, int ve,
+    private Finding.SuggestedSql fixed(Statement st, Toks k, int v, int ve,
                                                                          Kind col, String colType, Kind value,
                                                                          String literal) {
         String s = unquote(literal).strip();

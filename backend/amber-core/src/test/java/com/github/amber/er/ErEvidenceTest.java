@@ -1,6 +1,7 @@
 package com.github.amber.er;
 
 import com.github.amber.core.Dialect;
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.ir.Script;
 import com.github.amber.core.lineage.Catalog;
 import com.github.amber.core.source.SourceText;
@@ -122,7 +123,7 @@ class ErEvidenceTest {
 
     @Test
     void notesAreLocalized() throws Exception {
-        String zh = com.github.amber.core.i18n.Messages.call(com.github.amber.core.i18n.Messages.of("zh-CN"),
+        String zh = Messages.call(Messages.of("zh-CN"),
                 () -> one(model(Dialect.ORACLE, EVIDENCE + JOIN), "ORDERS", "CUSTOMERS").note());
         assertTrue(zh.contains("INSERT 列清单"), zh);
     }

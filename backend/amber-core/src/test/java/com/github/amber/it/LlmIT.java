@@ -19,6 +19,7 @@ import com.github.amber.dialect.ir.ScriptIrBuilder;
 import org.junit.jupiter.api.Assumptions;
 import org.junit.jupiter.api.Test;
 
+import java.io.IOException;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -85,7 +86,7 @@ class LlmIT {
                     .GET().build(), HttpResponse.BodyHandlers.ofString());
             Assumptions.assumeTrue(r.statusCode() == 200, "Ollama at " + base + " answered " + r.statusCode() + "; skipped");
             tags = json.readTree(r.body()).path("models");
-        } catch (java.io.IOException e) {
+        } catch (IOException e) {
             Assumptions.abort("no Ollama at " + base + "; skipped");
             return;
         }

@@ -9,6 +9,7 @@ import com.github.amber.core.ir.StatementKind;
 import com.github.amber.core.source.TextRange;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -50,7 +51,7 @@ public final class ExecutionOrder {
         ExecutionOrder order = new ExecutionOrder();
         List<QueryBlock> top = new ArrayList<>(st.structure());
         // CTEs are ready before the main query; filter subqueries of an UPDATE/DELETE run before SET ones.
-        top.sort(java.util.Comparator.comparingInt(ExecutionOrder::topRank));
+        top.sort(Comparator.comparingInt(ExecutionOrder::topRank));
         for (QueryBlock b : top) {
             order.block(b, 0);
         }

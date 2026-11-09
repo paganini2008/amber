@@ -1,5 +1,7 @@
 package com.github.amber.core.lineage;
 
+import java.util.Locale;
+
 /**
  * A column of something that holds data: a table, a CTE, a derived table, a query result, or a
  * procedural variable or parameter.
@@ -39,7 +41,7 @@ public record ColumnNode(OwnerKind ownerKind, String owner, String ownerKey, Str
 
     /** Key that identifies this column across the script (column names compared case-insensitively). */
     public String key() {
-        return ownerKey + "." + column.toUpperCase(java.util.Locale.ROOT);
+        return ownerKey + "." + column.toUpperCase(Locale.ROOT);
     }
 
     public boolean isRows() {

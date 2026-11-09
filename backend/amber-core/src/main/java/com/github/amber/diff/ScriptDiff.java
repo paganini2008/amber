@@ -9,6 +9,7 @@ import com.github.amber.core.lineage.ColumnEdge;
 import com.github.amber.core.lineage.IndirectRole;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.core.source.TextRange;
+import com.github.amber.dialect.findings.RuleConfig;
 import com.github.amber.diff.DiffResult.ControlFlowChange;
 import com.github.amber.diff.DiffResult.Counts;
 import com.github.amber.diff.DiffResult.Hunk;
@@ -32,6 +33,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeSet;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CompletionException;
 
 /**
  * Change impact check: compares two versions of a script structurally and answers "what did my change
@@ -76,16 +78,16 @@ public final class ScriptDiff {
 
     /** As {@link #compare(Dialect, SourceText, SourceText, Catalog)}, with the user's rule settings for findings. */
     public static DiffResult compare(Dialect dialect, SourceText before, SourceText after, Catalog catalog,
-                                     com.github.amber.dialect.findings.RuleConfig rules) {
+                                     RuleConfig rules) {
         long started = System.nanoTime();
         Catalog cat = catalog == null ? Catalog.of(List.of()) : catalog;
-        CompletableFuture<Version> vb = CompletableFuture.supplyAsync(com.github.amber.core.i18n.Messages.bind(
+        CompletableFuture<Version> vb = CompletableFuture.supplyAsync(Messages.bind(
                 () -> Version.analyze(dialect, before, cat, rules)));      // in the request's language
         Version va = Version.analyze(dialect, after, cat, rules);
         Version vbv;
         try {
             vbv = vb.join();
-        } catch (java.util.concurrent.CompletionException e) {
+        } catch (CompletionException e) {
             if (e.getCause() instanceof RuntimeException re) {
                 throw re;
             }

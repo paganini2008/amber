@@ -1,6 +1,7 @@
 package com.github.amber.er;
 
 import com.github.amber.core.Dialect;
+import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.ObjectKind;
 import com.github.amber.core.ir.ObjectName;
 import com.github.amber.core.ir.ObjectRef;
@@ -18,8 +19,11 @@ import com.github.amber.er.Tokens.Kind;
 import com.github.amber.er.Tokens.Tok;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -143,7 +147,7 @@ final class JoinScanner {
     private final Catalog catalog;
     private final ColumnEvidence evidence;
     private final List<Observation> out = new ArrayList<>();
-    private final Set<ObjectRef> aliasRefs = java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+    private final Set<ObjectRef> aliasRefs = Collections.newSetFromMap(new IdentityHashMap<>());
     private int equalities;
     private int unresolved;
 
@@ -233,13 +237,13 @@ final class JoinScanner {
         List<ObjectRef> refs = new ArrayList<>();
         for (ObjectRef r : st.refs()) {
             if (r.via() == null && REF_KINDS.contains(r.kind()) && r.range() != null && !inside(r.range(), roots)
-                    && r.access() != com.github.amber.core.ir.Access.INSERT
-                    && r.access() != com.github.amber.core.ir.Access.CREATE) {
+                    && r.access() != Access.INSERT
+                    && r.access() != Access.CREATE) {
                 refs.add(r);
             }
         }
-        Set<String> aliases = new java.util.HashSet<>();
-        Map<ObjectRef, String> aliasOf = new java.util.IdentityHashMap<>();
+        Set<String> aliases = new HashSet<>();
+        Map<ObjectRef, String> aliasOf = new IdentityHashMap<>();
         for (ObjectRef r : refs) {
             String written = source.text().substring(r.range().start().offset(),
                     Math.min(source.length(), r.range().end().offset())).strip();

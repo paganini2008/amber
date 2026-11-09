@@ -14,10 +14,13 @@ import com.github.amber.diff.StatementAligner.P;
 
 import java.util.ArrayList;
 import java.util.EnumSet;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * Object-level impact: tables, views and temp tables newly read, written, created or dropped, accesses
@@ -220,8 +223,8 @@ final class ObjectComparer {
 
     /** Data-object refs of a statement keyed by access and name; CTEs and routines left out. */
     private static Map<String, ObjectRef> refs(Statement st) {
-        Set<String> ctes = new java.util.HashSet<>();
-        st.ctes().forEach(c -> ctes.add(c.toUpperCase(java.util.Locale.ROOT)));
+        Set<String> ctes = new HashSet<>();
+        st.ctes().forEach(c -> ctes.add(c.toUpperCase(Locale.ROOT)));
         Map<String, ObjectRef> out = new LinkedHashMap<>();
         for (ObjectRef r : st.refs()) {
             if (r.kind() == ObjectKind.CTE || ctes.contains(r.name().key())) {
@@ -233,7 +236,7 @@ final class ObjectComparer {
     }
 
     private static Set<String> writes(Map<String, ObjectRef> refs) {
-        Set<String> out = new java.util.TreeSet<>();
+        Set<String> out = new TreeSet<>();
         refs.forEach((k, r) -> {
             if (r.access() != Access.READ && r.access() != Access.EXECUTE) {
                 out.add(k);
@@ -243,7 +246,7 @@ final class ObjectComparer {
     }
 
     private static Set<String> reads(Map<String, ObjectRef> refs) {
-        Set<String> out = new java.util.TreeSet<>();
+        Set<String> out = new TreeSet<>();
         refs.forEach((k, r) -> {
             if (r.access() == Access.READ) {
                 out.add(k);

@@ -73,6 +73,7 @@ has its own language, also when several run at once.
 | `rewrite.optimize` | `statements[].applied[].title`, `skipped[].title`, `check.differences` |
 | `ai.check` | `differences` |
 | `er.model` | `relationships[].note`, the wording in `mermaid` (e.g. "(data flow)", "(name match?)") |
+| `db.loadMetadata` | `errors` written by the engine (e.g. a missing driver jar); messages that come from a database driver stay as the driver wrote them |
 | `references`, `rewrite.apply` | accept `locale`; their results hold no prose (code lines, offsets, SQL) |
 
 `ai.buildContext` takes no `locale`: the prompt for the model is always English.
@@ -374,14 +375,35 @@ never saves or logs it):
 
 ```json
 {"id":"pg-prod","dialect":"postgresql","url":null,"host":"db.local","port":5432,"database":"demo",
- "user":"reader","password":"…","properties":{}}
+ "user":"reader","password":"…","properties":{},"driverPath":null}
 ```
+
+`driverPath` is the absolute path of a JDBC driver `.jar`. **The engine includes no JDBC driver**, so online
+mode needs it for every database: the desktop app downloads the matching driver from Maven Central on demand
+(after the user accepts its license; the file is checked against a pinned SHA-256) or the user chooses a jar,
+and the app sends its path. The engine loads the driver from that jar (found through
+`META-INF/services/java.sql.Driver`, or a well-known driver class) and uses the one that accepts the
+connection's URL. Loaded jars are cached per path and modification time. Connections stay read-only and
+metadata-only either way. Without `driverPath`, only a driver on the engine's class path would be used, and
+only tests have any.
+
+When no driver is usable, `db.test` answers with error `-32602` (invalid params) and a plain message, and
+`db.loadMetadata` lists the same message under `errors` for that source. The cases are:
+
+- a source without `driverPath`: "The Db2 JDBC driver is not installed. Amber does not include database drivers:
+  download it with Download driver in the connection settings …", naming the database;
+- a path that is not absolute, does not exist, is a folder, cannot be read or is not a jar;
+- a jar with no driver for the URL (shown with any `password=` hidden).
+
+Like
+other error messages, `db.test`'s stay English; `db.loadMetadata` takes the optional `locale` and gives its
+`errors` in that language.
 
 | Method | Params | Result |
 |---|---|---|
 | `metadata.import` | `{dialect, ddlFiles?: string[], packs?: string[], save?: path}` | `{dialect, tables, names[], saved, pack}` — builds a pack from DDL files and/or packs |
 | `db.test` | `{dataSource}` | `{product, version, majorVersion, minorVersion, user, readOnly}` — `user` may be null; some drivers ignore `readOnly` |
-| `db.loadMetadata` | `{dialect, text \| path, dataSources: [DataSource], save?: path}` | `{tables, missing[], ambiguous[{name, dataSources[], chosen}], errors{id: message}, servers{id: info}, saved, pack}` — `tables` is a count; the table list is `pack.tables`. A `path` is decoded with the engine's detection (BOM, UTF-16 without BOM, UTF-8, GB18030); send `text` for other encodings. |
+| `db.loadMetadata` | `{dialect, text \| path, dataSources: [DataSource], save?: path, locale?}` | `{tables, missing[], ambiguous[{name, dataSources[], chosen}], errors{id: message}, servers{id: info}, saved, pack}` — `tables` is a count; the table list is `pack.tables`. A `path` is decoded with the engine's detection (BOM, UTF-16 without BOM, UTF-8, GB18030); send `text` for other encodings. |
 
 `db.loadMetadata` analyzes the script, takes the tables and views it reads or writes but does not
 create itself, looks each up in every data source, and lists names found nowhere in `missing`. A name

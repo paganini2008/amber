@@ -1,6 +1,7 @@
 package com.github.amber.er;
 
 import com.github.amber.core.Dialect;
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.ObjectKind;
 import com.github.amber.core.ir.ObjectName;
@@ -755,7 +756,7 @@ public final class ErModelBuilder {
 
     /** A note text in the language of the request. */
     private static String t(String key, Object... args) {
-        return com.github.amber.core.i18n.Messages.t(key, args);
+        return Messages.t(key, args);
     }
 
 }

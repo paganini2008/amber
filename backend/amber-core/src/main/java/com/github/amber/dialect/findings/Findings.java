@@ -1,18 +1,25 @@
 package com.github.amber.dialect.findings;
 
 import com.github.amber.core.Dialect;
+import com.github.amber.core.config.Env;
+import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.Confidence;
 import com.github.amber.core.ir.ObjectKind;
+import com.github.amber.core.ir.ObjectName;
 import com.github.amber.core.ir.ObjectRef;
 import com.github.amber.core.ir.Script;
 import com.github.amber.core.ir.Statement;
 import com.github.amber.core.ir.StatementKind;
+import com.github.amber.core.lineage.Catalog;
 import com.github.amber.core.lineage.ColumnEdge;
 import com.github.amber.core.lineage.ColumnNode;
+import com.github.amber.core.lineage.IndirectRole;
+import com.github.amber.core.meta.TableMeta;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.core.source.TextRange;
 import com.github.amber.dialect.findings.Finding.Severity;
+import com.github.amber.dialect.findings.rules.ExtraRules;
 import com.github.amber.dialect.split.ScanToken;
 import com.github.amber.dialect.split.ScannerOptions;
 import com.github.amber.dialect.split.SqlScanner;
@@ -25,6 +32,8 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CancellationException;
+import java.util.concurrent.TimeUnit;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -80,34 +89,34 @@ public final class Findings {
 
     private final Dialect dialect;
     private final SourceText source;
-    private final com.github.amber.core.lineage.Catalog catalog;
+    private final Catalog catalog;
     private final List<Finding> out = new ArrayList<>();
 
     /**
      * Time budget for all checks of one script ({@code AMBER_FINDINGS_SECONDS}, default 60). A guard, not a
      * tuning knob: when it runs out the remaining statements are skipped and AMB-I003 says from where.
      */
-    static final long BUDGET_NANOS = java.util.concurrent.TimeUnit.SECONDS.toNanos(Math.max(1,
-            com.github.amber.core.config.Env.get().integer("AMBER_FINDINGS_SECONDS", 60)));
+    static final long BUDGET_NANOS = TimeUnit.SECONDS.toNanos(Math.max(1,
+            Env.get().integer("AMBER_FINDINGS_SECONDS", 60)));
     private long budgetNanos = BUDGET_NANOS;
 
-    private Findings(Dialect dialect, SourceText source, com.github.amber.core.lineage.Catalog catalog) {
+    private Findings(Dialect dialect, SourceText source, Catalog catalog) {
         this.dialect = dialect;
         this.source = source;
         this.catalog = catalog;
     }
 
     public static List<Finding> of(Script script) {
-        return of(script, new com.github.amber.core.lineage.Catalog());
+        return of(script, new Catalog());
     }
 
     /** With a catalog, metadata rules run and static rules backed by metadata become certain. */
-    public static List<Finding> of(Script script, com.github.amber.core.lineage.Catalog catalog) {
+    public static List<Finding> of(Script script, Catalog catalog) {
         return of(script, catalog, BUDGET_NANOS);
     }
 
     /** With an explicit time budget in nanoseconds; for tests. */
-    static List<Finding> of(Script script, com.github.amber.core.lineage.Catalog catalog, long budgetNanos) {
+    static List<Finding> of(Script script, Catalog catalog, long budgetNanos) {
         Findings f = new Findings(script.dialect(), script.source(), catalog);
         f.budgetNanos = budgetNanos;
         f.run(script);
@@ -115,7 +124,7 @@ public final class Findings {
     }
 
     /** As {@link #of(Script, com.github.amber.core.lineage.Catalog)} with the user's rule settings applied. */
-    public static List<Finding> of(Script script, com.github.amber.core.lineage.Catalog catalog, RuleConfig config) {
+    public static List<Finding> of(Script script, Catalog catalog, RuleConfig config) {
         List<Finding> all = of(script, catalog);
         return config == null ? all : config.apply(all);
     }
@@ -127,7 +136,7 @@ public final class Findings {
         long started = System.nanoTime();
         for (Statement st : script.flatten()) {
             if (Thread.currentThread().isInterrupted()) {
-                throw new java.util.concurrent.CancellationException("findings cancelled");
+                throw new CancellationException("findings cancelled");
             }
             if (System.nanoTime() - started > budgetNanos) {
                 add("AMB-I003", Severity.INFO, t("findings.I003.message"), st, st.range(), Confidence.CERTAIN);
@@ -170,7 +179,7 @@ public final class Findings {
                 add("AMB-D002", Severity.LOW, t("findings.D002.message", ranges.size()), st, ranges.get(0), Confidence.CERTAIN);
             }
         });
-        out.addAll(com.github.amber.dialect.findings.rules.ExtraRules.of(script, catalog));   // AMB-P001 … P009
+        out.addAll(ExtraRules.of(script, catalog));   // AMB-P001 … P009
         suppress();
     }
 
@@ -416,13 +425,13 @@ public final class Findings {
         for (int j = i + 3; j + 1 < t.size() && t.get(j).isSymbol('.'); j += 2) {
             table.append('.').append(t.get(j + 1).text());
         }
-        com.github.amber.core.ir.ObjectName name = com.github.amber.core.ir.ObjectName.parse(dialect, table.toString());
+        ObjectName name = ObjectName.parse(dialect, table.toString());
         if (name == null) {
             return null;
         }
         return catalog.meta(name.key(), name.simpleKey())
                 .flatMap(m -> m.column(column))
-                .map(com.github.amber.core.meta.TableMeta.ColumnMeta::nullable)
+                .map(TableMeta.ColumnMeta::nullable)
                 .orElse(null);
     }
 
@@ -459,7 +468,7 @@ public final class Findings {
         Map<String, String> displayNames = new LinkedHashMap<>();
         for (ColumnEdge e : st.lineage().edges()) {
             displayNames.putIfAbsent(e.from().ownerKey(), e.from().owner());
-            if (!e.isDirect() && e.role() == com.github.amber.core.lineage.IndirectRole.JOIN
+            if (!e.isDirect() && e.role() == IndirectRole.JOIN
                     && (e.from().ownerKind() == ColumnNode.OwnerKind.TABLE || e.from().ownerKind() == ColumnNode.OwnerKind.VIEW)) {
                 clauses.computeIfAbsent(e.range(), k -> new LinkedHashMap<>())
                         .computeIfAbsent(e.from().ownerKey(), k -> new ArrayList<>()).add(e.from().column());
@@ -485,9 +494,9 @@ public final class Findings {
         });
     }
 
-    private static boolean hasKeys(com.github.amber.core.meta.TableMeta m) {
+    private static boolean hasKeys(TableMeta m) {
         return !m.primaryKey().isEmpty() || !m.uniqueKeys().isEmpty()
-                || m.indexes().stream().anyMatch(com.github.amber.core.meta.TableMeta.IndexMeta::unique);
+                || m.indexes().stream().anyMatch(TableMeta.IndexMeta::unique);
     }
 
     private static String aliasAfterTable(List<ScanToken> t, int i, int end) {
@@ -622,7 +631,7 @@ public final class Findings {
     }
 
     private static String t(String key, Object... args) {
-        return com.github.amber.core.i18n.Messages.t(key, args);
+        return Messages.t(key, args);
     }
 
     /** Drops findings whose statement (or the line above it) says {@code amber:ignore RULE}. */

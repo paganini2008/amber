@@ -1,6 +1,7 @@
 package com.github.amber.dialect.lineage;
 
 import com.github.amber.core.Dialect;
+import com.github.amber.core.ir.Confidence;
 import com.github.amber.core.ir.ObjectName;
 import com.github.amber.core.ir.Script;
 import com.github.amber.core.ir.Statement;
@@ -22,6 +23,7 @@ import org.junit.jupiter.api.Test;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.TreeSet;
 
@@ -66,7 +68,7 @@ class ColumnEvidenceTest {
         st.forEach(x -> {
             if (x.lineage() != null) {
                 for (ColumnEdge e : x.lineage().edges()) {
-                    out.add(e.from().ownerKind() + ":" + e.from().toString().toLowerCase(java.util.Locale.ROOT));
+                    out.add(e.from().ownerKind() + ":" + e.from().toString().toLowerCase(Locale.ROOT));
                 }
             }
         });
@@ -290,7 +292,7 @@ class ColumnEvidenceTest {
                 "TABLE:customers.id", "TABLE:orders.status")), src::toString);
         assertTrue(src.stream().noneMatch(x -> x.startsWith("UNKNOWN")), src::toString);
         assertTrue(s.statements().get(2).lineage().edges().stream()
-                .noneMatch(e -> e.confidence() == com.github.amber.core.ir.Confidence.CERTAIN), "never certain");
+                .noneMatch(e -> e.confidence() == Confidence.CERTAIN), "never certain");
         assertEquals(List.of(), i002(s));
     }
 

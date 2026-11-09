@@ -1,5 +1,6 @@
 package com.github.amber.dialect;
 
+import com.github.amber.core.config.Env;
 import com.github.amber.core.source.InvisibleCharacters;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.dialect.split.StatementUnit;
@@ -8,6 +9,7 @@ import com.github.amber.dialect.split.UnitKind;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.ExecutorService;
@@ -31,7 +33,7 @@ public final class ScriptParser {
     private static final long PARSER_STACK_BYTES = 256L * 1024 * 1024;
 
     private static final ExecutorService POOL = Executors.newFixedThreadPool(
-            Math.max(1, com.github.amber.core.config.Env.get().integer("AMBER_PARSER_THREADS",
+            Math.max(1, Env.get().integer("AMBER_PARSER_THREADS",
                     Math.max(2, Runtime.getRuntime().availableProcessors()))), new ParserThreadFactory());
 
     private ScriptParser() {
@@ -48,7 +50,7 @@ public final class ScriptParser {
             if (unit.kind() == UnitKind.SQL) {
                 futures.add(POOL.submit(() -> frontend.parseUnit(source, unit)));
             } else {
-                futures.add(java.util.concurrent.CompletableFuture.completedFuture(UnitParse.skipped(unit)));
+                futures.add(CompletableFuture.completedFuture(UnitParse.skipped(unit)));
             }
         }
 

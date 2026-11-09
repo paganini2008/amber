@@ -81,6 +81,8 @@ export interface AppConfig {
   maxFileMb: number
   /** Longest wait for a connection test or a metadata load before giving up. */
   dbTimeoutSec: number
+  /** HTTPS Maven repository JDBC drivers are downloaded from; Settings → Connections → Driver repository wins. */
+  mavenRepo: string
 }
 
 export const DEFAULT_CONFIG: AppConfig = {
@@ -97,7 +99,8 @@ export const DEFAULT_CONFIG: AppConfig = {
   engineMaxRestarts: 5,
   engineRestartWindowSec: 60,
   maxFileMb: 64,
-  dbTimeoutSec: 60
+  dbTimeoutSec: 60,
+  mavenRepo: 'https://repo1.maven.org/maven2'
 }
 
 function int(value: string | undefined, min: number, max: number, fallback: number): number {
@@ -111,6 +114,17 @@ function url(value: string | undefined, fallback: string): string {
   try {
     const u = new URL(value)
     return u.protocol === 'http:' || u.protocol === 'https:' ? value : fallback
+  } catch {
+    return fallback
+  }
+}
+
+/** HTTPS only, without a trailing slash (driver downloads; a jar is code the engine runs). */
+function httpsUrl(value: string | undefined, fallback: string): string {
+  if (!value) return fallback
+  try {
+    const u = new URL(value)
+    return u.protocol === 'https:' && !u.username && !u.password && !u.search && !u.hash ? value.replace(/\/+$/, '') : fallback
   } catch {
     return fallback
   }
@@ -136,7 +150,8 @@ export function readConfig(env: NodeJS.ProcessEnv, packaged: boolean): AppConfig
     engineMaxRestarts: int(env.AMBER_ENGINE_MAX_RESTARTS, 0, 100, d.engineMaxRestarts),
     engineRestartWindowSec: int(env.AMBER_ENGINE_RESTART_WINDOW_SEC, 1, 3600, d.engineRestartWindowSec),
     maxFileMb: int(env.AMBER_MAX_FILE_MB, 1, 1024, d.maxFileMb),
-    dbTimeoutSec: int(env.AMBER_DB_TIMEOUT_SEC, 5, 3600, d.dbTimeoutSec)
+    dbTimeoutSec: int(env.AMBER_DB_TIMEOUT_SEC, 5, 3600, d.dbTimeoutSec),
+    mavenRepo: httpsUrl(env.AMBER_MAVEN_REPO, d.mavenRepo)
   }
 }
 

@@ -1,5 +1,7 @@
 package com.github.amber.server;
 
+import com.fasterxml.jackson.core.JsonFactory;
+import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.github.amber.core.Dialect;
@@ -52,8 +54,8 @@ public final class Main {
     static final int MAX_STRING_CHARS = 512 * 1024 * 1024;
 
     static ObjectMapper mapper() {
-        com.fasterxml.jackson.core.JsonFactory factory = com.fasterxml.jackson.core.JsonFactory.builder()
-                .streamReadConstraints(com.fasterxml.jackson.core.StreamReadConstraints.builder()
+        JsonFactory factory = JsonFactory.builder()
+                .streamReadConstraints(StreamReadConstraints.builder()
                         .maxStringLength(MAX_STRING_CHARS).build())
                 .build();
         return new ObjectMapper(factory).configure(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES, false);

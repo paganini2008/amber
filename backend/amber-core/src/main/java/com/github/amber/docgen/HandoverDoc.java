@@ -6,6 +6,7 @@ import com.github.amber.core.analysis.ObjectLifecycle;
 import com.github.amber.core.diagnostic.Diagnostic;
 import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.ir.Access;
+import com.github.amber.core.ir.ObjectKind;
 import com.github.amber.core.ir.ObjectRef;
 import com.github.amber.core.ir.QueryBlock;
 import com.github.amber.core.ir.Script;
@@ -162,7 +163,7 @@ public final class HandoverDoc {
             Set<String> reads = new TreeSet<>();
             Set<String> writes = new TreeSet<>();
             for (ObjectRef r : st.refs()) {
-                if (r.kind() == com.github.amber.core.ir.ObjectKind.CTE) {
+                if (r.kind() == ObjectKind.CTE) {
                     continue;
                 }
                 if (r.access() == Access.READ) {

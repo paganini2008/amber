@@ -10,6 +10,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Supplier;
 
 /**
  * The offline suggestion rules AMB-P001 … AMB-P009 (performance and maintenance hints), run by
@@ -83,7 +84,7 @@ public final class ExtraRules {
         }
     }
 
-    private static <T> T guard(java.util.function.Supplier<T> s, boolean strict) {
+    private static <T> T guard(Supplier<T> s, boolean strict) {
         try {
             return s.get();
         } catch (RuntimeException e) {

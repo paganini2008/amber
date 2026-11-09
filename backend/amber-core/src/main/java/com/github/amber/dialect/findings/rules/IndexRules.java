@@ -3,11 +3,15 @@ package com.github.amber.dialect.findings.rules;
 import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.ir.Confidence;
 import com.github.amber.core.ir.Statement;
+import com.github.amber.core.ir.StatementKind;
 import com.github.amber.core.meta.TableMeta;
 import com.github.amber.core.source.TextRange;
 import com.github.amber.dialect.findings.Finding.Severity;
+import com.github.amber.dialect.findings.Finding;
+import com.github.amber.dialect.split.ScanToken;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -167,7 +171,7 @@ final class IndexRules {
         if (ctx.indexedLeading(u.src().name(), u.meta(), u.column())) {
             return true;
         }
-        Set<String> used = new java.util.HashSet<>();
+        Set<String> used = new HashSet<>();
         for (Use o : all) {
             if (o.src() == u.src()) {
                 used.add(o.column().toUpperCase(Locale.ROOT));
@@ -196,7 +200,7 @@ final class IndexRules {
     }
 
     private static boolean prefixPattern(Toks k, Cmp c) {
-        if (c.rhsEnd() - c.rhsStart() != 1 || !k.type(c.rhsStart(), com.github.amber.dialect.split.ScanToken.Type.STRING)) {
+        if (c.rhsEnd() - c.rhsStart() != 1 || !k.type(c.rhsStart(), ScanToken.Type.STRING)) {
             return false;
         }
         String s = k.tok(c.rhsStart()).text();
@@ -308,10 +312,10 @@ final class IndexRules {
      * every row comes back exactly once. Only for a plain single-block SELECT without DISTINCT, grouping,
      * aggregates, ordering, row limits or INTO.
      */
-    private com.github.amber.dialect.findings.Finding.SuggestedSql unionAll(Statement st, Toks k, Scope s,
+    private Finding.SuggestedSql unionAll(Statement st, Toks k, Scope s,
                                                                             List<int[]> terms, int[] g,
                                                                             List<int[]> parts) {
-        if (st.kind() != com.github.amber.core.ir.StatementKind.SELECT || s.start != 0 || Scope.blocks(k).size() != 1
+        if (st.kind() != StatementKind.SELECT || s.start != 0 || Scope.blocks(k).size() != 1
                 || s.limited || s.distinct >= 0 || s.groupBy >= 0 || s.having >= 0 || s.orderBy >= 0
                 || s.whereEnd != s.end || (s.end < k.size() && !(k.sym(s.end, ';') && s.end == k.size() - 1))) {
             return null;

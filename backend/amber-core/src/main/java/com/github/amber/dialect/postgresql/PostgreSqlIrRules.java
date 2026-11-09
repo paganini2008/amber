@@ -1,17 +1,29 @@
 package com.github.amber.dialect.postgresql;
 
 import com.github.amber.core.Dialect;
+import com.github.amber.core.diagnostic.Diagnostic;
+import com.github.amber.core.diagnostic.Severity;
 import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.ObjectKind;
 import com.github.amber.core.ir.ObjectRef;
+import com.github.amber.core.ir.Statement;
 import com.github.amber.core.ir.StatementKind;
+import com.github.amber.core.lineage.Catalog;
+import com.github.amber.core.source.SourceText;
+import com.github.amber.dialect.DialectFrontends;
 import com.github.amber.dialect.ir.IrRules;
 import com.github.amber.dialect.ir.TargetSpec;
+import com.github.amber.dialect.lineage.LineageRules;
 import com.github.amber.dialect.postgresql.grammar.PostgreSQLParser;
+import com.github.amber.dialect.split.ScanToken;
+import com.github.amber.dialect.split.ScannerOptions;
+import com.github.amber.dialect.split.SqlScanner;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
 
+import java.util.List;
 import java.util.Locale;
+import java.util.Set;
 
 /**
  * Meaning of the grammars-v4 PostgreSQL rules for Amber's IR. PL/pgSQL bodies inside {@code $$}
@@ -80,36 +92,36 @@ final class PostgreSqlIrRules extends IrRules {
                 .target(TargetSpec.of("callstmt", "func_application", Access.EXECUTE, ObjectKind.ROUTINE)));
     }
 
-    private static final java.util.Set<StatementKind> BODY_KINDS = java.util.Set.of(StatementKind.CREATE_FUNCTION,
+    private static final Set<StatementKind> BODY_KINDS = Set.of(StatementKind.CREATE_FUNCTION,
             StatementKind.CREATE_PROCEDURE, StatementKind.BLOCK);
 
     /** Parses PL/pgSQL and SQL function bodies and DO blocks, which the grammar keeps as strings. */
     @Override
-    public java.util.List<com.github.amber.core.diagnostic.Diagnostic> enrich(com.github.amber.core.ir.Statement st,
+    public List<Diagnostic> enrich(Statement st,
                                                                              ParserRuleContext node,
-                                                                             com.github.amber.core.source.SourceText source,
-                                                                             com.github.amber.core.lineage.Catalog catalog) {
+                                                                             SourceText source,
+                                                                             Catalog catalog) {
         if (!BODY_KINDS.contains(st.kind())) {
-            return java.util.List.of();
+            return List.of();
         }
         String rule = ruleName(node);
         boolean doBlock = rule.equals("dostmt");
         if (!doBlock && !rule.equals("createfunctionstmt")) {
-            return java.util.List.of();
+            return List.of();
         }
-        com.github.amber.dialect.split.SqlScanner sc = new com.github.amber.dialect.split.SqlScanner(source.text(),
-                com.github.amber.dialect.split.ScannerOptions.POSTGRESQL);
+        SqlScanner sc = new SqlScanner(source.text(),
+                ScannerOptions.POSTGRESQL);
         sc.reset(st.range().start().offset());
         int stop = st.range().end().offset();
         String language = doBlock ? "plpgsql" : null;
-        com.github.amber.dialect.split.ScanToken body = null;
-        com.github.amber.dialect.split.ScanToken previous = null;
-        com.github.amber.dialect.split.ScanToken t;
+        ScanToken body = null;
+        ScanToken previous = null;
+        ScanToken t;
         while ((t = sc.next()) != null && t.start() < stop) {
             if (previous != null && previous.isWord("LANGUAGE")) {
                 language = t.text().replace("'", "").toLowerCase(Locale.ROOT);
             }
-            if (t.type() == com.github.amber.dialect.split.ScanToken.Type.STRING
+            if (t.type() == ScanToken.Type.STRING
                     && (doBlock || (previous != null && (previous.isWord("AS") || previous.isSymbol(','))))
                     && body == null) {
                 body = t;
@@ -117,14 +129,14 @@ final class PostgreSqlIrRules extends IrRules {
             previous = t;
         }
         if (body == null || language == null || !(language.equals("plpgsql") || language.equals("sql"))) {
-            return java.util.List.of();
+            return List.of();
         }
         String text = body.text();
         if (!text.startsWith("$")) {
-            return java.util.List.of(new com.github.amber.core.diagnostic.Diagnostic(
-                    com.github.amber.core.diagnostic.Severity.INFO, "plpgsql",
+            return List.of(new Diagnostic(
+                    Severity.INFO, "plpgsql",
                     "Function body in a quoted string is not analyzed; dollar-quoted bodies ($$ … $$) are",
-                    source.range(body.start(), body.end()), null, java.util.List.of()));
+                    source.range(body.start(), body.end()), null, List.of()));
         }
         int tag = text.indexOf('$', 1) + 1;
         PlPgSqlParser parser = new PlPgSqlParser(frontend(), source, body.start() + tag, body.end() - tag, catalog);
@@ -138,11 +150,11 @@ final class PostgreSqlIrRules extends IrRules {
     }
 
     private static PostgreSqlFrontend frontend() {
-        return (PostgreSqlFrontend) com.github.amber.dialect.DialectFrontends.get(Dialect.POSTGRESQL);
+        return (PostgreSqlFrontend) DialectFrontends.get(Dialect.POSTGRESQL);
     }
 
     @Override
-    public com.github.amber.dialect.lineage.LineageRules lineage() {
+    public LineageRules lineage() {
         return PostgreSqlLineageRules.INSTANCE;
     }
 

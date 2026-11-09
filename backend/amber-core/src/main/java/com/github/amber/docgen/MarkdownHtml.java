@@ -1,5 +1,7 @@
 package com.github.amber.docgen;
 
+import com.github.amber.core.i18n.Messages;
+
 import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
@@ -82,7 +84,7 @@ final class MarkdownHtml {
                 pre{background:rgba(0,0,0,.04);border:1px solid var(--line);border-radius:6px;padding:12px;overflow-x:auto}
                 </style></head><body><main>
                 %s</main></body></html>
-                """.formatted(com.github.amber.core.i18n.Messages.current().tag(), escape(title), body);   // lang of the request
+                """.formatted(Messages.current().tag(), escape(title), body);   // lang of the request
     }
 
     private static void table(List<String> rows, StringBuilder out) {

@@ -1,5 +1,6 @@
 package com.github.amber.ai;
 
+import com.github.amber.core.Dialect;
 import com.github.amber.core.ir.Access;
 import com.github.amber.core.ir.ObjectKind;
 import com.github.amber.core.ir.ObjectName;
@@ -233,7 +234,7 @@ public final class AiContextBuilder {
                     .map(ix -> (ix.unique() ? "unique " : "") + ix.columns()).toList())
                     + (meta.rowEstimate() >= 0 ? "; ~" + meta.rowEstimate() + " rows" : "");
             if (mask) {
-                ObjectName.parse(com.github.amber.core.Dialect.ORACLE, meta.qualifiedName()).parts()
+                ObjectName.parse(Dialect.ORACLE, meta.qualifiedName()).parts()
                         .forEach(p -> m.object(p.text()));
                 meta.columns().forEach(c -> m.column(c.name()));
             }

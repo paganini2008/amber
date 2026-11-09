@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.github.amber.core.Dialect;
 import com.github.amber.core.source.SourceDecoder;
+import com.github.amber.core.source.SourceText;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -14,6 +15,8 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.HexFormat;
 import java.util.List;
 import java.util.Random;
 
@@ -90,10 +93,10 @@ class EncodingRobustTest {
         inputs.add(new byte[]{(byte) 0xED, (byte) 0xA0, (byte) 0x80});                  // UTF-8 encoded surrogate
         inputs.add(new byte[]{(byte) 0xF4, (byte) 0x90, (byte) 0x80, (byte) 0x80});    // beyond U+10FFFF
         inputs.add(new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF});
-        inputs.add(java.util.Arrays.copyOf(utf8, utf8.length - 2));                      // cut inside the emoji
+        inputs.add(Arrays.copyOf(utf8, utf8.length - 2));                      // cut inside the emoji
         inputs.add(concat(utf8, new byte[]{(byte) 0x80, 0x0A, (byte) 0xFE}));
         byte[] gb = SCRIPT.replace("😀", "中").getBytes(SourceDecoder.GB18030);
-        inputs.add(java.util.Arrays.copyOf(gb, gb.length - 1));                          // GB18030 cut mid-character
+        inputs.add(Arrays.copyOf(gb, gb.length - 1));                          // GB18030 cut mid-character
         Random rnd = new Random(20261108);
         for (int k = 0; k < 40; k++) {
             byte[] b = utf8.clone();
@@ -113,7 +116,7 @@ class EncodingRobustTest {
             }
             Path file = dir.resolve("broken" + (k++) + ".sql");
             Files.write(file, bytes);
-            assertNull(analyzeFile(file, null, text), () -> "input " + java.util.HexFormat.of().formatHex(bytes));
+            assertNull(analyzeFile(file, null, text), () -> "input " + HexFormat.of().formatHex(bytes));
         }
     }
 
@@ -162,7 +165,7 @@ class EncodingRobustTest {
             if (!o.ok()) {
                 return d + ": " + (o.hung() ? "hang" : Robust.describe(o.error()));
             }
-            if (o.json().path("lineCount").asInt() != com.github.amber.core.source.SourceText.of(text).lineCount()) {
+            if (o.json().path("lineCount").asInt() != SourceText.of(text).lineCount()) {
                 return d + ": lineCount " + o.json().path("lineCount");
             }
             String bad = Robust.checkRanges(o.json(), Robust.Texts.of(text));

@@ -7,6 +7,7 @@ import com.github.amber.core.ir.ObjectRef;
 import com.github.amber.core.ir.StatementKind;
 import com.github.amber.dialect.ir.IrRules;
 import com.github.amber.dialect.ir.TargetSpec;
+import com.github.amber.dialect.lineage.LineageRules;
 import com.github.amber.dialect.mariadb.grammar.MariaDBParser;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.ParseTree;
@@ -90,7 +91,7 @@ final class MariaDbIrRules extends IrRules {
     }
 
     @Override
-    public com.github.amber.dialect.lineage.LineageRules lineage() {
+    public LineageRules lineage() {
         return MariaDbLineageRules.INSTANCE;
     }
 

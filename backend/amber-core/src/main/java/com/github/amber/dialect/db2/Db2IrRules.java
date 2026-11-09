@@ -8,6 +8,7 @@ import com.github.amber.core.ir.StatementKind;
 import com.github.amber.dialect.db2.grammar.Db2Parser;
 import com.github.amber.dialect.ir.IrRules;
 import com.github.amber.dialect.ir.TargetSpec;
+import com.github.amber.dialect.lineage.LineageRules;
 import org.antlr.v4.runtime.ParserRuleContext;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
@@ -115,7 +116,7 @@ final class Db2IrRules extends IrRules {
     }
 
     @Override
-    public com.github.amber.dialect.lineage.LineageRules lineage() {
+    public LineageRules lineage() {
         return Db2LineageRules.INSTANCE;
     }
 

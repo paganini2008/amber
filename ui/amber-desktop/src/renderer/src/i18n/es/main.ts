@@ -27,6 +27,18 @@ export const main: En['main'] = {
     unknownConnection: 'Conexión desconocida.',
     noConnection: 'No hay ninguna conexión seleccionada para el modo en línea.'
   },
+  drivers: {
+    unknown: 'Controlador desconocido.',
+    badRequest: 'Solicitud de descarga no válida.',
+    cancelled: 'Descarga cancelada.',
+    timeout: 'La descarga no terminó a tiempo.',
+    repository: 'El repositorio de controladores debe ser una URL https://. Corríjalo en Configuración → Conexiones.',
+    http: 'El repositorio respondió HTTP {status}.',
+    size: 'El archivo descargado no tiene el tamaño esperado, así que se eliminó.',
+    hash: 'El archivo descargado no coincide con la suma SHA-256 fijada, así que se eliminó.',
+    io: 'No se pudo guardar el controlador: {reason}',
+    offline: 'No se pudo acceder al repositorio ({reason}).'
+  },
   ai: {
     cancelled: 'Cancelado',
     httpOnly: 'Use una URL http o https.',

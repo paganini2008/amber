@@ -1,5 +1,6 @@
 import { mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
 import { dirname } from 'node:path'
+import { normalizeRepositoryUrl } from '../../shared/drivers'
 import { LANGUAGES, type ConnectionProfile, type LanguageId, type Settings, type SettingsPatch, type ThemeId } from '../../shared/api'
 import { tm } from '../i18n'
 
@@ -37,6 +38,7 @@ export const DEFAULT_SETTINGS: Settings = {
   online: { enabled: false, connectionIds: [] },
   format: { indentSize: 4, keywordCase: 'UPPER', maxLineWidth: 100, commaStyle: 'TRAILING' },
   rules: { disabled: [], severity: {} },
+  driverRepository: '',
   recentFiles: []
 }
 
@@ -238,6 +240,8 @@ function normalize(raw: unknown, d: Settings = DEFAULT_SETTINGS): Settings {
     },
     format: normalizeFormat(r.format),
     rules: normalizeRules(r.rules),
+    // Only an HTTPS repository is kept; anything else means the default.
+    driverRepository: normalizeRepositoryUrl(r.driverRepository) ?? '',
     recentFiles: Array.isArray(r.recentFiles)
       ? r.recentFiles.filter((p): p is string => typeof p === 'string').slice(0, MAX_RECENT)
       : []

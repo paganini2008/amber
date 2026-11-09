@@ -2,8 +2,10 @@ package com.github.amber.dialect.lineage;
 
 import com.github.amber.core.ir.Statement;
 import com.github.amber.core.ir.StatementKind;
+import com.github.amber.core.lineage.ColumnEdge;
 import com.github.amber.core.lineage.ColumnNode;
 import com.github.amber.core.lineage.ColumnNode.OwnerKind;
+import com.github.amber.core.lineage.StatementLineage;
 import com.github.amber.core.source.SourceText;
 import com.github.amber.dialect.ir.IrRules;
 import org.antlr.v4.runtime.ParserRuleContext;
@@ -12,6 +14,7 @@ import org.antlr.v4.runtime.tree.ParseTree;
 import org.antlr.v4.runtime.tree.TerminalNode;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.EnumSet;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -596,7 +599,7 @@ public final class VariableScopes {
     }
 
     private static void pairs(ParserRuleContext node, Function<ParseTree, String> text, List<Pair> out, int depth) {
-        Set<ParseTree> used = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
+        Set<ParseTree> used = Collections.newSetFromMap(new IdentityHashMap<>());
         for (int i = 1; i + 1 < node.getChildCount(); i++) {
             ParseTree op = node.getChild(i);
             String opText = op instanceof TerminalNode t ? t.getText() : text.apply(op).strip();
@@ -623,7 +626,7 @@ public final class VariableScopes {
      * ({@code resultKey}) go to the variables by output position instead (one variable takes every
      * column), and the result's filters go to each variable's rows. Ranges are re-based on {@code source}.
      */
-    public static com.github.amber.core.lineage.StatementLineage assign(com.github.amber.core.lineage.StatementLineage lineage,
+    public static StatementLineage assign(StatementLineage lineage,
                                                                          String resultKey, List<ColumnNode> vars,
                                                                          SourceText source) {
         Map<String, ColumnNode> byOutput = new LinkedHashMap<>();
@@ -638,27 +641,27 @@ public final class VariableScopes {
                 }
             }
         }
-        List<com.github.amber.core.lineage.ColumnEdge> edges = new ArrayList<>();
+        List<ColumnEdge> edges = new ArrayList<>();
         for (var e : lineage.edges()) {
             var r = e.range() == null ? null : source.range(e.range().start().offset(), e.range().end().offset());
             if (!e.to().ownerKey().equals(resultKey)) {
-                edges.add(new com.github.amber.core.lineage.ColumnEdge(e.from(), e.to(), e.transform(), e.role(),
+                edges.add(new ColumnEdge(e.from(), e.to(), e.transform(), e.role(),
                         e.confidence(), r));
             } else if (e.to().isRows()) {
                 for (ColumnNode v : outputs) {
-                    edges.add(new com.github.amber.core.lineage.ColumnEdge(e.from(),
+                    edges.add(new ColumnEdge(e.from(),
                             new ColumnNode(v.ownerKind(), v.owner(), v.ownerKey(), ColumnNode.ROWS), null, e.role(),
                             e.confidence(), r));
                 }
             } else {
                 ColumnNode v = byOutput.get(e.to().key());
                 if (v != null && !v.key().equals(e.from().key())) {
-                    edges.add(new com.github.amber.core.lineage.ColumnEdge(e.from(), v, e.transform(), null,
+                    edges.add(new ColumnEdge(e.from(), v, e.transform(), null,
                             e.confidence(), r));
                 }
             }
         }
-        return new com.github.amber.core.lineage.StatementLineage(outputs, edges);
+        return new StatementLineage(outputs, edges);
     }
 
     /** Upper-case variable key: quotes and brackets removed. */

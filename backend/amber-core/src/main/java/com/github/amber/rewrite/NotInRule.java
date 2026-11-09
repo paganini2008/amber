@@ -4,7 +4,9 @@ import com.github.amber.core.i18n.Messages;
 import com.github.amber.core.ir.StatementKind;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -234,13 +236,13 @@ final class NotInRule implements RewriteRule {
 
     /** An alias not used as a word anywhere in the statement. */
     static String freshAlias(Sql sql) {
-        java.util.Set<String> used = new java.util.HashSet<>();
+        Set<String> used = new HashSet<>();
         for (int i = 0; i < sql.size(); i++) {
             if (sql.isName(i)) {
                 used.add(Sql.key(sql.tok(i).text()));
             }
         }
-        String base = sql.tok(0).text().equals(sql.tok(0).text().toLowerCase(java.util.Locale.ROOT)) ? "sq" : "SQ";
+        String base = sql.tok(0).text().equals(sql.tok(0).text().toLowerCase(Locale.ROOT)) ? "sq" : "SQ";
         for (int n = 1; ; n++) {
             String a = base + n;
             if (!used.contains(Sql.key(a))) {

@@ -2,6 +2,7 @@ package com.github.amber.server;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.github.amber.core.i18n.Messages;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -28,7 +29,7 @@ final class Methods {
         MetadataService metadata = new MetadataService();
         h.put("metadata.import", params -> metadata.importMetadata(read(mapper, params, MetadataService.ImportRequest.class)));
         h.put("db.test", params -> metadata.test(read(mapper, params, MetadataService.TestRequest.class)));
-        h.put("db.loadMetadata", params -> metadata.load(read(mapper, params, MetadataService.LoadRequest.class)));
+        h.put("db.loadMetadata", localized(params -> metadata.load(read(mapper, params, MetadataService.LoadRequest.class))));
         AiService ai = new AiService(analysis);
         h.put("ai.buildContext", params -> ai.buildContext(read(mapper, params, AiService.ContextRequest.class)));
         h.put("ai.check", localized(params -> ai.check(read(mapper, params, AiService.CheckRequest.class))));
@@ -50,8 +51,8 @@ final class Methods {
      * {@code es}; anything else is English). Only the prose of the result changes; error messages stay English.
      */
     static JsonRpcServer.Handler localized(JsonRpcServer.Handler handler) {
-        return params -> com.github.amber.core.i18n.Messages.call(
-                com.github.amber.core.i18n.Messages.of(locale(params)), () -> handler.handle(params));
+        return params -> Messages.call(
+                Messages.of(locale(params)), () -> handler.handle(params));
     }
 
     /** The {@code locale} param when it is a string, else null. */

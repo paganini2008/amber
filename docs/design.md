@@ -13,7 +13,8 @@ comes from, and which parts carry risk.
 
 Amber is open source (Apache-2.0), hosted at `github.com/paganini2008/amber`, and shipped as
 native installers for Windows, macOS and Linux. Users never see a `.jar`: every release bundles the
-engine, a trimmed Java runtime and all JDBC drivers.
+engine and a trimmed Java runtime. JDBC drivers are not bundled; online mode downloads the one a
+connection needs on demand (see §8).
 
 ---
 
@@ -73,7 +74,7 @@ Everything below is part of 1.0.0.
 All eight dialects are first-class in 1.0.0. Oracle, SQL Server and PostgreSQL get the deepest
 test corpus first; the other five follow the same quality bar.
 
-| Database | Parser | JDBC driver (bundled) | Notes |
+| Database | Parser | JDBC driver (downloaded on demand) | Notes |
 |---|---|---|---|
 | Oracle | ANTLR 4, grammars-v4 `sql/plsql` | Oracle JDBC (ojdbc, thin) | SQL*Plus commands handled by the preprocessor |
 | SQL Server | ANTLR 4, grammars-v4 `sql/tsql` | Microsoft JDBC Driver (mssql-jdbc) | `GO` batches |
@@ -527,8 +528,10 @@ Online mode connects **read-only** to load table structure, keys, indexes, row e
 source of views, procedures and functions. The result can be saved as a metadata pack so the
 same analysis works offline later.
 
-- All eight JDBC drivers are bundled in the app. The user does not install any driver or client
-  library.
+- No JDBC driver is bundled. When a connection needs one, the app offers to download the matching driver
+  from Maven Central (or a configured mirror), shows its license first, checks the file against a pinned
+  SHA-256 and stores it per database type in the app's data folder; the user can also choose a jar. The
+  engine loads it from that path (`driverPath`).
 - Connections store host, port, database and user; passwords are encrypted with `safeStorage`.
 - Metadata is loaded lazily per schema and cached; large catalogs are never scanned in full.
 
@@ -764,11 +767,10 @@ how to open an unsigned app on macOS (Gatekeeper) and Windows (SmartScreen).
 
 ### 14.4 Third-party licenses
 
-`THIRD-PARTY-NOTICES.md` and the About screen list every bundled component with its license:
-the JDBC drivers (ojdbc — Oracle FUTC; mssql-jdbc — MIT; pgjdbc — BSD-2; MySQL Connector/J —
-GPLv2 with Universal FOSS Exception; MariaDB Connector/J — LGPL-2.1; IBM JCC — IBM terms;
-H2 — MPL 2.0/EPL 1.0; sqlite-jdbc — Apache-2.0), the grammar files, the Java runtime, Electron
-and fonts. The redistribution terms of ojdbc, JCC and Connector/J are on the validation checklist.
+`THIRD-PARTY-NOTICES.md` and the About screen list every bundled component with its license: the
+grammar files, the Java runtime, Electron and its libraries, and fonts. JDBC drivers are not bundled
+or redistributed: the user downloads each one on demand under its own license (listed in the notices
+for reference).
 
 ---
 

@@ -2,7 +2,18 @@ package com.github.amber.server;
 
 import com.github.amber.core.Dialect;
 
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardOpenOption;
+import java.time.Duration;
+import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.Future;
@@ -46,9 +57,9 @@ final class FuzzCampaign {
         int threads = Math.max(2, Runtime.getRuntime().availableProcessors() / 2);
         ExecutorService pool = Executors.newFixedThreadPool(threads);
         long t0 = System.nanoTime();
-        java.util.Map<String, Runnable> rerun = new java.util.concurrent.ConcurrentHashMap<>();
+        Map<String, Runnable> rerun = new ConcurrentHashMap<>();
         try {
-            List<Future<?>> jobs = new java.util.ArrayList<>();
+            List<Future<?>> jobs = new ArrayList<>();
             int stride = Math.max(1, Integer.getInteger("amber.fuzz.stride", defaultStride));
             for (int f = 0; f < inputs.size(); f++) {
                 Fuzzer.Input in = inputs.get(f);
@@ -105,10 +116,10 @@ final class FuzzCampaign {
         String file = System.getProperty("amber.fuzz.trace");
         if (file != null) {
             try {
-                java.nio.file.Files.writeString(java.nio.file.Path.of(file), line + System.lineSeparator(),
-                        java.nio.file.StandardOpenOption.CREATE, java.nio.file.StandardOpenOption.APPEND);
-            } catch (java.io.IOException e) {
-                throw new java.io.UncheckedIOException(e);
+                Files.writeString(Path.of(file), line + System.lineSeparator(),
+                        StandardOpenOption.CREATE, StandardOpenOption.APPEND);
+            } catch (IOException e) {
+                throw new UncheckedIOException(e);
             }
         }
     }
@@ -120,11 +131,11 @@ final class FuzzCampaign {
 
     /** One pass over the unmutated files, so JIT and ANTLR's DFA caches do not count against the budgets. */
     private static void warmUp(Fuzzer fuzzer, List<Fuzzer.Input> inputs) {
-        java.util.Set<Dialect> done = java.util.EnumSet.noneOf(Dialect.class);
+        Set<Dialect> done = EnumSet.noneOf(Dialect.class);
         for (Fuzzer.Input in : inputs) {
             if (done.add(in.dialect())) {
-                Robust.call("analyze", Robust.params(in.dialect(), in.text(), true), java.time.Duration.ofMinutes(2));
-                Robust.call("format", Robust.params(in.dialect(), in.text(), true), java.time.Duration.ofMinutes(2));
+                Robust.call("analyze", Robust.params(in.dialect(), in.text(), true), Duration.ofMinutes(2));
+                Robust.call("format", Robust.params(in.dialect(), in.text(), true), Duration.ofMinutes(2));
             }
         }
     }

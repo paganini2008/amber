@@ -6,6 +6,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.List;
 import java.util.Map;
+import java.util.function.Predicate;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
@@ -21,7 +22,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
  */
 class OptimizerTest {
 
-    private static Optimizer.Result run(Dialect d, String sql, boolean edge, java.util.function.Predicate<String> on) {
+    private static Optimizer.Result run(Dialect d, String sql, boolean edge, Predicate<String> on) {
         return Optimizer.optimize(d, sql, new Catalog(), List.of(), edge, on, false, Map.of());
     }
 

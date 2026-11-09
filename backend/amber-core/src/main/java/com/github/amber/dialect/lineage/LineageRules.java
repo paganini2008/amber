@@ -2,7 +2,10 @@ package com.github.amber.dialect.lineage;
 
 import org.antlr.v4.runtime.ParserRuleContext;
 
+import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 
 /**
  * What a dialect's query rules mean for column lineage, so {@link LineageExtractor} can work on any
@@ -73,21 +76,21 @@ public record LineageRules(Set<String> queryBlocks, Set<String> queryRoots, Stri
          * WHERE / HAVING expressions of a block, or the WHERE of an UPDATE / DELETE statement, that have
          * no rule of their own (labelled fields).
          */
-        default java.util.List<ParserRuleContext> filterNodes(ParserRuleContext block) {
-            return java.util.List.of();
+        default List<ParserRuleContext> filterNodes(ParserRuleContext block) {
+            return List.of();
         }
 
         /**
          * {@code column = expression} pairs of an UPDATE whose grammar has no rule per assignment (SQLite
          * {@code update_stmt}); the target node may be a column list {@code (a, b)}.
          */
-        default java.util.List<java.util.Map.Entry<ParserRuleContext, ParserRuleContext>> assignments(ParserRuleContext statement) {
-            return java.util.List.of();
+        default List<Map.Entry<ParserRuleContext, ParserRuleContext>> assignments(ParserRuleContext statement) {
+            return List.of();
         }
 
         /** GROUP BY expressions of a block that have no rule of their own. */
-        default java.util.List<ParserRuleContext> groupNodes(ParserRuleContext block) {
-            return java.util.List.of();
+        default List<ParserRuleContext> groupNodes(ParserRuleContext block) {
+            return List.of();
         }
 
         /**
@@ -117,7 +120,7 @@ public record LineageRules(Set<String> queryBlocks, Set<String> queryRoots, Stri
     }
 
     /** {@code SELECT [DISTINCT|ALL|UNIQUE] *} where the star is a bare token, not a select item. */
-    static final java.util.regex.Pattern BARE_STAR = java.util.regex.Pattern.compile(
+    static final Pattern BARE_STAR = Pattern.compile(
             "(?is)\\s*SELECT\\s+(?:/\\*.*?\\*/\\s*)?(?:DISTINCT\\s+|UNIQUE\\s+|ALL\\s+)?\\*(?:\\s|,|$)");
 
     public static final Hooks DEFAULT_HOOKS = new Hooks() {
