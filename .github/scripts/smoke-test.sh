@@ -25,17 +25,26 @@ if [[ -z "$JAVA_BIN" ]]; then
   echo "error: no runtime/bin/java under $RELEASE_DIR" >&2
   exit 1
 fi
-RES=$(dirname "$(dirname "$(dirname "$JAVA_BIN")")")
-JAR="$RES/engine/engine.jar"
-JSA="$RES/engine/amber.jsa"
-echo "Packaged resources: $RES"
+# Absolute path in the platform's own form. On Windows (Git Bash) the JVM can only relocate the archived class
+# path when the archive records native paths (D:\a\...\engine.jar): with '/' it finds no common prefix and
+# rejects the archive ("shared class paths mismatch") once the app is installed elsewhere.
+native_path() {
+  local abs
+  abs="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+  if command -v cygpath >/dev/null 2>&1; then cygpath -w "$abs"; else printf '%s\n' "$abs"; fi
+}
 
-for f in "$JAR" "$JSA"; do
+RES=$(dirname "$(dirname "$(dirname "$JAVA_BIN")")")
+echo "Packaged resources: $RES"
+for f in "$RES/engine/engine.jar" "$RES/engine/amber.jsa"; do
   if [[ ! -f "$f" ]]; then
     echo "error: $f is missing from the package" >&2
     exit 1
   fi
 done
+# The app starts the engine with absolute native paths; check the archive the same way.
+JAR=$(native_path "$RES/engine/engine.jar")
+JSA=$(native_path "$RES/engine/amber.jsa")
 
 OUT=$("$JAVA_BIN" -XX:SharedArchiveFile="$JSA" -jar "$JAR" version | tr -d '\r')
 echo "engine version: $OUT"
