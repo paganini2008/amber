@@ -21,9 +21,18 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SAMPLE="$HERE/appcds-sample.sql"
 ARCHIVE="$ENGINE/amber.jsa"
 
+# Absolute path in the platform's own form. On Windows (Git Bash) the JVM can only relocate the archived class
+# path when the archive records native paths (D:\a\...\engine.jar): with '/' it finds no common prefix and
+# rejects the archive ("shared class paths mismatch") once the app is installed elsewhere.
+native_path() {
+  local abs
+  abs="$(cd "$(dirname "$1")" && pwd)/$(basename "$1")"
+  if command -v cygpath >/dev/null 2>&1; then cygpath -w "$abs"; else printf '%s\n' "$abs"; fi
+}
+
 rm -f "$ARCHIVE"
-"$RUNTIME/bin/java" -XX:ArchiveClassesAtExit="$ARCHIVE" \
-  -jar "$ENGINE/engine.jar" analyze "$SAMPLE" --dialect postgresql
+"$RUNTIME/bin/java" -XX:ArchiveClassesAtExit="$(native_path "$ARCHIVE")" \
+  -jar "$(native_path "$ENGINE/engine.jar")" analyze "$SAMPLE" --dialect postgresql
 
 if [[ ! -s "$ARCHIVE" ]]; then
   echo "error: $ARCHIVE was not created" >&2
