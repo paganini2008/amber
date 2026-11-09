@@ -31,6 +31,11 @@ native_path() {
 }
 
 rm -f "$ARCHIVE"
+# The archive records the jars' modification times, and the packaged app gets copies whose times are restored by
+# the afterPack hook (ui/amber-desktop/scripts/after-pack.mjs). Node sets times with millisecond precision, NTFS
+# keeps 100 ns: a fractional time then differs ("timestamp has changed"). Whole seconds survive exactly everywhere.
+STAMP=$(date +%Y%m%d%H%M.%S)
+find "$ENGINE" -type f -name '*.jar' -exec touch -t "$STAMP" {} +
 "$RUNTIME/bin/java" -XX:ArchiveClassesAtExit="$(native_path "$ARCHIVE")" \
   -jar "$(native_path "$ENGINE/engine.jar")" analyze "$SAMPLE" --dialect postgresql
 
