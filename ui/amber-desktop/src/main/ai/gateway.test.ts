@@ -109,20 +109,20 @@ describe('OpenAI-compatible model list', () => {
       return Response.json({
         object: 'list',
         data: [
-          { id: 'gpt-4o-mini' },
+          { id: 'gpt-6-luna' },
           { id: 'text-embedding-3-small' },
           { id: 'whisper-1' },
           { id: 'tts-1' },
           { id: 'dall-e-3' },
           { id: 'omni-moderation-latest' },
-          { id: 'gpt-4.1' },
-          { id: 'gpt-4.1' },
+          { id: 'gpt-6.1-sol' },
+          { id: 'gpt-6.1-sol' },
           { id: 'deepseek-chat' }
         ]
       })
     }
     const { listOpenAiModels } = await import('./gateway')
-    expect(await listOpenAiModels(fetchFn, 'https://api.deepseek.com/v1/', 'sk-test')).toEqual(['deepseek-chat', 'gpt-4.1', 'gpt-4o-mini'])
+    expect(await listOpenAiModels(fetchFn, 'https://api.deepseek.com/v1/', 'sk-test')).toEqual(['deepseek-chat', 'gpt-6-luna', 'gpt-6.1-sol'])
     expect(seen[0]).toEqual({ url: 'https://api.deepseek.com/v1/models', auth: 'Bearer sk-test' })
   })
 
@@ -148,9 +148,38 @@ describe('OpenAI-compatible model list', () => {
     }
     const base = { kind: 'openai' as const, baseUrl: 'https://api.openai.com/v1', temperature: 0.2, timeoutSec: 5, apiKey: 'k' }
     await streamChat(fetchFn, { ...base, model: 'o4-mini' }, [{ role: 'user', content: 'hi' }], () => {})
-    await streamChat(fetchFn, { ...base, model: 'gpt-4.1' }, [{ role: 'user', content: 'hi' }], () => {})
+    await streamChat(fetchFn, { ...base, model: 'gpt-6.1-sol' }, [{ role: 'user', content: 'hi' }], () => {})
+    await streamChat(fetchFn, { ...base, model: 'gpt-5-chat-latest' }, [{ role: 'user', content: 'hi' }], () => {})
     expect(bodies[0]).not.toHaveProperty('temperature')
-    expect(bodies[1]).toMatchObject({ temperature: 0.2 })
+    expect(bodies[1]).not.toHaveProperty('temperature')
+    expect(bodies[2]).toMatchObject({ temperature: 0.2 })
+  })
+  it('retries once without temperature when the provider refuses it', async () => {
+    const bodies: Record<string, unknown>[] = []
+    const fetchFn: FetchLike = async (_url, init) => {
+      const body = JSON.parse(String(init?.body)) as Record<string, unknown>
+      bodies.push(body)
+      if ('temperature' in body) {
+        return new Response('{"error":{"message":"Unsupported value: \'temperature\' does not support 0.2 with this model."}}', { status: 400, statusText: 'Bad Request' })
+      }
+      return streamResponse(['data: {"choices":[{"delta":{"content":"ok"}}]}\n\n', 'data: [DONE]\n\n'])
+    }
+    const text: string[] = []
+    const config = { kind: 'openai' as const, baseUrl: 'https://proxy.local/v1', model: 'future-model', temperature: 0.2, timeoutSec: 5, apiKey: 'k' }
+    await streamChat(fetchFn, config, [{ role: 'user', content: 'hi' }], (t) => text.push(t))
+    expect(bodies).toHaveLength(2)
+    expect(bodies[1]).not.toHaveProperty('temperature')
+    expect(text.join('')).toBe('ok')
+  })
+  it('does not retry other 400 errors', async () => {
+    let calls = 0
+    const fetchFn: FetchLike = async () => {
+      calls++
+      return new Response('context length exceeded', { status: 400, statusText: 'Bad Request' })
+    }
+    const config = { kind: 'openai' as const, baseUrl: 'https://proxy.local/v1', model: 'gpt-5-chat-latest', temperature: 0.2, timeoutSec: 5, apiKey: 'k' }
+    await expect(streamChat(fetchFn, config, [{ role: 'user', content: 'hi' }], () => {})).rejects.toThrow(/400/)
+    expect(calls).toBe(1)
   })
   it('times out on silence, not on the total length of a streamed answer', async () => {
     const ollama = { kind: 'ollama' as const, baseUrl: 'http://x', model: 'm', temperature: 0, timeoutSec: 1 }

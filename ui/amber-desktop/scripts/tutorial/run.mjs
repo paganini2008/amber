@@ -130,7 +130,7 @@ async function evaluate(expression) {
 const configured = await evaluate(`(async () => {
   const s = window.amber.settings
   await s.update({ language: 'en', theme: 'amber-dark', defaultDialect: 'mysql', activeAiProvider: 'openai',
-    ai: { openai: { enabled: true, model: 'gpt-4.1-mini' } }, online: { enabled: false, connectionIds: [] } })
+    ai: { openai: { enabled: true, model: 'gpt-6-luna' } }, online: { enabled: false, connectionIds: [] } })
   await s.setAiApiKey('openai', ${JSON.stringify(env.OPENAI_API_KEY)})
   await s.saveConnection({ id: 'local-mysql', name: 'Local MySQL', dialect: 'mysql', host: ${JSON.stringify(mysql.host)},
     port: ${mysql.port}, database: ${JSON.stringify(mysql.database)}, user: ${JSON.stringify(mysql.user ?? '')}, hasPassword: false },

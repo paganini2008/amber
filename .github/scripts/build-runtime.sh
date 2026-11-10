@@ -143,6 +143,11 @@ mkdir -p "$(dirname "$OUT_DIR")"
   --generate-cds-archive \
   --output "$OUT_DIR"
 
+# jlink writes the legal/ notices read-only. Make the image owner-writable so
+# installed copies can be updated, removed or have attributes cleared
+# (e.g. xattr -dr com.apple.quarantine on macOS) without permission errors.
+chmod -R u+w "$OUT_DIR"
+
 SIZE=$(du -sh "$OUT_DIR" | cut -f1 | tr -d " ")
 echo "Runtime written to $OUT_DIR ($SIZE)"
 "$OUT_DIR/bin/java" -version 2>&1 | head -n 1 | tr -d '\r'

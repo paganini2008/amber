@@ -25,7 +25,9 @@ import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -59,7 +61,7 @@ class LlmIT {
         String key = env.value("OPENAI_API_KEY");
         Assumptions.assumeTrue(key != null, "OPENAI_API_KEY is not set; skipped");
         String base = env.value("AMBER_IT_OPENAI_BASE_URL", "https://api.openai.com/v1").replaceAll("/+$", "");
-        String model = env.value("AMBER_IT_OPENAI_MODEL", "gpt-4.1-mini");
+        String model = env.value("AMBER_IT_OPENAI_MODEL", "gpt-6-luna");
         roundTrip(model, (json, body) -> {
             HttpResponse<String> response = HTTP.send(HttpRequest.newBuilder(URI.create(base + "/chat/completions"))
                     .timeout(Duration.ofMinutes(5)).header("Content-Type", "application/json")
@@ -125,6 +127,12 @@ class LlmIT {
                 + response.body().substring(0, Math.min(300, response.body().length())));
     }
 
+    /** Reasoning models (o1, o3, o4…, GPT-5 onwards, except "-chat" variants) only accept the default temperature. */
+    static boolean acceptsTemperature(String model) {
+        String id = model.trim().toLowerCase(Locale.ROOT);
+        return id.contains("chat") || !id.matches("^(o\\d|gpt-([5-9]|\\d{2,})).*");
+    }
+
     /** Masked context from the engine, one answer from the model, every suggested SQL checked by the engine. */
     private static void roundTrip(String model, Chat chat) throws Exception {
         DialectFrontend f = DialectFrontends.get(Dialect.ORACLE);
@@ -138,8 +146,14 @@ class LlmIT {
         }
 
         ObjectMapper json = new ObjectMapper();
-        String body = json.writeValueAsString(Map.of("model", model, "temperature", 0.2, "messages", List.of(
-                Map.of("role", "system", "content", ctx.system()), Map.of("role", "user", "content", ctx.user()))));
+        Map<String, Object> request = new LinkedHashMap<>();
+        request.put("model", model);
+        if (acceptsTemperature(model)) {
+            request.put("temperature", 0.2);
+        }
+        request.put("messages", List.of(
+                Map.of("role", "system", "content", ctx.system()), Map.of("role", "user", "content", ctx.user())));
+        String body = json.writeValueAsString(request);
         String answer = chat.send(json, body);
         System.out.println("[LlmIT] " + model + " answered " + answer.length() + " characters");
         assertFalse(answer.isBlank(), model + " answered nothing");

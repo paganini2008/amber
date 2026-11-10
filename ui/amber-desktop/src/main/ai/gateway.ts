@@ -145,10 +145,26 @@ export async function streamChat(
   // The timeout counts silence, not the length of the answer: every chunk (thinking included) restarts it.
   const timeout = idleTimeout(signal, config.timeoutSec)
   try {
-    await readStream(fetchFn, url, headers, body, isOllama, onDelta, timeout)
+    try {
+      await readStream(fetchFn, url, headers, body, isOllama, onDelta, timeout)
+    } catch (err) {
+      // A model we did not know refuses a custom temperature (HTTP 400 before any text): retry once without it.
+      if (!isOllama && 'temperature' in body && refusesTemperature(err)) {
+        const withoutTemperature: Record<string, unknown> = { ...body }
+        delete withoutTemperature.temperature
+        await readStream(fetchFn, url, headers, withoutTemperature, isOllama, onDelta, timeout)
+      } else {
+        throw err
+      }
+    }
   } finally {
     timeout.done()
   }
+}
+
+function refusesTemperature(err: unknown): boolean {
+  const message = err instanceof Error ? err.message : String(err)
+  return /\b400\b/.test(message) && /temperature/i.test(message)
 }
 
 async function readStream(

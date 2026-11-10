@@ -295,7 +295,7 @@ always entered in Settings and stored encrypted by the OS keychain, never in a `
 | `AMBER_CORPUS_TIMEOUT_SECONDS` | 60 | Per-file parse timeout of the corpus integration test |
 | `OPENAI_API_KEY` | — | Enables the optional real-model test `LlmIT` |
 | `AMBER_IT_OPENAI_BASE_URL` | `https://api.openai.com/v1` | Endpoint for `LlmIT` |
-| `AMBER_IT_OPENAI_MODEL` | `gpt-4.1-mini` | Model for `LlmIT` |
+| `AMBER_IT_OPENAI_MODEL` | `gpt-6-luna` | Model for `LlmIT` |
 
 **Desktop app (development): `ui/amber-desktop/.env`**
 

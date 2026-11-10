@@ -219,7 +219,8 @@ jobs:
           fi
           if gh release view "$TAG" >/dev/null 2>&1; then
             echo "Release $TAG exists; replacing its assets"
-            gh release edit "$TAG" "${FLAGS[@]}"
+            # Deleting and re-pushing a tag turns its release into a draft; publish it again.
+            gh release edit "$TAG" --draft=false "${FLAGS[@]}"
             gh release upload "$TAG" dist/* --clobber
           else
             gh release create "$TAG" dist/* \
