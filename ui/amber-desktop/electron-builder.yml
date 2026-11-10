@@ -24,7 +24,11 @@ afterPack: scripts/after-pack.mjs
 mac:
   category: public.app-category.developer-tools
   icon: build/icon.png
-  identity: null
+  # Ad-hoc signature (no certificate). Without any signature, Apple silicon reports the
+  # downloaded app as "damaged". Hardened runtime is off because ad-hoc signing cannot
+  # satisfy its library validation for Electron's pre-signed frameworks.
+  identity: '-'
+  hardenedRuntime: false
   target:
     - target: dmg
   artifactName: Amber-macos-${arch}.${ext}

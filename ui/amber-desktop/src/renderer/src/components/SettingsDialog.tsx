@@ -381,7 +381,7 @@ function AiSettings({ settings, update }: { settings: Settings; update: (p: Sett
             missingHint={() => t('settings.ai.notOffered')}
             loading={loadingApiModels}
             onLoad={() => void loadApiModels()}
-            placeholder={isOpenAiHost(openaiUrl) ? t('settings.ai.example', { model: 'gpt-4.1-mini' }) : t('settings.ai.providerModel')}
+            placeholder={isOpenAiHost(openaiUrl) ? t('settings.ai.example', { model: 'gpt-6-luna' }) : t('settings.ai.providerModel')}
           />
         </Field>
         <Field label={t('settings.ai.mask')} hint={t('settings.ai.maskApiHint')}>
