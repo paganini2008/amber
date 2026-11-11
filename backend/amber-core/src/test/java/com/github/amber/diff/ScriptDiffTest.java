@@ -80,6 +80,44 @@ class ScriptDiffTest {
         assertTrue(r.summary().headline().startsWith("Formatting only"), r.summary().headline());
     }
 
+    // ----- a refactoring that keeps the logic is not reported as moved conditions or new outputs ----------
+
+    @Test
+    void editingInsideADerivedTableKeepsItsJoinsAndFilters() {
+        String before = """
+                create table rpt as
+                select a.acct_id, e.last_dt
+                  from accounts a
+                  left join (select * from (select distinct to_char(max(trn_date)) as last_dt, acct_no from txn
+                                             where trn_code = '13011' group by acct_no) where 1=1 and last_dt <= '20251031') e
+                    on trim(a.acct_id) = trim(e.acct_no)
+                 where a.status = 'A';
+                """;
+        String after = """
+                create table rpt as
+                select a.acct_id, e.last_dt
+                  from accounts a
+                  left join (select * from (select to_char(max(trn_date)) as last_dt, acct_no from txn
+                                             where trn_code = '13011' group by acct_no) where last_dt <= '20251031') e
+                    on trim(a.acct_id) = trim(e.acct_no)
+                 where a.status = 'A';
+                """;
+        DiffResult r = diff(Dialect.ORACLE, before, after);
+        assertTrue(r.summary().reasons().stream().noneMatch(x -> x.code().startsWith("JOIN_") || x.code().startsWith("FILTER_")),
+                r.summary().reasons()::toString);
+    }
+
+    @Test
+    void longExpressionsThatOnlyChangeLayoutAreTheSameOutput() {
+        String expr = "substr(loan_account_number, 0, 15) || '-' || substr(loan_account_number, 16, 4) || '-' || m.branch_code";
+        String before = "select id from loans where id in (select " + expr.replace(" || ", "||") + " from loan_map m);";
+        String after = "select id from loans where id in (select " + expr + " from loan_map m);";
+        DiffResult r = diff(Dialect.ORACLE, before, after);
+        assertTrue(r.summary().reasons().stream().noneMatch(x -> x.code().equals("SHAPE_OUTPUTS_CHANGED")), r.summary().reasons()::toString);
+        assertTrue(ShapeComparer.sameOutput("SUBSTR(A,0,15)||'-'||SUBSTR(B…", "SUBSTR(A,0,15)||'-'||SUBSTR(B,1…"));
+        assertTrue(!ShapeComparer.sameOutput("SUBSTR(A,0,15)||'-'||X", "SUBSTR(A,0,15)||'-'||Y"));
+    }
+
     @Test
     void formatOnlyOracle() {
         assertFormatOnly(Dialect.ORACLE, """

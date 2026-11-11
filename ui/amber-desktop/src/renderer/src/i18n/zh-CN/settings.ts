@@ -161,7 +161,7 @@ export const settings: En['settings'] = {
   },
   updates: {
     onStart: '启动时检查',
-    onStartHint: 'Amber 启动时向 GitHub 查询最新版本，不发送其他任何内容。在无法访问互联网的网络中请关闭此项。',
+    onStartHint: 'Amber 启动时向 GitHub 查询最新版本，不发送其他任何内容。在 Windows 和 Linux 上，新版本会自动下载，并在重启 Amber 时安装；在 macOS 上，Amber 会提供下载页面的链接。在无法访问互联网的网络中请关闭此项。',
     onStartLabel: '启动时检查更新',
     now: '立即'
   },

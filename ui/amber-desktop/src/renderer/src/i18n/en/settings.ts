@@ -160,7 +160,7 @@ export const settings = {
   },
   updates: {
     onStart: 'Check on start-up',
-    onStartHint: 'Asks GitHub for the latest release when Amber starts. Nothing else is sent. Turn this off on networks without internet access.',
+    onStartHint: 'Asks GitHub for the latest release when Amber starts. Nothing else is sent. On Windows and Linux a newer version is downloaded and installed when you restart Amber; on macOS Amber links to the download page. Turn this off on networks without internet access.',
     onStartLabel: 'Check for updates on start-up',
     now: 'Now'
   },

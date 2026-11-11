@@ -38,6 +38,7 @@ export const fixes: En['fixes'] = {
     apply: '应用到编辑器',
     noLongerMatches: '此修复已与脚本不匹配。请重新分析以刷新建议。',
     edgeCase: '边界情况：',
+    confirmEdge: '我已核实：上述特殊情况在本脚本中不会发生',
     parserCheck: '解析器检查：',
     now: '当前',
     after: '修复后'

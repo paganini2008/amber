@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { Boxes, CirclePlay, GitCompareArrows, History, ListTree, Network, Spline, SquareCode, Workflow, type LucideIcon } from 'lucide-react'
-import { ClipboardPaste, FileText, FolderOpen, GitFork, NotebookPen, ScanSearch, ShieldCheck, X } from 'lucide-react'
+import { ClipboardPaste, FileText, FolderOpen, GitFork, Lightbulb, NotebookPen, ScanSearch, ShieldCheck, X } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { compareWithDropped, compareWithFile, compareWithSaved, exportJson, exportMermaid, exportPng, exportSvg, openFileDialog, openPath, openSample } from './actions'
 import logo from './assets/logo.png'
@@ -12,6 +12,7 @@ import { OptimizedDialog } from './components/Optimized'
 import { OutlinePanel } from './components/OutlinePanel'
 import { SettingsDialog } from './components/SettingsDialog'
 import { DriverDownloadDialog } from './components/DriverDownloadDialog'
+import { restartToUpdate } from './components/UpdateCheck'
 import { Splitter, usePaneSize } from './components/Splitter'
 import { ErrorScreen, PartialBanner, ProblemsBar, SeverityIcon } from './components/StatusParts'
 import { TitleBar } from './components/TitleBar'
@@ -28,6 +29,7 @@ import { DataFlowView } from './views/DataFlowView'
 import { LifecycleView } from './views/LifecycleView'
 import { LineageView } from './views/LineageView'
 import { OutlineView } from './views/OutlineView'
+import { SuggestionsView } from './views/SuggestionsView'
 import { PlaybackBar, PlaybackClock, PlaybackView } from './views/Playback'
 import { StatementView } from './views/StatementView'
 import { DiffView } from './views/DiffView'
@@ -38,6 +40,7 @@ import { DbIcon } from './components/DbIcon'
 /** The view tabs; each has its own glyph (16 px, stroke 1.75) beside the label, never instead of it. */
 const VIEWS: { id: ViewId; label: MessageKey; icon: LucideIcon }[] = [
   { id: 'outline', label: 'app.views.outline', icon: ListTree },
+  { id: 'suggestions', label: 'app.views.suggestions', icon: Lightbulb },
   { id: 'lifecycle', label: 'app.views.lifecycle', icon: History },
   { id: 'dataflow', label: 'app.views.dataflow', icon: Workflow },
   { id: 'lineage', label: 'app.views.lineage', icon: Spline },
@@ -128,12 +131,29 @@ export function App(): React.JSX.Element {
     void api()
       .app.checkForUpdates()
       .then((r) => {
-        if (!cancelled && r.ok && r.value?.newer) useStore.getState().toast(t('app.toast.updateAvailable', { version: r.value.latest }))
+        // Windows and Linux download the update by themselves and say so when it is ready (below).
+        if (cancelled || !r.ok || !r.value?.newer || r.value.autoInstall) return
+        const url = r.value.url
+        useStore.getState().toast(t('app.toast.updateAvailable', { version: r.value.latest }), 'info', [
+          { label: t('dialogs.about.downloadPage'), run: () => void api().app.openExternal(url) }
+        ])
       })
     return () => {
       cancelled = true
     }
   }, [checkUpdates])
+
+  // A downloaded update installs when Amber quits; offer to restart now.
+  useEffect(
+    () =>
+      api().app.onUpdateStatus((status) => {
+        if (status.state !== 'ready') return
+        useStore.getState().toast(t('app.toast.updateReady', { version: status.version }), 'info', [
+          { label: t('dialogs.about.restart'), run: restartToUpdate }
+        ])
+      }),
+    []
+  )
 
   // Re-analyze when the fallback default changes is not wanted; only explicit actions re-run.
 
@@ -255,6 +275,8 @@ function CenterView(): React.JSX.Element {
     body =
       view === 'outline' ? (
         <OutlineView />
+      ) : view === 'suggestions' ? (
+        <SuggestionsView />
       ) : view === 'lifecycle' ? (
         <LifecycleView />
       ) : view === 'dataflow' ? (

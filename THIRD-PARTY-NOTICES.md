@@ -24,6 +24,7 @@ This file is shipped inside every installer and is shown on the About screen.
 | JDBC drivers (Oracle, SQL Server, PostgreSQL, MySQL, MariaDB, Db2, H2, SQLite) | Online mode | **Not included**: downloaded on demand by the user from Maven Central (see below) |
 | Eclipse Temurin (OpenJDK) runtime | Bundled Java runtime | GPL-2.0 with the Classpath Exception |
 | Electron | Desktop shell | MIT |
+| electron-updater and its dependencies | In-app updates (Windows, Linux) | MIT, ISC (semver), BlueOak-1.0.0 (sax) |
 | Chromium and Node.js (inside Electron) | Desktop shell | Various open-source licenses (see below) |
 | IBM Plex Sans, IBM Plex Mono | Fonts in the app and on the website | SIL Open Font License 1.1 |
 | React, React DOM | Desktop user interface | MIT |

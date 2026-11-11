@@ -18,8 +18,14 @@ extraResources:
   - from: ../../THIRD-PARTY-NOTICES.md
     to: THIRD-PARTY-NOTICES.md
 asar: true
-# No auto-publishing: the release workflow uploads the installers itself.
-publish: null
+# Used only to write the update metadata (latest.yml, latest-linux.yml, app-update.yml) for
+# electron-updater. Nothing is uploaded by electron-builder: the release workflow runs it with
+# --publish never and uploads the installers and metadata itself.
+publish:
+  provider: github
+  owner: paganini2008
+  repo: amber
+  releaseType: release
 afterPack: scripts/after-pack.mjs
 mac:
   category: public.app-category.developer-tools

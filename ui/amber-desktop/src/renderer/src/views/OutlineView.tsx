@@ -23,6 +23,7 @@ export function OutlineView(): React.JSX.Element {
   const selection = useStore((s) => s.selection)
   const selectionSource = useStore((s) => s.selectionSource)
   const selectStatement = useStore((s) => s.selectStatement)
+  const revealRange = useStore((s) => s.revealRange)
   const select = useStore((s) => s.select)
   const toggleCollapsed = useStore((s) => s.toggleCollapsed)
   const trace = useTrace()
@@ -70,6 +71,33 @@ export function OutlineView(): React.JSX.Element {
           {virtualizer.getVirtualItems().map((item) => {
             const row = rows[item.index]!
             const s = row.statement
+            if (row.part) {
+              const part = row.part
+              return (
+                <div
+                  key={`${s.id}:${part.range.start.offset}`}
+                  role="listitem"
+                  onClick={() => {
+                    selectStatement(s.id, 'view', false)
+                    revealRange(part.range.start.offset, part.range.end.offset)
+                  }}
+                  className="absolute left-0 flex w-full cursor-default items-stretch border-b border-line/60 hover:bg-surface-hover"
+                  style={{ top: item.start, height: ROW }}
+                >
+                  <div className="code w-14 shrink-0 pt-2 pr-3 text-right text-xs text-ink-faint tabular-nums">{part.range.start.line}</div>
+                  <div className="flex min-w-0 flex-1 flex-col justify-center gap-1 pr-5" style={{ paddingLeft: row.depth * 20 }}>
+                    <div className="flex min-w-0 items-center gap-2">
+                      <KindIcon kind="CTE" className="text-ink-muted" />
+                      <span className="shrink-0 text-xs text-ink-muted">CTE</span>
+                      <span className="code min-w-0 truncate text-[14px] text-ink">{part.name}</span>
+                    </div>
+                    {part.sources.length ? (
+                      <div className="min-w-0 truncate text-xs text-ink-muted">{t('app.outline.reads', { names: part.sources.join(', ') })}</div>
+                    ) : null}
+                  </div>
+                </div>
+              )
+            }
             const selected = s.id === selectedId
             const current = playback.current === s.id
             const lit = trace ? trace.statements.has(s.id) || onPath.has(s.id) : true

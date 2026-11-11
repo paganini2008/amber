@@ -37,6 +37,7 @@ export const fixes = {
     apply: 'Apply to editor',
     noLongerMatches: 'This fix no longer matches the script. Analyze it again to refresh the suggestions.',
     edgeCase: 'Edge case: ',
+    confirmEdge: 'I checked the edge case: it cannot happen in this script',
     parserCheck: 'Parser check:',
     now: 'Now',
     after: 'After the fix'

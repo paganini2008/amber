@@ -1,0 +1,42 @@
+import type { En } from '../en'
+
+export const suggestions: En['suggestions'] = {
+  title: '{count, plural, one {# hallazgo} other {# hallazgos}}',
+  inStatements: 'en {count, plural, one {# sentencia} other {# sentencias}}',
+  none: 'No hay hallazgos. Amber no tiene sugerencias para este script.',
+  notAvailable: 'Este motor no informa hallazgos.',
+  loadingFixes: 'Buscando correcciones…',
+  applySafe: 'Aplicar {count, plural, one {# corrección segura} other {# correcciones seguras}}',
+  triageFixable: '{count, plural, one {# problema} other {# problemas}} que Amber puede corregir aquí',
+  triageUnfixed: '{count, plural, one {# problema necesita} other {# problemas necesitan}} la IA o un cambio manual',
+  filter: 'Mostrar',
+  filterAll: 'Todos ({count})',
+  filterFixable: 'Corregibles aquí ({count})',
+  filterUnfixed: 'Necesitan IA ({count})',
+  filterEmpty: 'No hay nada en este grupo.',
+  stale: 'El script cambió después del análisis. Vuelva a analizarlo para actualizar las sugerencias.',
+  optimized: 'Versión optimizada: {count, plural, one {# corrección aplicada} other {# correcciones aplicadas juntas}}',
+  compare: 'Comparar',
+  review: 'Revisar',
+  apply: 'Aplicar',
+  places: '{count} lugares',
+  details: 'Mostrar detalles',
+  noLocalFix: 'Sin corrección local',
+  aiFix: 'Corregir con IA',
+  aiFixAll: '{count, plural, one {Corregir con IA} other {Corregir los # con IA}}',
+  aiHint: '{count, plural, one {# problema no tiene} other {# problemas no tienen}} corrección local.',
+  ai: {
+    title: 'Corrección con IA',
+    building: 'Preparando el contexto…',
+    waiting: 'Esperando a {model}…',
+    checking: 'Comprobando la respuesta…',
+    showContext: 'Mostrar lo que se envía',
+    noRewrite: 'La IA no devolvió una sentencia reescrita.',
+    showAnswer: 'Mostrar la respuesta',
+    changed: 'Amber encontró una diferencia en la lógica (abajo), así que esta reescritura no se puede aplicar. Solo se aplican las que no tienen ninguna diferencia.',
+    invalid: 'Amber no pudo analizar este SQL, así que no se puede aplicar.',
+    applyTitle: 'Reemplaza la sentencia en el editor. Deshaga con Cmd/Ctrl+Z.',
+    compareDescription: 'La sentencia actual y tal como la reescribió la IA. Amber comprobó la reescritura; revísela antes de aplicarla.',
+    after: 'Reescrita por la IA'
+  }
+}

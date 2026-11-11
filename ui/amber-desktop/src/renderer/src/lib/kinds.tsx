@@ -24,11 +24,14 @@ import {
   Undo2,
   Variable,
   Wrench,
-  type LucideIcon
+  type LucideIcon,
+  Layers
 } from 'lucide-react'
 import { tOr } from '../i18n'
 
 const BY_KIND: Record<string, LucideIcon> = {
+  /** A step of a WITH query (outline rows under the statement). */
+  CTE: Layers,
   SELECT: ScanSearch,
   INSERT: ArrowDownToLine,
   SELECT_INTO: ArrowDownToLine,

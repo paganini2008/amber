@@ -38,6 +38,7 @@ export const fixes: En['fixes'] = {
     apply: 'Aplicar al editor',
     noLongerMatches: 'Esta corrección ya no coincide con el script. Vuelva a analizarlo para actualizar las sugerencias.',
     edgeCase: 'Caso límite: ',
+    confirmEdge: 'Comprobé el caso límite: no puede ocurrir en este script',
     parserCheck: 'Comprobación del analizador:',
     now: 'Ahora',
     after: 'Tras la corrección'

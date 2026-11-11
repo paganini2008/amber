@@ -114,6 +114,7 @@ describe('defaults reach the app, user settings win', () => {
   it('points the update check and the dev engine at the configured places', () => {
     expect(releaseUrls('me/amber-fork')).toEqual({
       api: 'https://api.github.com/repos/me/amber-fork/releases/latest',
+      list: 'https://api.github.com/repos/me/amber-fork/releases?per_page=20',
       page: 'https://github.com/me/amber-fork/releases/latest'
     })
     const cmd = resolveEngineCommand({ packaged: false, resourcesPath: '/r', appRoot: '/a/ui/amber-desktop', platform: 'darwin', env: { AMBER_JAVA: '/j/java', AMBER_ENGINE_JAR: '/b/engine.jar' }, exists: () => true })

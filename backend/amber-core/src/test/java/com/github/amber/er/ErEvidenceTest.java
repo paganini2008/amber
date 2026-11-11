@@ -125,6 +125,6 @@ class ErEvidenceTest {
     void notesAreLocalized() throws Exception {
         String zh = Messages.call(Messages.of("zh-CN"),
                 () -> one(model(Dialect.ORACLE, EVIDENCE + JOIN), "ORDERS", "CUSTOMERS").note());
-        assertTrue(zh.contains("INSERT 列清单"), zh);
+        assertTrue(zh.contains(Messages.of("zh-CN").text("er.evidence.kind.INSERT_COLUMN_LIST")), zh);
     }
 }

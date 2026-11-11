@@ -185,7 +185,7 @@ final class CorrelatedSubqueryRule implements RewriteRule {
             return new Candidate(id(), Messages.t("rewrite.correlated.title"), explanation,
                     edits, Safety.EQUIVALENT_WITH_METADATA,
                     Messages.t("rewrite.correlated.safety.metadata", String.join(", ", typesSame)),
-                    List.of("Grouping columns", "Source tables", "Lineage of"));
+                    List.of("Grouping columns", "Source tables", "Lineage of", "Conditions", "Literal values"));
         }
         return new Candidate(id(), Messages.t("rewrite.correlated.title"), explanation, edits,
                 Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES, Messages.t("rewrite.correlated.safety.types"));
@@ -264,9 +264,18 @@ final class CorrelatedSubqueryRule implements RewriteRule {
         return base(a).equals(base(b));
     }
 
+    /**
+     * Integer types convert to each other without merging two values (an INT key and a BIGINT key compare
+     * like the numbers they hold), so they count as one; anything else must have the same base type.
+     */
+    private static final Set<String> INTEGERS = Set.of("INT", "INTEGER", "BIGINT", "SMALLINT", "TINYINT",
+            "MEDIUMINT", "INT2", "INT4", "INT8");
+
     private static String base(String type) {
         int p = type.indexOf('(');
-        return (p < 0 ? type : type.substring(0, p)).strip();
+        String b = (p < 0 ? type : type.substring(0, p)).toUpperCase(Locale.ROOT)
+                .replace(" IDENTITY", "").replace(" UNSIGNED", "").replace(" AUTO_INCREMENT", "").strip();
+        return INTEGERS.contains(b) ? "INTEGER" : b;
     }
 
     private static boolean outerJoinMarks(Sql sql, Block b) {

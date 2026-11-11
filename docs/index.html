@@ -89,13 +89,13 @@
 
       <figure class="tutorial" id="tutorial">
         <div class="tutorial-window">
-          <div class="tutorial-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>Tutorial video: from a legacy script to safer SQL in 3 minutes</span></div>
+          <div class="tutorial-bar"><span class="dots" aria-hidden="true"><i></i><i></i><i></i></span><span>Tutorial video: from a legacy script to safer SQL in under 3 minutes</span></div>
           <div class="tutorial-stage">
             <!-- Shown until the video has a frame to show (and whenever the file is missing). -->
             <div class="tutorial-fallback">
               <img src="assets/logo-256.png" alt="" width="96" height="96">
               <strong>Tutorial video</strong>
-              <span>Import a script, read it offline, connect for metadata, then get optimized SQL and AI suggestions.</span>
+              <span>Import a script, read it offline, connect for metadata, let Amber fix and refactor what it can prove, then ask AI about the rest.</span>
             </div>
             <video id="tutorial-video" src="assets/amber-tutorial.mp4" poster="assets/amber-tutorial-poster.jpg"
                    autoplay muted loop playsinline preload="metadata" controls
@@ -108,7 +108,7 @@
             </button>
           </div>
         </div>
-        <figcaption id="tutorial-caption">Tutorial video. English subtitles are part of the picture. Music: “Dark Epic” by Nastelbom.</figcaption>
+        <figcaption id="tutorial-caption">Tutorial video. English subtitles are part of the picture. Music synthesized for this tutorial.</figcaption>
       </figure>
     </div>
   </section>
@@ -158,7 +158,7 @@
         <li><span class="icon-tile"><svg class="icon" aria-hidden="true"><use href="#i-lineage"/></svg></span><h3>Column and variable lineage</h3><p>Where a value comes from, across statements, temp tables and procedures.</p></li>
         <li><span class="icon-tile"><svg class="icon" aria-hidden="true"><use href="#i-hourglass"/></svg></span><h3>Object lifecycles</h3><p>Which step creates, writes, reads and drops each table.</p></li>
         <li><span class="icon-tile"><svg class="icon" aria-hidden="true"><use href="#i-shield"/></svg></span><h3>Findings with verified fixes</h3><p>Risky patterns flagged, with quick fixes that are parsed and checked first.</p></li>
-        <li><span class="icon-tile"><svg class="icon" aria-hidden="true"><use href="#i-zap"/></svg></span><h3>Optimized SQL, AI optional</h3><p>Rule-based rewrites computed locally; AI suggestions only if you opt in.</p></li>
+        <li><span class="icon-tile"><svg class="icon" aria-hidden="true"><use href="#i-zap"/></svg></span><h3>Suggestions and Refactor script</h3><p>Every finding with its fix. Refactor script applies only rewrites proven to keep the result, then checks the logic. AI only if you opt in.</p></li>
         <li><span class="icon-tile"><svg class="icon" aria-hidden="true"><use href="#i-er"/></svg></span><h3>Inferred ER diagram</h3><p>Tables and relationships worked out from the joins in the script.</p></li>
         <li><span class="icon-tile"><svg class="icon" aria-hidden="true"><use href="#i-compare"/></svg></span><h3>Change impact</h3><p>Two versions compared by meaning, not by text, and ranked by risk.</p></li>
         <li><span class="icon-tile"><svg class="icon" aria-hidden="true"><use href="#i-search"/></svg></span><h3>Find references</h3><p>Every place a table, column or procedure is defined, written and read.</p></li>
@@ -311,7 +311,7 @@
       <ol class="steps">
         <li id="download">
           <h3>Download Amber</h3>
-          <p>Get the installer for your system from GitHub Releases.</p>
+          <p>Get the installer for your system from GitHub Releases. Later versions arrive by themselves: Amber checks GitHub when it starts, and on Windows and Linux installs the update when you restart it.</p>
           <a class="btn btn-primary" href="https://github.com/paganini2008/amber/releases/latest"><svg class="icon" aria-hidden="true"><use href="#i-download"/></svg>Latest release</a>
           <ul class="files">
             <li data-platform="mac"><a href="https://github.com/paganini2008/amber/releases/latest/download/Amber-macos-arm64.dmg">macOS .dmg</a><span>Apple silicon</span></li>
@@ -330,6 +330,7 @@
           <h3>Read before you edit</h3>
           <p>Start with the outline. Select a statement and open <strong>Structure</strong>, then <strong>Logical order</strong>.</p>
           <p>Put the cursor on a table and press <kbd>F12</kbd> to go to its definition, or <kbd>Shift</kbd>+<kbd>F12</kbd> for every reference.</p>
+          <p>Open <strong>Suggestions</strong> to see what Amber can fix itself, and <strong>Refactor script</strong> to clean up the dead weight with a logic check.</p>
           <p>Before you commit, compare with the saved file to see the change impact.</p>
         </li>
       </ol>
@@ -339,7 +340,7 @@
         <div class="unsigned-body">
           <div>
             <h4>macOS</h4>
-            <p>Right-click Amber in Applications, choose Open, then Open again. If macOS says the app is damaged, clear the quarantine flag:</p>
+            <p>The first time, macOS says Amber cannot be opened because Apple cannot check it. Open System Settings → Privacy &amp; Security, click Open Anyway next to Amber, and confirm. Or clear the quarantine flag in the terminal:</p>
             <div class="code"><div class="code-bar"><span class="code-label">Terminal</span><button class="copy" type="button" aria-label="Copy the macOS command"><svg class="icon i-copy" aria-hidden="true"><use href="#i-copy"/></svg><svg class="icon i-check" aria-hidden="true"><use href="#i-check"/></svg><span>Copy</span></button></div><pre><code>xattr -dr com.apple.quarantine /Applications/Amber.app</code></pre></div>
           </div>
           <div>
@@ -496,12 +497,13 @@ cd ui/amber-desktop &amp;&amp; npm ci &amp;&amp; npm run dev</code></pre>
             <ul>
               <li><strong>Copy change summary</strong> gives Markdown for the ticket or pull request.</li>
               <li><strong>Quick fixes</strong> are applied, re-parsed and compared before they are offered, and labeled with the edge cases where results differ.</li>
+              <li><strong>Refactor script</strong> removes the dead weight (always-true <code>1=1</code>, unused sorts, <code>SELECT *</code> with known columns) only where the result stays the same, and checks that the conditions, values, sources and outputs did not move before you apply it.</li>
             </ul>
           </div>
           <div class="case-shots">
             <figure class="shot"><a href="assets/screenshots/diff.png"><img src="assets/screenshots/diff.png" alt="Change impact: two versions compared, listing a DELETE that lost its WHERE and a column whose source changed, ranked by risk" width="1500" height="950" loading="lazy" decoding="async"></a><figcaption><strong>Change impact.</strong> Differences by meaning, ranked by risk.</figcaption></figure>
-            <figure class="shot"><a href="assets/screenshots/fix-preview.png"><img src="assets/screenshots/fix-preview.png" alt="Quick fix preview: NOT IN rewritten as NOT EXISTS, before and after, with the NULL edge case explained" width="1500" height="950" loading="lazy" decoding="async"></a><figcaption><strong>Verified quick fix.</strong> Before and after, edge cases spelled out.</figcaption></figure>
-            <figure class="shot"><a href="assets/screenshots/optimized.png"><img src="assets/screenshots/optimized.png" alt="Optimized SQL dialog: a MERGE before and after a rule-based rewrite of LEFT JOIN to JOIN, marked Same result and Structure preserved" width="1500" height="950" loading="lazy" decoding="async"></a><figcaption><strong>Optimized SQL.</strong> Rule-based rewrites, computed locally.</figcaption></figure>
+            <figure class="shot"><a href="assets/screenshots/suggestions.png"><img src="assets/screenshots/suggestions.png" alt="Suggestions view: findings grouped by statement, with the fixes Amber can apply itself and those that need the AI" width="1500" height="843" loading="lazy" decoding="async"></a><figcaption><strong>Suggestions.</strong> What Amber can fix, and what needs the AI.</figcaption></figure>
+            <figure class="shot"><a href="assets/screenshots/refactor.png"><img src="assets/screenshots/refactor.png" alt="Refactor script in Change impact: two rewrites in one pass and the logic check, before Apply to editor" width="1500" height="843" loading="lazy" decoding="async"></a><figcaption><strong>Refactor script.</strong> Proven rewrites, then a logic check.</figcaption></figure>
           </div>
         </article>
 

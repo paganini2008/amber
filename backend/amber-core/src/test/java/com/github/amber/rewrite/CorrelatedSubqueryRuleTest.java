@@ -56,6 +56,19 @@ class CorrelatedSubqueryRuleTest {
     }
 
     @Test
+    void integerKeysOfDifferentWidthsMatchLikeTheirNumbers() {
+        // an INT foreign key against a BIGINT IDENTITY key (SQL Server metadata)
+        Catalog widths = catalog(table("dbo", "orders", List.of("id"), "id bigint identity!", "region nvarchar(5)"),
+                table("dbo", "order_lines", List.of(), "order_id int", "amount decimal(10)", "status nvarchar(1)"));
+        Rewrite r = only(suggest(Dialect.SQLSERVER, SUM, widths), "AMB-P003");
+        assertEquals(Safety.EQUIVALENT_WITH_METADATA, r.safety());
+        // a DECIMAL key against an INT key: 1.5 and 1 are different values, but not integers on both sides
+        Catalog scaled = catalog(table("dbo", "orders", List.of("id"), "id int!"),
+                table("dbo", "order_lines", List.of(), "order_id decimal(10,1)", "amount decimal(10)", "status nvarchar(1)"));
+        none(suggest(Dialect.SQLSERVER, SUM, scaled), "AMB-P003");
+    }
+
+    @Test
     void shapesThatAreNotProvablyEquivalentAreLeftAlone() {
         String[] cases = {
             // no alias for the item

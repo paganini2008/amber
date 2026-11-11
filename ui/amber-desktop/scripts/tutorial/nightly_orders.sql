@@ -5,7 +5,8 @@ DROP TEMPORARY TABLE IF EXISTS tmp_day_orders;
 CREATE TEMPORARY TABLE tmp_day_orders AS
 SELECT o.*, c.region
   FROM demo.orders o, demo.customers c
- WHERE o.customer_id = c.id
+ WHERE 1=1
+   AND o.customer_id = c.id
    AND DATE(o.created_at) = CURDATE();
 
 -- step 2: revenue per region for the report
@@ -19,7 +20,8 @@ SELECT id, email
   FROM demo.customers
  WHERE id NOT IN (SELECT customer_id
                     FROM demo.orders
-                   WHERE YEAR(created_at) = YEAR(CURDATE()));
+                   WHERE YEAR(created_at) = YEAR(CURDATE())
+                   ORDER BY customer_id);
 
 -- step 4: top customers in Europe
 SELECT c.email,

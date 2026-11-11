@@ -1,6 +1,6 @@
 import clsx from 'clsx'
 import { Lightbulb, TriangleAlert } from 'lucide-react'
-import { useMemo } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Finding, Rewrite } from '@shared/protocol'
 import { DiffPanes } from '@/editor/DiffPanes'
 import { t } from '@/i18n'
@@ -156,6 +156,11 @@ export function RewriteDialog(): React.JSX.Element {
   const preview = useMemo(() => (rewrite && range && doc ? previewPair(doc.text, range, rewrite) : null), [rewrite, range, doc])
   const s = rewrite ? safetyText(rewrite.safety) : null
   const blocked = rewrite ? isBlocked(rewrite) : false
+  // A rewrite that can change the result in an edge case is applied only when the developer confirms that the
+  // edge case cannot happen in this script: Amber never changes the business logic on its own.
+  const edge = rewrite?.safety === 'CHANGES_BEHAVIOR_IN_EDGE_CASES'
+  const [confirmed, setConfirmed] = useState(false)
+  useEffect(() => setConfirmed(false), [id])
 
   return (
     <Dialog
@@ -171,7 +176,13 @@ export function RewriteDialog(): React.JSX.Element {
             <Button variant="ghost" onClick={() => close(null)}>
               {t('common.cancel')}
             </Button>
-            <Button variant="primary" disabled={blocked} onClick={() => apply([rewrite.id])}>
+            {edge ? (
+              <label className="mr-auto flex items-center gap-2 self-center text-sm text-ink">
+                <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} className="accent-[var(--amber)]" />
+                {t('fixes.dialog.confirmEdge')}
+              </label>
+            ) : null}
+            <Button variant="primary" disabled={blocked || (edge && !confirmed)} onClick={() => apply([rewrite.id])}>
               {t('fixes.dialog.apply')}
             </Button>
           </>

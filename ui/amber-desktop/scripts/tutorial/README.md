@@ -22,10 +22,13 @@ mvn -f backend/pom.xml -pl amber-core -Ptutorial package -DskipTests
 - A MySQL server holding `demo.customers` and `demo.orders`, listed as `mysql.url` / `mysql.user` /
   `mysql.password` in the git-ignored `backend/amber-core/src/test/resources/online-it.properties`. The tables come
   from `online-fixtures/mysql-demo.sql`. Amber only reads their metadata.
-- An English keyboard layout (ABC, U.S., …) as the input source while recording. An input method such as
-  Chinese Pinyin would change the text typed on screen. Switch it yourself; the run reminds you during the
-  countdown.
+- An English keyboard layout (ABC, U.S., Australian, …) enabled in System Settings → Keyboard → Input Sources.
+  `record.mjs` switches Amber to it with `input-source.jxa` while recording, so an input method such as Chinese
+  Pinyin cannot change the typed text, and switches back afterwards.
 - Optional: `AMBER_TUTORIAL_BGM` (environment or `backend/.env`), an audio file you are allowed to use as music.
+  Without it, `bgm.mjs` synthesizes a light, cheerful loop (C major, 112 BPM, about 70 seconds) into the work
+  folder. It needs no audio file or license, and every run produces the same file. The outro card credits the
+  music; for your own file, set `AMBER_TUTORIAL_BGM_CREDIT` as well.
 
 ## What it does
 

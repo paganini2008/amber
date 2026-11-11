@@ -243,8 +243,12 @@ class RewriteEdgeCasesTest {
         // aliases inside the subquery, a qualifier from outside, and a window function
         only(suggest(Dialect.ORACLE, "select (select max(k.id) as m from kinds k where k.v = 1 and k.w = 2) a, "
                 + "(select max(k.id) as m from kinds k where k.v = 1 and k.w = 2) b from dual;"), "AMB-D002");
-        none(suggest(Dialect.ORACLE, "select (select max(k.id) over () from kinds k where k.v = 1 and k.w = 2) a, "
-                + "(select max(k.id) over () from kinds k where k.v = 1 and k.w = 2) b from dual;"), "AMB-D002");
+        // a window aggregate gives the same value in every copy; numbering rows depends on how ties are ordered
+        assertEquals(Safety.EQUIVALENT, only(suggest(Dialect.ORACLE, "select (select max(k.id) over () from kinds k where k.v = 1 and k.w = 2) a, "
+                + "(select max(k.id) over () from kinds k where k.v = 1 and k.w = 2) b from dual;"), "AMB-D002").safety());
+        assertEquals(Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES, only(suggest(Dialect.ORACLE, "select (select max(rn) from (select "
+                + "row_number() over (order by k.v) rn from kinds k where k.w = 2) z) a, (select max(rn) from (select "
+                + "row_number() over (order by k.v) rn from kinds k where k.w = 2) z) b from dual;"), "AMB-D002").safety());
         none(suggest(Dialect.ORACLE, "select (select max(k.id) from kinds k where k.v = 1 and k.w = x.y) a, "
                 + "(select max(k.id) from kinds k where k.v = 1 and k.w = x.y) b from dual x;"), "AMB-D002");
         // nested copies: only the outer group is factored

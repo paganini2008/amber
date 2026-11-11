@@ -61,7 +61,7 @@ final class Mutator {
     private static final String[] INVISIBLE = {"​", "﻿", " ", "⁠", "‎", "　", " ", " ", "\u0085"};
     private static final String[] CONTROL = {"\u0000", "\u0001", "\u0007", "\u0008", "\u000B", "\u000C", "\u001A", "\u001B", "\u007F", "�", "￿"};
     /** Unusual but valid text: emoji (surrogate pairs), right-to-left, combining marks, CJK, a lone surrogate. */
-    private static final String[] UNICODE = {"😀", "אב", "é", "中文", "\uD800", "\uDC00x", "𝐀"};
+    private static final String[] UNICODE = {"😀", "אב", "é", "\u4e2d\u6587", "\uD800", "\uDC00x", "𝐀"};
 
     private Mutator() {
     }

@@ -130,15 +130,15 @@ final class ShapeComparer {
         }
         List<String> ob = upper(qb.outputs());
         List<String> oa = upper(qa.outputs());
-        if (!ob.equals(oa)) {
+        if (!sameOutputs(ob, oa)) {
             if (new TreeSet<>(ob).equals(new TreeSet<>(oa)) && ob.size() == oa.size()) {
                 add(ctx, p, out, ShapeChangeKind.OUTPUT_ORDER_CHANGED, path, qb.outputs() + " → " + qa.outputs(),
                         Messages.t("diff.shape.outputsReordered", path), b, a, Risk.MEDIUM);
             } else {
                 List<String> plus = new ArrayList<>(qa.outputs());
-                plus.removeIf(o -> ob.contains(o.toUpperCase(Locale.ROOT)));
+                plus.removeIf(o -> ob.stream().anyMatch(x -> sameOutput(x, outputKey(o))));
                 List<String> minus = new ArrayList<>(qb.outputs());
-                minus.removeIf(o -> oa.contains(o.toUpperCase(Locale.ROOT)));
+                minus.removeIf(o -> oa.stream().anyMatch(x -> sameOutput(x, outputKey(o))));
                 String detail = (plus.isEmpty() ? "" : "+" + String.join(", +", plus))
                         + (plus.isEmpty() || minus.isEmpty() ? "" : " ")
                         + (minus.isEmpty() ? "" : "-" + String.join(", -", minus));
@@ -269,7 +269,62 @@ final class ShapeComparer {
     }
 
     private static List<String> upper(List<String> xs) {
-        return xs.stream().map(s -> s.toUpperCase(Locale.ROOT)).toList();
+        return xs.stream().map(ShapeComparer::outputKey).toList();
+    }
+
+    /**
+     * An output column for comparison: upper case, and an unnamed expression without its layout (spaces and
+     * line breaks outside quotes), so reformatting {@code SUBSTR(a,1,4)} as {@code SUBSTR(a, 1, 4)} is no change.
+     */
+    private static boolean sameOutputs(List<String> a, List<String> b) {
+        if (a.size() != b.size()) {
+            return false;
+        }
+        for (int i = 0; i < a.size(); i++) {
+            if (!sameOutput(a.get(i), b.get(i))) {
+                return false;
+            }
+        }
+        return true;
+    }
+
+    /**
+     * Two output keys name the same column. Long unnamed expressions arrive cut at a fixed length with "…", and
+     * the cut falls elsewhere once the layout changes, so a cut key matches by its common prefix.
+     */
+    static boolean sameOutput(String a, String b) {
+        if (a.equals(b)) {
+            return true;
+        }
+        boolean cutA = a.endsWith("…");
+        boolean cutB = b.endsWith("…");
+        if (!cutA && !cutB) {
+            return false;
+        }
+        String x = cutA ? a.substring(0, a.length() - 1) : a;
+        String y = cutB ? b.substring(0, b.length() - 1) : b;
+        int n = Math.min(x.length(), y.length());
+        return n >= 12 && x.substring(0, n).equals(y.substring(0, n));
+    }
+
+    static String outputKey(String output) {
+        StringBuilder sb = new StringBuilder(output.length());
+        char quote = 0;
+        for (int i = 0; i < output.length(); i++) {
+            char c = output.charAt(i);
+            if (quote != 0) {
+                sb.append(c);
+                if (c == quote) {
+                    quote = 0;
+                }
+            } else if (c == '\'' || c == '"') {
+                quote = c;
+                sb.append(c);
+            } else if (!Character.isWhitespace(c)) {
+                sb.append(Character.toUpperCase(c));
+            }
+        }
+        return sb.toString();
     }
 
     private static String describe(QueryBlock b) {

@@ -147,7 +147,9 @@ final class NotInRule implements RewriteRule {
                 : Messages.t("rewrite.notIn.explanation.aliased", pred, innerAlias, lhsText);
         if (Boolean.FALSE.equals(lhsNullable) && Boolean.FALSE.equals(colNullable)) {
             return new Candidate(id(), Messages.t("rewrite.notIn.title"), explanation, edits,
-                    Safety.EQUIVALENT_WITH_METADATA, Messages.t("rewrite.notIn.safety.metadata", lhsText, colText));
+                    Safety.EQUIVALENT_WITH_METADATA, Messages.t("rewrite.notIn.safety.metadata", lhsText, colText),
+                    // NOT IN becomes NOT EXISTS: the condition is written differently, proven equal above
+                    List.of("Conditions", "Literal values"));
         }
         boolean unknown = lhsNullable == null || colNullable == null;
         return new Candidate(id(), Messages.t("rewrite.notIn.title"), explanation, edits,

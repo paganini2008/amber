@@ -84,7 +84,7 @@ jobs:
           - target: windows-x64
             os: windows-latest
             dist-args: --win --x64
-            artifacts: Amber-windows-x64-setup.exe
+            artifacts: Amber-windows-x64-setup.exe Amber-windows-x64-setup.exe.blockmap latest.yml
           - target: macos-arm64
             os: macos-latest
             dist-args: --mac --arm64
@@ -97,7 +97,7 @@ jobs:
           - target: linux-x64
             os: ubuntu-latest
             dist-args: --linux --x64
-            artifacts: Amber-linux-x64.deb Amber-linux-x64.rpm
+            artifacts: Amber-linux-x64.deb Amber-linux-x64.rpm latest-linux.yml
     defaults:
       run:
         shell: bash

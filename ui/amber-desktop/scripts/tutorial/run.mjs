@@ -8,7 +8,8 @@
 // mouse (or a dry run through the DevTools protocol) → quit the app → compose the video.
 // Secrets are read, never printed: OPENAI_API_KEY from the environment or backend/.env, and the MySQL
 // connection from the git-ignored backend/amber-core/src/test/resources/online-it.properties (mysql.*).
-// Music: AMBER_TUTORIAL_BGM (environment or backend/.env), an audio file you are allowed to use.
+// Music: AMBER_TUTORIAL_BGM (environment or backend/.env), an audio file you are allowed to use; without it the
+// light loop synthesized by bgm.mjs.
 import { spawn, spawnSync } from 'node:child_process'
 import fs from 'node:fs'
 import net from 'node:net'
@@ -59,6 +60,17 @@ const reachable = (host, port) =>
     s.on('timeout', () => (s.destroy(), resolve(false)))
   })
 
+function newestJar(dir) {
+  try {
+    const versions = fs.readdirSync(dir).sort((a, b) => a.localeCompare(b, 'en', { numeric: true }))
+    for (const v of versions.reverse()) {
+      const jar = fs.readdirSync(path.join(dir, v)).find((f) => f.endsWith('.jar') && !f.includes('sources'))
+      if (jar) return path.join(dir, v, jar)
+    }
+  } catch { /* none */ }
+  return null
+}
+
 // ---------- prerequisites ----------
 console.log(`Amber Tutorial — ${DRY ? 'dry run (no real mouse, no recording)' : 'REAL recording'}`)
 if (process.platform !== 'darwin') fail('recording needs macOS (real mouse events and screen capture).')
@@ -70,12 +82,17 @@ const props = properties(path.join(REPO, 'backend/amber-core/src/test/resources/
 const mysqlUrl = (props['mysql.url'] ?? '').match(/^jdbc:mysql:\/\/([^:/]+)(?::(\d+))?\/(\w+)/)
 if (!mysqlUrl) fail('mysql.url is missing in online-it.properties (git-ignored test config); the online part needs it.')
 const mysql = { host: mysqlUrl[1], port: Number(mysqlUrl[2] ?? 3306), database: mysqlUrl[3], user: props['mysql.user'], password: props['mysql.password'] ?? '' }
+// Amber bundles no JDBC driver: mysql.driver from the test config, else the newest one in the local Maven repository.
+const mysqlDriver = props['mysql.driver'] || newestJar(path.join(process.env.HOME ?? '', '.m2/repository/com/mysql/mysql-connector-j'))
+if (!mysqlDriver) fail('no MySQL JDBC driver: set mysql.driver in online-it.properties (path to mysql-connector-j-*.jar).')
 if (!(await reachable(mysql.host, mysql.port))) fail(`MySQL at ${mysql.host}:${mysql.port} does not answer (for a Docker container: docker start <name>).`)
 if (!DRY) {
   const trusted = jxa("ObjC.import('ApplicationServices'); $.AXIsProcessTrusted()").stdout.trim()
   if (trusted !== 'true') fail('this terminal needs Accessibility permission (System Settings → Privacy & Security → Accessibility) to move the mouse.')
 }
-const bgm = env.AMBER_TUTORIAL_BGM ?? ''
+let bgm = env.AMBER_TUTORIAL_BGM ?? ''
+// The outro card credits the music: AMBER_TUTORIAL_BGM_CREDIT for your own file.
+let credit = bgm ? env.AMBER_TUTORIAL_BGM_CREDIT ?? '' : ''
 
 
 // ---------- the script the viewer opens ----------
@@ -83,6 +100,11 @@ fs.mkdirSync(SQL_DIR, { recursive: true })
 fs.copyFileSync(path.join(HERE, 'nightly_orders.sql'), path.join(SQL_DIR, 'nightly_orders.sql'))
 fs.rmSync(WORK, { recursive: true, force: true })
 fs.mkdirSync(WORK, { recursive: true })
+if (!bgm) {
+  bgm = path.join(WORK, 'bgm.wav')
+  credit = 'Music: synthesized for this tutorial'
+  if (spawnSync('node', [path.join(HERE, 'bgm.mjs'), '--out', bgm], { stdio: 'inherit' }).status !== 0) fail('synthesizing the music failed.')
+}
 
 // ---------- start the app with a clean profile ----------
 const app = spawn('npm', ['run', 'dev', '--', '--remoteDebuggingPort', String(PORT)], {
@@ -133,13 +155,13 @@ const configured = await evaluate(`(async () => {
     ai: { openai: { enabled: true, model: 'gpt-6-luna' } }, online: { enabled: false, connectionIds: [] } })
   await s.setAiApiKey('openai', ${JSON.stringify(env.OPENAI_API_KEY)})
   await s.saveConnection({ id: 'local-mysql', name: 'Local MySQL', dialect: 'mysql', host: ${JSON.stringify(mysql.host)},
-    port: ${mysql.port}, database: ${JSON.stringify(mysql.database)}, user: ${JSON.stringify(mysql.user ?? '')}, hasPassword: false },
+    port: ${mysql.port}, database: ${JSON.stringify(mysql.database)}, user: ${JSON.stringify(mysql.user ?? '')}, hasPassword: false, driverPath: ${JSON.stringify(mysqlDriver)} },
     ${JSON.stringify(mysql.password)})
   const db = await window.amber.db.test('local-mysql')
   const ai = await window.amber.ai.test('openai')
-  return { db: db.ok, ai: ai.ok }
+  return { db: db.ok, dbError: db.ok ? null : db.error?.message ?? null, ai: ai.ok }
 })()`)
-if (!configured.db) fail('the app could not connect to MySQL with the test configuration.')
+if (!configured.db) fail(`the app could not connect to MySQL with the test configuration${configured.dbError ? ': ' + configured.dbError : ''}.`)
 if (!configured.ai) fail('the app could not reach OpenAI with OPENAI_API_KEY.')
 // The default dialect applies at start: restart once so the opened script is read as MySQL right away.
 await evaluate('location.reload(); 1').catch(() => 1)
@@ -167,9 +189,9 @@ const screenIndex = (list.match(/\[(\d+)\] Capture screen 0/) ?? [])[1] ?? '1'
 if (!DRY) {
   console.log('\nThe real recording uses your mouse and keyboard for about 2 minutes.')
   console.log('Turn on Do Not Disturb, and do not touch the mouse or keyboard until it says "done".')
-  // Text is typed through the active input source; an input method (e.g. Chinese Pinyin) would change it. The input
-  // source can differ per app, so it cannot be checked reliably from here: the person recording switches it.
-  console.log('Switch the input source to an English keyboard layout (ABC, U.S., …) now: everything is typed in English.')
+  // Text is typed through the input source of the app in front; record.mjs switches Amber to an English keyboard
+  // layout (input-source.jxa) and switches back afterwards.
+  console.log('The input source is switched to an English keyboard layout while recording, and back afterwards.')
   for (let i = 10; i > 0; i--) {
     process.stdout.write(`\rstarting in ${i} s … `)
     await sleep(1000)
@@ -186,7 +208,7 @@ console.log('done with the app.')
 if (DRY) {
   console.log(`dry run ok: one screenshot per subtitle in ${path.join(WORK, 'dry')}`)
 } else {
-  const c = spawnSync('node', [path.join(HERE, 'compose.mjs'), '--work', WORK, '--out', OUT, ...(bgm ? ['--bgm', bgm] : [])], { stdio: 'inherit' })
+  const c = spawnSync('node', [path.join(HERE, 'compose.mjs'), '--work', WORK, '--out', OUT, ...(bgm ? ['--bgm', bgm, '--credit', credit] : [])], { stdio: 'inherit' })
   if (c.status !== 0) fail('composing failed.')
 }
 process.exit(0)

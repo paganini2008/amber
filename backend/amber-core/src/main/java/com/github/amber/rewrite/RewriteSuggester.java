@@ -46,7 +46,7 @@ public final class RewriteSuggester {
 
     private static final List<RewriteRule> RULES = List.of(new LeftJoinRule(), new NotInRule(), new DateRangeRule(),
             new UnionAllRule(), new SelectStarRule(), new DistinctGroupByRule(), new SubqueryOrderByRule(),
-            new RepeatedSubqueryRule(), new CorrelatedSubqueryRule());
+            new RepeatedSubqueryRule(), new CorrelatedSubqueryRule(), new AlwaysTrueConditionRule());
 
     private RewriteSuggester() {
     }
@@ -144,7 +144,9 @@ public final class RewriteSuggester {
                 // a rule that cannot read an unusual statement proposes nothing; suggestions are optional
             }
         }
-        candidates.sort(Comparator.comparingInt(Candidate::firstOffset));
+        // Safer rewrites first: when two overlap, the one that keeps the result for any data is offered and the
+        // other waits for it ("apply first"), so an edge-case rewrite never blocks a same-result one.
+        candidates.sort(Comparator.comparingInt((Candidate c) -> c.safety().ordinal()).thenComparingInt(Candidate::firstOffset));
         List<Rewrite> accepted = new ArrayList<>();
         for (Candidate c : candidates) {
             if (!internallyDisjoint(c.edits())) {

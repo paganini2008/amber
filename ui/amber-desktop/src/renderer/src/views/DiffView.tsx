@@ -9,6 +9,7 @@ import { DiffPanes } from '@/editor/DiffPanes'
 import { fmt, t, tOr } from '@/i18n'
 import { columnRows, countsText, lineText, noChanges, pairFor, pairKey, pairRows, REASONS_SHOWN, riskText, sameList, sortReasons, statusLabel, type ColumnRow } from '@/lib/diff'
 import { findingTitle, KindIcon, kindText } from '@/lib/kinds'
+import { useRefactor } from '@/lib/refactor'
 import { useStore } from '@/store'
 
 /** Center view: what a change to the script really changes, and how risky it is. */
@@ -67,6 +68,7 @@ export function DiffView(): React.JSX.Element {
           <X size={15} />
         </IconButton>
       </div>
+      <RefactorBanner after={diff.after.text} />
     </div>
   )
 
@@ -420,5 +422,48 @@ function PairPanel({ pair, dialect, focus, onClose }: { pair: StatementPair; dia
       </div>
       <DiffPanes before={before?.text ?? ''} after={after?.text ?? ''} dialect={dialect} pair={pair} focus={focus} />
     </section>
+  )
+}
+
+/** When Change impact shows a prepared refactoring: what it did, and Apply / Discard. */
+function RefactorBanner({ after }: { after: string }): React.JSX.Element | null {
+  const state = useRefactor((s) => s.state)
+  const apply = useRefactor((s) => s.apply)
+  const reset = useRefactor((s) => s.reset)
+  const close = useStore((s) => s.closeCompare)
+  if (state.status !== 'ready' || state.after !== after) return null
+  const count = state.applied.reduce((n, a) => n + a.count, 0)
+  return (
+    <div className="flex basis-full flex-wrap items-center gap-x-3 gap-y-1.5 rounded-[6px] border border-amber bg-amber-wash px-3 py-2 text-sm">
+      <span className="font-medium text-ink">{t('refactor.banner.title')}</span>
+      <span className="text-ink">
+        {count ? t('refactor.banner.rewrites', { count, passes: state.passes }) : t('refactor.banner.noRewrites')}
+        {state.formatted ? ` ${t('refactor.banner.formatted')}` : ''}
+      </span>
+      {state.check ? (
+        <span className={clsx('basis-full', state.check.logicKept ? 'text-ink' : 'font-medium text-risk-high')} title={state.check.differences.join('\n')}>
+          {state.check.logicKept ? t('refactor.banner.logicKept') : t('refactor.banner.logicChanged')}
+        </span>
+      ) : null}
+      {state.applied.length ? (
+        <span className="min-w-0 truncate text-ink-muted" title={state.applied.map((a) => `${a.title} ×${a.count}`).join('\n')}>
+          {state.applied.map((a) => (a.count > 1 ? `${a.title} ×${a.count}` : a.title)).join(t('common.listSeparator'))}
+        </span>
+      ) : null}
+      <span className="flex-1" />
+      <Button
+        size="sm"
+        variant="ghost"
+        onClick={() => {
+          reset()
+          close()
+        }}
+      >
+        {t('refactor.banner.discard')}
+      </Button>
+      <Button size="sm" variant="primary" disabled={state.check !== null && !state.check.logicKept} onClick={apply}>
+        {t('refactor.banner.apply')}
+      </Button>
+    </div>
   )
 }

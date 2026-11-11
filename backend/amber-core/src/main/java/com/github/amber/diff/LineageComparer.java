@@ -309,8 +309,14 @@ final class LineageComparer {
             Map<String, Item> ib = rb == null ? Map.of() : rb.items;
             Map<String, Item> ia = ra == null ? Map.of() : ra.items;
             boolean temp = TEMP.contains(any.ownerKind);
+            // The same condition on the same column, only inside a subquery whose internal key changed (its text
+            // was edited elsewhere): matched by what it shows, so it is not reported as removed and added again.
+            Set<String> shownBefore = new HashSet<>();
+            Set<String> shownAfter = new HashSet<>();
+            ib.values().forEach(i -> shownBefore.add(i.role() + "|" + i.source()));
+            ia.values().forEach(i -> shownAfter.add(i.role() + "|" + i.source()));
             for (Item i : ia.values()) {
-                if (!ib.containsKey(i.role() + "|" + i.sourceKey())) {
+                if (!ib.containsKey(i.role() + "|" + i.sourceKey()) && !shownBefore.contains(i.role() + "|" + i.source())) {
                     String msg = Messages.t("diff.rows.now." + roleKey(i.role()), any.owner, i.source());
                     out.add(new IndirectChange(any.owner, ownerKey, i.role(), "ADDED", i.source(), msg, null, i.step(),
                             null, i.range()));
@@ -318,7 +324,7 @@ final class LineageComparer {
                 }
             }
             for (Item i : ib.values()) {
-                if (!ia.containsKey(i.role() + "|" + i.sourceKey())) {
+                if (!ia.containsKey(i.role() + "|" + i.sourceKey()) && !shownAfter.contains(i.role() + "|" + i.source())) {
                     String msg = Messages.t("diff.rows.noLonger." + roleKey(i.role()), any.owner, i.source());
                     out.add(new IndirectChange(any.owner, ownerKey, i.role(), "REMOVED", i.source(), msg, i.step(), null,
                             i.range(), null));

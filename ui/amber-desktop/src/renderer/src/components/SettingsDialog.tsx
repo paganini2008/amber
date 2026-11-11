@@ -17,6 +17,7 @@ import { RulesSettings } from './RulesSettings'
 import { Button, Dialog, Field, Select, Spinner, Switch, inputClass } from './ui'
 import { DbIcon } from './DbIcon'
 import { ConnectionDriverField } from './ConnectionDriverField'
+import { UpdateCheck } from './UpdateCheck'
 
 const dialectOptions = (): { value: string; label: string }[] =>
   ['oracle', 'sqlserver', 'postgresql', 'mysql', 'mariadb', 'db2', 'h2', 'sqlite'].map((d) => ({ value: d, label: dialectName(d), icon: <DbIcon dialect={d} size={14} /> }))
@@ -665,15 +666,6 @@ function DriversSettings({ settings }: { settings: Settings }): React.JSX.Elemen
 }
 
 function UpdateSettings({ settings, update }: { settings: Settings; update: (p: SettingsPatch) => void }): React.JSX.Element {
-  const [state, setState] = useState<{ checking: boolean; message: string | null; url?: string }>({ checking: false, message: null })
-  useEffect(() => setState({ checking: false, message: null }), [settings.checkForUpdates])
-  const check = async (): Promise<void> => {
-    setState({ checking: true, message: null })
-    const r = await api().app.checkForUpdates(true)
-    if (!r.ok) setState({ checking: false, message: t('dialogs.about.checkFailed', { reason: r.error.message }) })
-    else if (r.value?.newer) setState({ checking: false, message: t('dialogs.about.available', { version: r.value.latest }), url: r.value.url })
-    else setState({ checking: false, message: r.value ? t('dialogs.about.latestVersion', { version: r.value.current }) : t('dialogs.about.latest') })
-  }
   return (
     <div>
       <Field
@@ -683,17 +675,7 @@ function UpdateSettings({ settings, update }: { settings: Settings; update: (p: 
         <Switch checked={settings.checkForUpdates} onChange={(v) => update({ checkForUpdates: v })} label={t('settings.updates.onStartLabel')} />
       </Field>
       <Field label={t('settings.updates.now')}>
-        <div className="flex items-center gap-3">
-          <Button onClick={() => void check()} disabled={state.checking}>
-            {state.checking ? <Spinner size={12} /> : null} {t('dialogs.about.checkUpdates')}
-          </Button>
-          {state.message ? <span className="text-sm">{state.message}</span> : null}
-          {state.url ? (
-            <Button size="sm" variant="primary" onClick={() => void api().app.openExternal(state.url!)}>
-              {t('dialogs.about.downloadPage')}
-            </Button>
-          ) : null}
-        </div>
+        <UpdateCheck />
       </Field>
     </div>
   )

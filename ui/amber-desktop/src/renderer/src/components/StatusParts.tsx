@@ -57,6 +57,8 @@ export function ProblemsBar(): React.JSX.Element {
   const errors = diagnostics.filter((d) => d.severity === 'ERROR').length
   const warnings = diagnostics.length - errors
 
+  const view = useStore((s) => s.view)
+  const setView = useStore((s) => s.setView)
   const toggle = (next: 'findings' | 'fixes' | 'syntax' | 'metadata' | 'references' | 'format'): void => setPanel(panel === next ? null : next)
   const formatReport = useStore((s) => s.formatReport)
   const fixes = useFreshRewrites()
@@ -153,17 +155,20 @@ export function ProblemsBar(): React.JSX.Element {
             ))
           )}
         </button>
-        {fixes.length + optimized.length ? (
+        {fixes.length + optimized.length || findings?.length ? (
           <button
             type="button"
-            className={clsx('flex items-center gap-1.5 hover:text-ink', open && tab === 'fixes' && 'text-ink')}
-            onClick={() => toggle('fixes')}
-            aria-expanded={open && tab === 'fixes'}
+            className={clsx('flex items-center gap-1.5 hover:text-ink', view === 'suggestions' && 'text-ink')}
+            onClick={() => {
+              // The Suggestions view holds every finding with its fix; the old bottom list is not needed for it.
+              setPanel(null)
+              setView('suggestions')
+            }}
             aria-label={t('app.status.suggestedFixes')}
           >
             <Lightbulb size={12} className="text-amber-ink" />
             <span className="font-medium text-ink">{t('app.status.fixes')}</span>
-            <span className="tabular-nums">{fixes.length + optimized.length}</span>
+            {fixes.length + optimized.length ? <span className="tabular-nums">{fixes.length + optimized.length}</span> : null}
           </button>
         ) : null}
         <button

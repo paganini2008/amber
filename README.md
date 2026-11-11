@@ -39,10 +39,12 @@
 | **How is this monster query built, and in which order is it evaluated?** | Nested boxes of CTEs, UNION branches, derived tables and subqueries, and a step-through of the logical order: FROM → WHERE → GROUP BY → SELECT → ORDER BY. |
 | **Which temp table is filled where?** | A lifecycle matrix and a data-flow graph showing which step creates, writes, reads and drops each object. |
 | **Is my change safe?** | *Change impact* compares two versions: changed column sources, removed filters, new DROPs and new risks, ranked by risk. |
-| **Which parts are risky or slow?** | 17 rules (LEFT JOIN turned INNER, NOT IN with NULLs, functions on indexed columns, row-by-row DML in loops…), with verified quick fixes. |
+| **Which parts are risky or slow?** | 27 rules (LEFT JOIN turned INNER, NOT IN with NULLs, functions on indexed columns, row-by-row DML in loops…), with verified quick fixes. |
+| **Too many problems. Where do I start?** | *Suggestions*: every finding grouped by statement, with what Amber can fix itself, an optimized version of each statement, and what needs the AI or a manual change. |
+| **Can I clean up the whole script without changing what it does?** | *Refactor script*: every rewrite proven to keep the result the same (always-true `1=1`, unused sorts, `SELECT *` with known columns…), pass after pass, then a logic check of the whole script before you apply it. |
 | **The layout is unreadable.** | A formatter that only changes whitespace and keyword case, and proves it token by token. |
 | **I have to hand this over.** | A handover document (Markdown or HTML): purpose, objects, data flow, column origins, risks. |
-| **Can AI help without leaking our schema?** | Optional Ollama or OpenAI-compatible suggestions, built from Amber's analysis with names masked, and every rewrite checked by the parser. |
+| **Can AI help without leaking our schema?** | Optional Ollama or OpenAI-compatible suggestions, built from Amber's analysis with names masked. Every rewrite is checked by the engine, and only one with no difference in the logic can be applied. |
 
 Offline by default. An optional, read-only online mode reads table metadata (columns, keys, indexes)
 from one or more databases to make every analysis more precise.
@@ -57,7 +59,7 @@ findings, change reasons, rewrite explanations, the handover document) follow Se
 ```mermaid
 flowchart LR
   subgraph App["Desktop app (Electron + React)"]
-    UI["Views: outline · structure · lineage · lifecycle · change impact · fixes"]
+    UI["Views: outline · structure · lineage · lifecycle · change impact · suggestions"]
   end
   subgraph Engine["Engine (Java 17+, JSON-RPC over stdio)"]
     Split["Splitter per dialect<br/>(GO, /, DELIMITER, psql…)"] --> Parse["ANTLR 4 parsers<br/>8 dialects"]
@@ -121,10 +123,16 @@ Checksums: [SHA256SUMS](https://github.com/paganini2008/amber/releases/latest/do
 
 The installers are not code-signed yet:
 
-- **macOS**: right-click Amber in Applications, choose **Open**, then **Open** again. If macOS reports
-  the app as damaged, run `xattr -dr com.apple.quarantine /Applications/Amber.app`.
+- **macOS**: the first time, macOS says Amber cannot be opened because Apple cannot check it. Open
+  **System Settings → Privacy & Security**, scroll to *Security*, click **Open Anyway** next to Amber, and
+  confirm. If you prefer the terminal: `xattr -dr com.apple.quarantine /Applications/Amber.app`.
 - **Windows**: in "Windows protected your PC", select **More info**, then **Run anyway**.
 - **Linux**: `sudo apt install ./Amber-linux-x64.deb` or `sudo dnf install ./Amber-linux-x64.rpm`.
+
+**Updates.** Amber asks GitHub for the latest release when it starts (Settings → Updates; nothing else is
+sent, and you can turn it off). On Windows and Linux (.deb / .rpm) a newer version is downloaded in the
+background and installed when you restart Amber. On macOS, where unsigned apps cannot update themselves,
+Amber shows the new version with a link to the download page.
 
 ### First run
 
@@ -216,6 +224,33 @@ app: **Fix…** on a finding, or **Cmd/Ctrl+.** in the editor.
 
 ![A quick fix preview: NOT IN to NOT EXISTS, with the edge case explained](docs/assets/screenshots/fix-preview.png)
 
+### Suggestions and Refactor script: fix what can be proven
+
+The **Suggestions** tab lists every finding by statement and splits them into *Fixable here* and *Needs AI*.
+A fix labeled *Same result* or *Same result given the table definitions* can be applied directly; one that
+*changes behavior in edge cases* only opens a review that you have to confirm.
+
+**Refactor script** applies, pass after pass, every rewrite that keeps the result the same for any data,
+then compares the whole script before and after: the conditions, literal values, source tables, output
+columns and lineage must all be the same. The result opens in Change impact, and nothing reaches the editor
+until you click **Apply to editor** (one step you can undo). Rewrites that state a condition differently
+(NOT IN → NOT EXISTS, a function on a column → a range, a correlated subquery → a join) are never part of a
+refactoring; apply them one by one in Suggestions.
+
+```json
+→ {"method":"rewrite.optimize","params":{"dialect":"mysql","statements":[],"includeEdgeCases":false,
+     "text":"select id from demo.customers where 1=1 and id not in (select customer_id from demo.orders order by customer_id);"}}
+← "optimizedText": "select id from demo.customers where id not in (select customer_id from demo.orders);"
+   applied: AMB-R001 Remove the always-true condition, AMB-S012 Remove ORDER BY from the subquery
+```
+
+With online metadata, more rewrites are proven: `SELECT *` becomes the table's column list, and a UNION
+over one table whose branches select its key and filter one column to different values becomes UNION ALL.
+
+![Suggestions: findings by statement, with the fixes Amber can apply and those that need the AI](docs/assets/screenshots/suggestions.png)
+
+![Refactor script in Change impact: two rewrites, and the logic check before Apply to editor](docs/assets/screenshots/refactor.png)
+
 ### Change impact: is this edit safe?
 
 ```json
@@ -273,8 +308,11 @@ java -jar engine.jar doc nightly.sql --dialect postgresql --html --out nightly-h
 - **Add metadata for certainty:** import the DDL files or connect online (read-only); findings and
   lineage marked *possible* become *certain*.
 - **Close every change with Change impact:** compare with the saved file before you commit.
+- **Refactor with proof, not by hand:** let *Refactor script* remove the dead weight first, then close
+  with Change impact; the logic check must say the conditions and values are unchanged.
 - **Keep AI on a leash:** leave *Mask identifiers* on, add your constraints as notes, and treat every
-  answer by its check label: *Structure preserved* is not proof of equal results.
+  answer by its check label. Amber lets you apply an AI rewrite only when it finds no difference at all,
+  and even *Structure preserved* is not proof of equal results: review and test it.
 
 ## Configuration
 

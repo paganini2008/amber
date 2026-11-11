@@ -112,7 +112,8 @@ class RewritePostgreSqlTest {
         Rewrite strict = s008s.get(1);
         assertEquals("select count(*) into strict v from events where happened_at >= date '2024-01-01' and happened_at "
                 + "< date '2024-01-02'", strict.rewrittenStatement());
-        assertEquals("STRUCTURE_PRESERVED", strict.check());
+        assertEquals("STRUCTURE_CHANGED", strict.check());       // the range is a new condition, proven by the rule
+        assertTrue(strict.checkDifferences().stream().allMatch(d -> d.startsWith("Conditions") || d.startsWith("Literal values")));
         // the edits land inside the dollar-quoted body of the original script
         String applied = RewriteSuggester.apply(sql, s008.edits());
         assertTrue(applied.contains("$$\ndeclare") && applied.contains("happened_at < date '2020-01-01';"));

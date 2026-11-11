@@ -7,6 +7,7 @@ import { platformName, versionInfo } from '@/lib/about'
 import { useStore } from '@/store'
 import { exportHandover, generateHandover } from '@/actions'
 import { Button, Dialog, Spinner, inputClass } from './ui'
+import { UpdateCheck } from './UpdateCheck'
 
 type Links = Awaited<ReturnType<ReturnType<typeof api>['app']['links']>>
 
@@ -18,7 +19,6 @@ export function AboutDialog(): React.JSX.Element {
   const engine = useStore((s) => s.engine)
   const [info, setInfo] = useState<AppInfo | null>(null)
   const [links, setLinks] = useState<Links | null>(null)
-  const [update, setUpdate] = useState<{ checking: boolean; message: string | null; url?: string }>({ checking: false, message: null })
   const [notices, setNotices] = useState<{ open: boolean; text: string | null; error: string | null }>({ open: false, text: null, error: null })
   useEffect(() => {
     if (!open) return
@@ -26,13 +26,6 @@ export function AboutDialog(): React.JSX.Element {
     if (!links) void api().app.links().then(setLinks)
   }, [open, info, links])
 
-  const checkUpdates = async (): Promise<void> => {
-    setUpdate({ checking: true, message: null })
-    const r = await api().app.checkForUpdates(true)
-    if (!r.ok) setUpdate({ checking: false, message: t('dialogs.about.checkFailed', { reason: r.error.message }) })
-    else if (r.value?.newer) setUpdate({ checking: false, message: t('dialogs.about.available', { version: r.value.latest }), url: r.value.url })
-    else setUpdate({ checking: false, message: r.value ? t('dialogs.about.latestVersion', { version: r.value.current }) : t('dialogs.about.latest') })
-  }
   const openNotices = async (): Promise<void> => {
     setNotices({ open: true, text: notices.text, error: null })
     if (notices.text) return
@@ -96,16 +89,8 @@ export function AboutDialog(): React.JSX.Element {
             </dl>
           </section>
 
-          <section className="flex flex-wrap items-center gap-3">
-            <Button size="sm" onClick={() => void checkUpdates()} disabled={update.checking}>
-              {update.checking ? <Spinner size={12} /> : null} {t('dialogs.about.checkUpdates')}
-            </Button>
-            {update.message ? <span className="text-sm">{update.message}</span> : null}
-            {update.url ? (
-              <Button size="sm" variant="primary" onClick={() => external(update.url)}>
-                {t('dialogs.about.downloadPage')}
-              </Button>
-            ) : null}
+          <section>
+            <UpdateCheck size="sm" />
           </section>
 
           <section>
