@@ -74,6 +74,11 @@ public final class AiCheck {
         compare("ai.check.label.sources", a.sources, b.sources, diffs);
         compare("ai.check.label.grouping", a.grouping, b.grouping, diffs);
         compare("ai.check.label.rowShaping", a.rowShaping, b.rowShaping, diffs);
+        // The business logic itself: every condition and every literal value must survive the rewrite.
+        LogicFingerprint fa = LogicFingerprint.of(dialect, terminated(original.strip()));
+        LogicFingerprint fb = LogicFingerprint.of(dialect, parsed);
+        compareSets("ai.check.label.conditions", fa.conditions, fb.conditions, diffs);
+        compareSets("ai.check.label.literals", fa.literals, fb.literals, diffs);
         for (String out : a.lineage.keySet()) {
             if (b.lineage.containsKey(out) && !a.lineage.get(out).equals(b.lineage.get(out))) {
                 diffs.add(b.lineage.get(out).isEmpty() && !a.lineage.get(out).isEmpty()
@@ -187,11 +192,22 @@ public final class AiCheck {
         }
     }
 
+    /** A set difference, listing only what is missing on either side (at most eight of each). */
+    private static void compareSets(String labelKey, Set<String> a, Set<String> b, List<String> diffs) {
+        if (a.equals(b)) {
+            return;
+        }
+        List<String> lost = a.stream().filter(x -> !b.contains(x)).limit(8).toList();
+        List<String> added = b.stream().filter(x -> !a.contains(x)).limit(8).toList();
+        diffs.add(Messages.t("ai.check.setDifference", Messages.t(labelKey), lost, added));
+    }
+
     /** English labels that start a difference, with their message keys (see {@link #localizedPrefix}). */
     private static final Map<String, String> LABELS = Map.of("Output columns", "ai.check.label.outputs",
             "Written objects", "ai.check.label.writes", "Source tables", "ai.check.label.sources",
             "Grouping columns", "ai.check.label.grouping", "Ordering and row limits", "ai.check.label.rowShaping",
-            "Lineage of", "ai.check.label.lineage");
+            "Lineage of", "ai.check.label.lineage", "Conditions", "ai.check.label.conditions",
+            "Literal values", "ai.check.label.literals");
 
     /**
      * A difference prefix given in English (e.g. {@code "Ordering and row limits:"} or {@code "Lineage of"}),

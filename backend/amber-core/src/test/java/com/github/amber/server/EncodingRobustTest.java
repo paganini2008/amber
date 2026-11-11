@@ -38,8 +38,8 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 class EncodingRobustTest {
 
     /** Accents, CJK and an emoji (a surrogate pair) before, inside and after statements. */
-    private static final String SCRIPT = "-- résumé 中文 😀\n"
-            + "INSERT INTO t2 (a, b) SELECT a, 'été € 😀' FROM t1 WHERE c = '中';\n"
+    private static final String SCRIPT = "-- résumé \u4e2d\u6587 😀\n"
+            + "INSERT INTO t2 (a, b) SELECT a, 'été € 😀' FROM t1 WHERE c = '\u4e2d';\n"
             + "/* 😀😀 */ UPDATE t2 SET b = 'x' WHERE a = 1;\r\n"
             + "SELECT a FROM t2;\r";
 
@@ -47,7 +47,7 @@ class EncodingRobustTest {
 
     @Test
     void everyEncodingDecodesToTheSameText(@TempDir Path dir) throws Exception {
-        String gbText = SCRIPT.replace("😀", "中");      // GB18030 can hold emoji, but keep it CJK
+        String gbText = SCRIPT.replace("😀", "\u4e2d");      // GB18030 can hold emoji, but keep it CJK
         String latinText = "SELECT 'café € ü' AS x FROM t;\n";
         record Case(String name, byte[] bytes, String expected, String charset, boolean bom) {
         }
@@ -95,7 +95,7 @@ class EncodingRobustTest {
         inputs.add(new byte[]{(byte) 0xFF, (byte) 0xFF, (byte) 0xFF});
         inputs.add(Arrays.copyOf(utf8, utf8.length - 2));                      // cut inside the emoji
         inputs.add(concat(utf8, new byte[]{(byte) 0x80, 0x0A, (byte) 0xFE}));
-        byte[] gb = SCRIPT.replace("😀", "中").getBytes(SourceDecoder.GB18030);
+        byte[] gb = SCRIPT.replace("😀", "\u4e2d").getBytes(SourceDecoder.GB18030);
         inputs.add(Arrays.copyOf(gb, gb.length - 1));                          // GB18030 cut mid-character
         Random rnd = new Random(20261108);
         for (int k = 0; k < 40; k++) {

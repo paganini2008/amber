@@ -3,6 +3,7 @@ export const app = {
   views: {
     label: 'Views',
     outline: 'Outline',
+    suggestions: 'Suggestions',
     lifecycle: 'Lifecycle',
     dataflow: 'Data flow',
     lineage: 'Lineage',
@@ -91,6 +92,8 @@ export const app = {
   },
   outline: {
     title: 'Outline',
+    cte: 'CTE {name}',
+    reads: 'Reads {names}',
     steps: '{count, plural, one {# step} other {# steps}}',
     expandAll: 'Expand all',
     collapseAll: 'Collapse all',
@@ -163,7 +166,8 @@ export const app = {
     checkChange: 'Check the change',
     openBeforeCompare: 'Open a script first, then compare it with another version.',
     analyzeFirst: 'Open and analyze a script first.',
-    updateAvailable: 'Amber {version} is available. See Settings → Updates.',
+    updateAvailable: 'Amber {version} is available.',
+    updateReady: 'Amber {version} is downloaded. It is installed when you restart Amber.',
     openFailed: 'Could not open the file: {reason}',
     openPathFailed: 'Could not open {path}: {reason}',
     saved: 'Saved {file}',

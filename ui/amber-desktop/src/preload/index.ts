@@ -1,5 +1,5 @@
 import { contextBridge, ipcRenderer, webUtils, type IpcRendererEvent } from 'electron'
-import type { AmberApi, AiStreamEvent, DriverProgress, EngineStatus, MenuCommand, Settings } from '../shared/api'
+import type { AmberApi, AiStreamEvent, DriverProgress, EngineStatus, MenuCommand, Settings, UpdateStatus } from '../shared/api'
 
 function subscribe<T>(channel: string, listener: (value: T) => void): () => void {
   const handler = (_event: IpcRendererEvent, value: T): void => listener(value)
@@ -57,6 +57,9 @@ const api: AmberApi = {
   app: {
     info: () => ipcRenderer.invoke('app:info'),
     checkForUpdates: (force) => ipcRenderer.invoke('app:checkForUpdates', force),
+    updateStatus: () => ipcRenderer.invoke('app:updateStatus'),
+    installUpdate: () => ipcRenderer.invoke('app:installUpdate'),
+    onUpdateStatus: (listener) => subscribe<UpdateStatus>('app:updateStatus', listener),
     openExternal: (url) => ipcRenderer.invoke('app:openExternal', url),
     links: () => ipcRenderer.invoke('app:links'),
     thirdPartyNotices: () => ipcRenderer.invoke('app:thirdPartyNotices'),

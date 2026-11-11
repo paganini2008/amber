@@ -41,8 +41,11 @@
       <span><b>✓</b>8 databases</span><span><b>✓</b>Free and open source</span><span><b>✓</b>macOS · Windows · Linux</span>
     </div>
     <div class="url">github.com/paganini2008/amber</div>
-    <div class="small">Music: “Dark Epic” by Nastelbom</div>
+    <div class="small" id="music"></div>
   </section>
-<script>document.body.dataset.card = location.hash.slice(1) || 'intro'</script>
+<script>
+  document.body.dataset.card = location.hash.slice(1) || 'intro'
+  document.getElementById('music').textContent = new URLSearchParams(location.search).get('music') || ''
+</script>
 </body>
 </html>

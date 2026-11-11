@@ -3,8 +3,12 @@ import type { FetchLike } from '../ai/gateway'
 import { tm } from '../i18n'
 
 /** Where the update check looks; `repo` is GitHub owner/name (AMBER_UPDATE_REPO in development). */
-export function releaseUrls(repo = 'paganini2008/amber'): { api: string; page: string } {
-  return { api: `https://api.github.com/repos/${repo}/releases/latest`, page: `https://github.com/${repo}/releases/latest` }
+export function releaseUrls(repo = 'paganini2008/amber'): { api: string; list: string; page: string } {
+  return {
+    api: `https://api.github.com/repos/${repo}/releases/latest`,
+    list: `https://api.github.com/repos/${repo}/releases?per_page=20`,
+    page: `https://github.com/${repo}/releases/latest`
+  }
 }
 
 /** Where About Amber points: project, website (GitHub Pages), releases, new issue, author profile. */
@@ -50,17 +54,53 @@ export function compareVersions(a: string, b: string): number {
   return x.pre < y.pre ? -1 : 1
 }
 
-/** Asks GitHub for the latest release. Sends no identifying data beyond a generic user agent. */
-export async function checkLatestRelease(fetchFn: FetchLike, current: string, repo?: string, timeoutSec = 10): Promise<UpdateInfo> {
-  const { api, page } = releaseUrls(repo)
-  const response = await fetchFn(api, {
-    headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Amber' },
-    signal: AbortSignal.timeout(timeoutSec * 1000)
-  })
-  if (response.status === 404) return { current, latest: current, newer: false, url: page }
+/** The update check's answer, before the main process adds whether it can install the update itself. */
+export type ReleaseCheck = Omit<UpdateInfo, 'autoInstall'>
+
+/** Asks GitHub for the newest release. Sends no identifying data beyond a generic user agent. */
+export async function checkLatestRelease(fetchFn: FetchLike, current: string, repo?: string, timeoutSec = 10): Promise<ReleaseCheck> {
+  const { page } = releaseUrls(repo)
+  const tag = isPrerelease(current) ? await newestRelease(fetchFn, repo, timeoutSec) : await latestStable(fetchFn, repo, timeoutSec)
+  if (!tag) return { current, latest: current, newer: false, url: page }
+  const latest = tag.tag.replace(/^v/i, '')
+  const url = tag.url && tag.url.startsWith('https://github.com/') ? tag.url : page
+  return { current, latest: latest || current, newer: latest ? compareVersions(latest, current) > 0 : false, url }
+}
+
+/** `1.0.0-rc2`, `1.0.0-SNAPSHOT`: a build that also wants to hear about newer pre-releases. */
+export function isPrerelease(version: string): boolean {
+  return version.replace(/^v/i, '').includes('-')
+}
+
+interface ReleaseTag {
+  tag: string
+  url?: string
+}
+
+function githubRequest(timeoutSec: number): RequestInit {
+  return { headers: { Accept: 'application/vnd.github+json', 'User-Agent': 'Amber' }, signal: AbortSignal.timeout(timeoutSec * 1000) }
+}
+
+/** GitHub's "latest" release: the newest one that is neither a draft nor a pre-release. */
+async function latestStable(fetchFn: FetchLike, repo: string | undefined, timeoutSec: number): Promise<ReleaseTag | null> {
+  const response = await fetchFn(releaseUrls(repo).api, githubRequest(timeoutSec))
+  if (response.status === 404) return null
   if (!response.ok) throw new Error(tm('main.updates.githubAnswered', { status: response.status }))
   const body = (await response.json()) as { tag_name?: string; html_url?: string }
-  const latest = (body.tag_name ?? '').replace(/^v/i, '')
-  const url = body.html_url && body.html_url.startsWith('https://github.com/') ? body.html_url : page
-  return { current, latest: latest || current, newer: latest ? compareVersions(latest, current) > 0 : false, url }
+  return body.tag_name ? { tag: body.tag_name, url: body.html_url } : null
+}
+
+/** The highest version among the recent published releases, pre-releases included (drafts are never listed to others). */
+async function newestRelease(fetchFn: FetchLike, repo: string | undefined, timeoutSec: number): Promise<ReleaseTag | null> {
+  const response = await fetchFn(releaseUrls(repo).list, githubRequest(timeoutSec))
+  if (response.status === 404) return null
+  if (!response.ok) throw new Error(tm('main.updates.githubAnswered', { status: response.status }))
+  const body = (await response.json()) as { tag_name?: string; html_url?: string; draft?: boolean }[]
+  if (!Array.isArray(body)) return null
+  let best: ReleaseTag | null = null
+  for (const r of body) {
+    if (r.draft || !r.tag_name) continue
+    if (!best || compareVersions(r.tag_name, best.tag) > 0) best = { tag: r.tag_name, url: r.html_url }
+  }
+  return best
 }

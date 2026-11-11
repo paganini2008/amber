@@ -136,6 +136,13 @@ async function stopRecording() {
   await new Promise((r) => ff.on('exit', r))
 }
 
+// ---------- input source ----------
+let savedInput = null
+function inputSource(arg) {
+  const r = spawnSync('osascript', ['-l', 'JavaScript', path.join(HERE, 'input-source.jxa'), arg], { encoding: 'utf8' })
+  return r.status === 0 ? r.stdout.trim() : null
+}
+
 // ---------- the tutorial ----------
 // Import by pasting: the native Open dialog would show the folders and file names of whoever records.
 async function openScript() {
@@ -165,6 +172,12 @@ async function openScript() {
 async function run() {
   if (REAL) {
     spawnSync('osascript', ['-e', 'tell application "System Events" to set frontmost of process "Electron" to true'])
+    await sleep(500)
+    // Typed text goes through the input source of the app in front: an input method (e.g. Pinyin) would change it.
+    savedInput = inputSource('get')
+    const english = inputSource('english')
+    if (!english?.startsWith('com.apple.keylayout.')) throw new Error(`could not switch to an English keyboard layout (now ${english})`)
+    console.log(`  input source: ${english} (was ${savedInput})`)
     jxa([{ move: [win[0] + 676, win[1] + 380], ms: 300 }])
     await sleep(800)
   }
@@ -226,24 +239,34 @@ async function run() {
   await glance([`[...document.querySelectorAll('[role=status],div')].filter(vis).filter(e=>e.textContent.trim().startsWith('Database metadata confirmed')).sort((a,b)=>a.textContent.length-b.textContent.length)[0]`, `panelBtn('Findings')`], 1400)
   await sleep(2400)
 
-  sub('Optimized SQL, rule-based and local: every rewrite is checked by the parser before you see it.')
-  await go(`panelBtn('Suggestions')`)
-  await sleep(1400)
-  await go(`(()=>{const t=[...document.querySelectorAll('*')].filter(vis).filter(e=>e.children.length===0&&e.textContent.trim()==='Open')[1]; return t&&(t.closest('button,[role=button],a')||t)})()`)
-  await waitFor(`document.querySelector('[role=dialog]')`, 10000, 'optimized SQL dialog')
-  await sleep(4200)
-  sub('Apply changes only the editor, as one step you can undo. Nothing is executed or saved.')
-  await go(`[...document.querySelectorAll('[role=dialog] button')].find(e=>e.textContent.trim()==='Apply to editor')`)
-  await waitFor(`!document.querySelector('[role=dialog]')`, 8000, 'dialog closed after apply')
+  sub('Suggestions: every finding with its fix. Amber fixes what it can prove; the rest goes to the AI.')
+  await go(`tabEl('Suggestions')`)
+  await waitFor(`exact('Refactor script')`, 20000, 'Suggestions view')
+  await waitFor(`!document.body.innerText.includes('Looking for fixes')`, 30000, 'fixes').catch(() => {})
+  await sleep(1500)
+  await glance([`pick('Fixable here')`, `pick('Needs AI')`], 900)
+  await sleep(1500)
+
+  sub('Refactor script: every rewrite that keeps the result the same, pass after pass, then a logic check.')
+  await go(`exact('Refactor script')`)
+  await waitFor(`document.querySelector('[role=dialog]')`, 10000, 'refactor dialog')
+  await sleep(2200)
+  // keep the layout, so Change impact shows only the rewrites
+  const layout = `document.querySelector('[role=dialog] input[type=checkbox]')`
+  if (await ev(`return !!(${layout})?.checked`)) { await go(layout); await sleep(700) }
+  await go(`[...document.querySelectorAll('[role=dialog] button')].find(e=>e.textContent.trim()==='Refactor')`)
+  await waitFor(`exact('Apply to editor')`, 60000, 'refactoring in Change impact')
+  await sleep(3500)
+  sub('Same conditions, values, sources and outputs as before. Apply is one step you can undo; nothing runs.')
+  await glance([`[...document.querySelectorAll('p,div,span')].filter(vis).filter(e=>e.textContent.trim().startsWith('Logic check:')).sort((a,b)=>a.textContent.length-b.textContent.length)[0]`], 2600)
+  await go(`exact('Apply to editor')`)
+  await waitFor(`exact('Refactor script')`, 15000, 'back in Suggestions')
   await sleep(2400)
-  console.log('  applied NOT EXISTS:', await ev(`return document.querySelector('.cm-content')?.textContent.includes('NOT EXISTS')`))
-  if (await ev(`return panelBtn('Suggestions')?.getAttribute('aria-expanded')==='true'`)) await go(`panelBtn('Suggestions')`)
-  await sleep(700)
 
   sub('Want a second opinion? Ask AI: a local Ollama model or any OpenAI-compatible service.')
-  await go(`step('Query demo.orders, demo.cu')`)
-  await sleep(1800)
-  if (!(await ev(`return !!document.querySelector('textarea[placeholder^="For example"]')`))) { const aiHead = `[...document.querySelectorAll('button[aria-expanded]')].filter(vis).find(e=>e.textContent.trim().startsWith('AI suggestions'))`; console.log('  ai before:', await ev(`return (${aiHead})?.getAttribute('aria-expanded')`)); await go(aiHead); await sleep(600); if ((await ev(`return (${aiHead})?.getAttribute('aria-expanded')`)) !== 'true') { await sleep(500); await go(aiHead, { ms: 250 }); await sleep(500) } if ((await ev(`return (${aiHead})?.getAttribute('aria-expanded')`)) !== 'true') { console.log('  ai: fallback click'); await ev(`(${aiHead}).click(); return 1`) } console.log('  ai after:', await ev(`return (${aiHead})?.getAttribute('aria-expanded')`)); await waitFor(`document.querySelector('textarea[placeholder^="For example"]')`, 5000, 'AI panel open'); await sleep(600) }
+  await waitFor(`document.querySelector('textarea[placeholder^="For example"]')`, 10000, 'AI panel in Suggestions')
+  await scrollAt(`document.querySelector('textarea[placeholder^="For example"]')`, -2).catch(() => {})
+  await sleep(1200)
   await go(`document.querySelector('textarea[placeholder^="For example"]')`)
   await typeText('orders grows by about 1M rows a day.', 14)
   await sleep(500)
@@ -259,7 +282,7 @@ async function run() {
   await sleep(4000)
   await waitFor(`document.body.innerText.match(/\\d+ suggestions?/)`, 60000, 'AI answer').catch(() => {})
   await sleep(1500)
-  await scrollAt(`[...document.querySelectorAll('button[aria-expanded]')].filter(vis).find(e=>e.textContent.trim().startsWith('AI suggestions'))`, -6).catch(() => {})
+  await scrollAt(`document.querySelector('textarea[placeholder^="For example"]')`, -6).catch(() => {})
   await sleep(4000)
   sub('')
   await sleep(500)
@@ -272,6 +295,7 @@ try {
   process.exitCode = 1
 } finally {
   await stopRecording()
+  if (savedInput) inputSource(savedInput)
   fs.writeFileSync(path.join(DIR, 'marks.json'), JSON.stringify(marks, null, 1))
   ws.close()
 }

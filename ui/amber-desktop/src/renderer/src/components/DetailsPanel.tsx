@@ -59,7 +59,6 @@ export function DetailsPanel(): React.JSX.Element {
           <p className="text-sm text-ink-muted">{t('details.emptyHint')}</p>
         )}
       </div>
-      <AiPanel />
     </aside>
   )
 }
@@ -107,11 +106,12 @@ interface SuggestionView {
 }
 
 /**
- * AI suggestions (optional, advisory). The context comes from the engine (`ai.buildContext`), never
+ * AI suggestions (optional, advisory), shown in the Suggestions view under the findings and their fixes.
+ * The context comes from the engine (`ai.buildContext`), never
  * from the raw script; every rewritten SQL goes through `ai.check`. Provider calls run in main.
  * The alias map of masked names stays in this component and is never sent to the provider.
  */
-function AiPanel(): React.JSX.Element {
+export function AiPanel(): React.JSX.Element {
   const settings = useStore((s) => s.settings)
   const selection = useStore((s) => s.selection)
   const analysis = useStore((s) => s.analysis)
@@ -120,7 +120,6 @@ function AiPanel(): React.JSX.Element {
   const dialect = useStore((s) => s.dialect)
   const usedFallback = useStore((s) => s.usedFallback)
   const openDialog = useStore((s) => s.openDialog)
-  const [open, setOpen] = useState(false)
   const [scope, setScope] = useState<'statement' | 'script'>('statement')
   const [phase, setPhase] = useState<Phase>({ step: 'idle' })
   const [mask, setMask] = useState<Record<string, string>>({})
@@ -276,11 +275,10 @@ function AiPanel(): React.JSX.Element {
   const notesChanged = phase.step === 'preview' && phase.run.notes !== notes.trim()
 
   return (
-    <section className="shrink-0 border-t border-line">
-      <button type="button" className="flex h-9 w-full items-center gap-2 overflow-hidden px-3 text-sm hover:bg-surface-hover" onClick={() => setOpen(!open)} aria-expanded={open}>
-        {open ? <ChevronDown size={13} /> : <ChevronRight size={13} />}
-        <Sparkles size={14} className="text-ink-muted" />
-        <span className="shrink-0 font-medium whitespace-nowrap">{t('ai.title')}</span>
+    <section className="rounded-[8px] border border-line bg-surface" aria-label={t('ai.title')}>
+      <div className="flex h-10 w-full items-center gap-2 overflow-hidden border-b border-line px-4 text-sm">
+        <Sparkles size={14} className="text-amber-ink" />
+        <h3 className="shrink-0 font-medium whitespace-nowrap">{t('ai.title')}</h3>
         <span className="ml-auto flex min-w-0 items-center gap-1 text-xs text-ink-muted" title={provider ? `${provider === 'ollama' ? 'Ollama' : t('ai.openaiCompatible')} · ${settings?.ai[provider].model || t('ai.noModel')}` : undefined}>
           {provider ? (
             <>
@@ -292,9 +290,8 @@ function AiPanel(): React.JSX.Element {
             t('ai.off')
           )}
         </span>
-      </button>
-      {open ? (
-        <div className="max-h-[56vh] space-y-3 overflow-auto px-4 pb-4 text-sm">
+      </div>
+      <div className="space-y-3 px-4 py-3 text-sm">
           <ProviderSwitch provider={provider} settings={settings} onSettings={() => openDialog('settings', 'ai')} />
           {!provider ? (
             <div className="text-ink-muted">
@@ -372,8 +369,7 @@ function AiPanel(): React.JSX.Element {
               ) : null}
             </>
           )}
-        </div>
-      ) : null}
+      </div>
     </section>
   )
 }
@@ -593,6 +589,8 @@ function ContextPreview({
 
 function SuggestionCard({ view, mask, index }: { view: SuggestionView; mask: Record<string, string>; index: AnalysisIndex | null }): React.JSX.Element {
   const markRange = useStore((s) => s.markRange)
+  const applySql = useStore((s) => s.applyStatementSql)
+  const edited = useStore((s) => Boolean(s.doc?.edited))
   const { suggestion, check } = view
   const text = (value: string | undefined): string | undefined => (value ? unmaskText(value, mask) : undefined)
   const target = view.statement !== null ? index?.byId.get(view.statement) : undefined
@@ -671,7 +669,14 @@ function SuggestionCard({ view, mask, index }: { view: SuggestionView; mask: Rec
         </ul>
       ) : null}
       {check && !check.ok ? <p className="text-ink-muted">{check.message}</p> : null}
+      {check?.ok && check.result.label === 'STRUCTURE_CHANGED' ? <p className="text-risk-medium">{t('suggestions.ai.changed')}</p> : null}
       {sql ? <CodeBlock code={sql} /> : null}
+      {/* Only a rewrite in which the engine found no difference at all replaces the statement. */}
+      {check?.ok && check.result.label === 'STRUCTURE_PRESERVED' && view.statement !== null && check.result.sql ? (
+        <Button size="sm" variant="primary" disabled={edited} title={t('suggestions.ai.applyTitle')} onClick={() => applySql(view.statement!, check.result.sql)}>
+          {t('suggestions.apply')}
+        </Button>
+      ) : null}
     </article>
   )
 }

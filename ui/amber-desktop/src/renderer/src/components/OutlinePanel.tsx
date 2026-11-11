@@ -23,6 +23,7 @@ export function OutlinePanel(): React.JSX.Element {
   const toggleCollapsed = useStore((s) => s.toggleCollapsed)
   const setCollapsedAll = useStore((s) => s.setCollapsedAll)
   const selectStatement = useStore((s) => s.selectStatement)
+  const revealRange = useStore((s) => s.revealRange)
   const trace = useTrace()
   const playback = usePlaybackView()
   const parent = useRef<HTMLDivElement>(null)
@@ -86,6 +87,29 @@ export function OutlinePanel(): React.JSX.Element {
             {virtualizer.getVirtualItems().map((item) => {
               const row = rows[item.index]!
               const s = row.statement
+              if (row.part) {
+                const part = row.part
+                return (
+                  <div
+                    key={`${s.id}:${part.range.start.offset}`}
+                    role="treeitem"
+                    aria-selected={false}
+                    aria-level={row.depth + 1}
+                    onClick={() => {
+                      selectStatement(s.id, 'view', false)
+                      revealRange(part.range.start.offset, part.range.end.offset)
+                    }}
+                    title={`${t('app.outline.cte', { name: part.name })} · ${t('common.line', { line: part.range.start.line })}${part.sources.length ? `\n${t('app.outline.reads', { names: part.sources.join(', ') })}` : ''}`}
+                    className="absolute left-0 flex w-full cursor-default items-center gap-1.5 pr-2 text-sm hover:bg-surface-hover"
+                    style={{ top: item.start, height: ROW, paddingLeft: 6 + row.depth * 14 + 20 }}
+                  >
+                    <KindIcon kind="CTE" className="shrink-0 text-ink-muted" />
+                    <span className="code min-w-0 truncate text-[12.5px] text-ink">{part.name}</span>
+                    {part.sources.length ? <span className="min-w-0 flex-1 truncate text-xs text-ink-muted">{part.sources.join(', ')}</span> : <span className="flex-1" />}
+                    <span className="code shrink-0 text-xs text-ink-faint tabular-nums">{part.range.start.line}</span>
+                  </div>
+                )
+              }
               const selected = s.id === selectedId
               const lit = trace ? trace.statements.has(s.id) || onPath.has(s.id) : true
               const current = playback.current === s.id

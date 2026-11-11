@@ -4,6 +4,7 @@ export const app: En['app'] = {
   views: {
     label: 'Vistas',
     outline: 'Esquema',
+    suggestions: 'Sugerencias',
     lifecycle: 'Ciclo de vida',
     dataflow: 'Flujo de datos',
     lineage: 'Linaje',
@@ -92,6 +93,8 @@ export const app: En['app'] = {
   },
   outline: {
     title: 'Esquema',
+    cte: 'CTE {name}',
+    reads: 'Lee {names}',
     steps: '{count, plural, one {# paso} other {# pasos}}',
     expandAll: 'Expandir todo',
     collapseAll: 'Contraer todo',
@@ -164,7 +167,8 @@ export const app: En['app'] = {
     checkChange: 'Revisar el cambio',
     openBeforeCompare: 'Primero abra un script y luego compárelo con otra versión.',
     analyzeFirst: 'Primero abra y analice un script.',
-    updateAvailable: 'Amber {version} está disponible. Vea Configuración → Actualizaciones.',
+    updateAvailable: 'Amber {version} está disponible.',
+    updateReady: 'Amber {version} se ha descargado. Se instalará cuando reinicie Amber.',
     openFailed: 'No se pudo abrir el archivo: {reason}',
     openPathFailed: 'No se pudo abrir {path}: {reason}',
     saved: 'Se guardó {file}',

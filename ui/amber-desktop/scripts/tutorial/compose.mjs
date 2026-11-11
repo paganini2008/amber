@@ -1,5 +1,5 @@
 // Composes the Tutorial video (started by run.mjs):
-//   node compose.mjs --work <dir> --out <mp4> [--bgm <audio file>]
+//   node compose.mjs --work <dir> --out <mp4> [--bgm <audio file> [--credit <music credit>]]
 // Reads <work>/raw.mov, <work>/marks.json and <work>/meta.json (crop of the app window in the capture, and how
 // long the capture ran before the first mark). Renders the title cards from cards.html with headless Chrome,
 // joins intro card → app → outro card with cross-fades, burns in English subtitles and mixes the music.
@@ -16,6 +16,7 @@ const arg = (name, fallback) => {
 const WORK = arg('--work')
 const OUT = arg('--out')
 const BGM = arg('--bgm', '')
+const CREDIT = arg('--credit', '') // the music credit on the outro card
 const CHROME = '/Applications/Google Chrome.app/Contents/MacOS/Google Chrome'
 const INTRO = 6
 const OUTRO = 7
@@ -52,7 +53,7 @@ if (total > MAX_SECONDS) throw new Error(`the video would be ${total.toFixed(0)}
 // Title cards: cards.html#intro and #outro at 1920x1080.
 for (const card of ['intro', 'outro']) {
   run(CHROME, ['--headless=new', '--disable-gpu', '--hide-scrollbars', '--allow-file-access-from-files', '--force-device-scale-factor=1',
-    '--window-size=1920,1080', `--screenshot=${path.join(WORK, `card-${card}.png`)}`, `file://${path.join(HERE, 'cards.html')}#${card}`], true)
+    '--window-size=1920,1080', `--screenshot=${path.join(WORK, `card-${card}.png`)}`, `file://${path.join(HERE, 'cards.html')}?music=${encodeURIComponent(BGM ? CREDIT : '')}#${card}`], true)
 }
 
 // Subtitles (ASS): bottom centre on a dark box; each one lasts until the next mark.

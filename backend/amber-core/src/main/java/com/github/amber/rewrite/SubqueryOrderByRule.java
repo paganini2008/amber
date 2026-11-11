@@ -13,6 +13,8 @@ import java.util.Set;
  * OFFSET, ROWNUM), and anywhere else in the statement a row limit, ROWNUM, a window function, an
  * order-sensitive aggregate (LISTAGG, STRING_AGG, XMLAGG, GROUP_CONCAT, ARRAY_AGG…), a sequence
  * NEXTVAL, BULK COLLECT, FOR XML / FOR JSON or CONNECT BY; also in cursors and statements run in a loop.
+ * For a derived table or an expression subquery, other subqueries beside it are not looked at: they cannot
+ * read its rows (a CTE can be read anywhere, so for a CTE the whole statement counts).
  *
  * @Author: Fred Feng
  * @Date: 07/11/2026
@@ -49,7 +51,7 @@ final class SubqueryOrderByRule implements RewriteRule {
             if (!sql.sym(close, ')') || open < 0 || !isSubquery(sql, open, b)) {
                 continue;
             }
-            if (orderDependentOutside(sql, open, close)) {
+            if (orderDependentOutside(sql, open, close, cteBody(sql, open))) {
                 continue;
             }
             int last = b.clauseEnd(b.orderBy) - 1;
@@ -100,9 +102,20 @@ final class SubqueryOrderByRule implements RewriteRule {
         return sql.sym(i, '=') || sql.sym(i, '<') || sql.sym(i, '>');
     }
 
-    private static boolean orderDependentOutside(Sql sql, int open, int close) {
+    private static boolean cteBody(Sql sql, int open) {
+        // WITH name AS (…), AS MATERIALIZED (…), AS NOT MATERIALIZED (…)
+        return sql.word(open - 1, "AS") || (sql.word(open - 1, "MATERIALIZED")
+                && (sql.word(open - 2, "AS") || sql.word(open - 2, "NOT")));
+    }
+
+    private static boolean orderDependentOutside(Sql sql, int open, int close, boolean cte) {
         for (int i = 0; i < sql.size(); i++) {
             if (i >= open && i <= close) {
+                continue;
+            }
+            // A subquery beside this one (not around it) cannot read this one's rows.
+            if (!cte && sql.sym(i, '(') && sql.word(i + 1, "SELECT") && sql.close(i) > i && !(i < open && sql.close(i) > close)) {
+                i = sql.close(i);
                 continue;
             }
             if (sql.wordIn(i, ORDER_DEPENDENT)) {

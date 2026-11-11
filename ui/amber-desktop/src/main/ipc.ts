@@ -15,6 +15,7 @@ import type {
   SaveRequest,
   Settings,
   SettingsPatch,
+  UpdateStatus,
   WireResult
 } from '../shared/api'
 import { RPC_ERROR, type AnalyzeParams, type EngineMethod } from '../shared/protocol'
@@ -35,6 +36,7 @@ import { RpcError, errorMessage, toRpcError } from './engine/rpc-client'
 import { decodeScript } from './files/decode'
 import { normalizeRules, type SettingsStore } from './settings/store'
 import type { AppConfig } from './config'
+import type { AutoUpdates } from './updates/auto'
 import { checkLatestRelease, projectLinks } from './updates/check'
 import { tm } from './i18n'
 
@@ -84,6 +86,8 @@ export interface IpcContext {
   applyTheme: (settings: Settings) => void
   /** Switches main-process messages and rebuilds the native menu when the language changes. */
   applyLanguage: (settings: Settings) => void
+  /** Installs updates in the app; null where it cannot (macOS, development). */
+  updates: AutoUpdates | null
 }
 
 export function registerIpc(ctx: IpcContext): void {
@@ -344,13 +348,19 @@ export function registerIpc(ctx: IpcContext): void {
     })
   )
   ipcMain.handle('app:checkForUpdates', async (_e, force?: boolean) => {
-    if (!force && !settings.get().checkForUpdates) return ok(null)
+    // A development build (1.0.0-SNAPSHOT) has no release to update to; only an explicit check runs there.
+    if (!force && (!settings.get().checkForUpdates || !app.isPackaged)) return ok(null)
     try {
-      return ok(await checkLatestRelease(fetch, app.getVersion(), ctx.config.updateRepo, ctx.config.updateTimeoutSec))
+      const info = await checkLatestRelease(fetch, app.getVersion(), ctx.config.updateRepo, ctx.config.updateTimeoutSec)
+      const autoInstall = ctx.updates !== null
+      if (info.newer && ctx.updates) void ctx.updates.download(info.latest)
+      return ok({ ...info, autoInstall })
     } catch (error) {
       return fail(error)
     }
   })
+  ipcMain.handle('app:updateStatus', (): UpdateStatus => ctx.updates?.current() ?? { state: 'idle' })
+  ipcMain.handle('app:installUpdate', (): boolean => ctx.updates?.install() ?? false)
   ipcMain.handle('app:links', () => projectLinks(ctx.config.updateRepo))
   ipcMain.handle('app:thirdPartyNotices', async () => {
     // Packaged: bundled next to the app by electron-builder (extraResources). Development: the repository copy.

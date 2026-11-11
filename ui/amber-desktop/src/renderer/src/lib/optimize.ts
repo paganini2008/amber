@@ -34,7 +34,9 @@ export function sortChanges(changes: TextChange[]): TextChange[] {
 /** Whether "Apply" can replace the finding's statement with its SQL (one statement, not DDL). */
 export function canApplyFindingSql(f: Pick<Finding, 'rule' | 'suggestedSql' | 'suggestedSqlKind' | 'verified'>): boolean {
   // AMB-P004 combines two statements into one: the SQL replaces more than the finding's statement.
-  return Boolean(f.suggestedSql) && f.suggestedSqlKind === 'REWRITE_OF_STATEMENT' && f.rule !== 'AMB-P004' && f.verified !== 'INVALID_SQL'
+  // Only SQL the engine found no difference in (outputs, sources, conditions, values) may replace the statement:
+  // a rewrite must never change the business logic.
+  return Boolean(f.suggestedSql) && f.suggestedSqlKind === 'REWRITE_OF_STATEMENT' && f.rule !== 'AMB-P004' && f.verified === 'STRUCTURE_PRESERVED'
 }
 
 /** "Apply all safe optimizations": statements whose every applied rewrite keeps the same result for any data. */

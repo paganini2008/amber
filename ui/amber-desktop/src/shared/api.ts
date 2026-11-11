@@ -154,7 +154,16 @@ export interface UpdateInfo {
   latest: string
   newer: boolean
   url: string
+  /** True when Amber downloads and installs the update itself (Windows, Linux .deb/.rpm); false on macOS. */
+  autoInstall: boolean
 }
+
+/** Progress of an update that Amber installs itself. */
+export type UpdateStatus =
+  | { state: 'idle' }
+  | { state: 'downloading'; version: string; percent: number }
+  | { state: 'ready'; version: string }
+  | { state: 'error'; message: string }
 
 export interface AppInfo {
   name: string
@@ -268,7 +277,12 @@ export interface AmberApi {
   }
   app: {
     info(): Promise<AppInfo>
+    /** Checks GitHub; where Amber installs updates itself, a newer version starts downloading. */
     checkForUpdates(force?: boolean): Promise<Result<UpdateInfo | null>>
+    updateStatus(): Promise<UpdateStatus>
+    /** Restarts Amber into the downloaded update. */
+    installUpdate(): Promise<boolean>
+    onUpdateStatus(listener: (status: UpdateStatus) => void): () => void
     openExternal(url: string): Promise<void>
     /** Project, website, releases and issue links, and the author's profile (from the configured repo). */
     links(): Promise<{ project: string; website: string; releases: string; issue: string; author: { name: string; url: string } }>

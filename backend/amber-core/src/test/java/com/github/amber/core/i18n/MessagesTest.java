@@ -176,7 +176,9 @@ class MessagesTest {
         assertEquals("LIKE {0} cannot use an index on the column.", en.text("findings.S003.message"));
         assertEquals("no.such.key", en.text("no.such.key", 1));
         assertFalse(en.has("no.such.key"));
-        assertEquals("这个子查询在脚本中出现了 3 次。", Messages.of("zh-CN").text("findings.D002.message", 3));
+        // Translations are compared with their bundle, so no translated text is written in the tests.
+        String zhPattern = Messages.raw("findings", "zh-CN").get("findings.D002.message");
+        assertEquals(zhPattern.replace("{0}", "3"), Messages.of("zh-CN").text("findings.D002.message", 3));
     }
 
     @Test
@@ -192,7 +194,7 @@ class MessagesTest {
         assertSame(Messages.en(), Messages.current());
         String title = Messages.call(Messages.of("es"), () -> {
             String inner = Messages.call(Messages.of("zh-CN"), () -> Messages.t("rule.AMB-S001.title"));
-            assertEquals("笛卡尔积", inner);
+            assertEquals(Messages.raw("findings", "zh-CN").get("rule.AMB-S001.title"), inner);
             return Messages.t("rule.AMB-S001.title");
         });
         assertEquals("Producto cartesiano", title);
@@ -207,7 +209,7 @@ class MessagesTest {
     void bindCarriesTheLanguageToAnotherThread() throws Exception {
         String title = Messages.call(Messages.of("zh-CN"), () -> CompletableFuture.supplyAsync(
                 Messages.bind(() -> Messages.t("rule.AMB-S001.title"))).join());
-        assertEquals("笛卡尔积", title);
+        assertEquals(Messages.raw("findings", "zh-CN").get("rule.AMB-S001.title"), title);
         assertEquals("Cartesian product", CompletableFuture.supplyAsync(
                 Messages.bind(() -> Messages.t("rule.AMB-S001.title"))).join());
         assertThrows(IllegalArgumentException.class, () -> Messages.bind(() -> {

@@ -25,11 +25,14 @@ export const LOCALIZED_METHODS = new Set<string>([
   'engine.rules'
 ])
 
-/** The params with `locale` added for localized methods (a params object is required for them). */
+/**
+ * The params with `locale` added for localized methods (a params object is required for them). A caller that
+ * sets `locale` itself keeps it: code that reads the engine's English wording (e.g. difference prefixes).
+ */
 export function withLocale(method: string, params: unknown): unknown {
   if (!LOCALIZED_METHODS.has(method)) return params
   const base = params && typeof params === 'object' ? (params as Record<string, unknown>) : {}
-  return { ...base, locale: getLanguage() }
+  return { locale: getLanguage(), ...base }
 }
 
 let bridge: AmberApi | null = null

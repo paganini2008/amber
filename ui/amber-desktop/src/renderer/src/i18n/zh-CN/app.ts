@@ -4,6 +4,7 @@ export const app: En['app'] = {
   views: {
     label: '视图',
     outline: '大纲',
+    suggestions: '建议',
     lifecycle: '生命周期',
     dataflow: '数据流',
     lineage: '血缘',
@@ -92,6 +93,8 @@ export const app: En['app'] = {
   },
   outline: {
     title: '大纲',
+    cte: 'CTE {name}',
+    reads: '读取 {names}',
     steps: '{count, plural, other {# 步}}',
     expandAll: '全部展开',
     collapseAll: '全部折叠',
@@ -164,7 +167,8 @@ export const app: En['app'] = {
     checkChange: '检查此修改',
     openBeforeCompare: '请先打开脚本，再与另一个版本比较。',
     analyzeFirst: '请先打开并分析一个脚本。',
-    updateAvailable: 'Amber {version} 已发布。请查看“设置 → 更新”。',
+    updateAvailable: 'Amber {version} 已发布。',
+    updateReady: 'Amber {version} 已下载，重启 Amber 时安装。',
     openFailed: '无法打开文件：{reason}',
     openPathFailed: '无法打开 {path}：{reason}',
     saved: '已保存 {file}',

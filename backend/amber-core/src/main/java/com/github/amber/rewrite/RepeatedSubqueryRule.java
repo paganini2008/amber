@@ -13,17 +13,21 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 
 /**
  * AMB-D002: the same subquery written several times in one statement is computed once in a CTE and
  * referenced by name. A derived table becomes the CTE name (its alias is kept); an expression subquery
  * becomes {@code (SELECT * FROM name)}.
  *
- * <p>Only subqueries that mean the same thing everywhere are factored: every column must be qualified by
- * a table of the subquery itself or provably belong to one of its tables (metadata), so nothing refers
- * to the outer query; and nothing in it may change between evaluations (no SYSDATE / NOW / random /
- * sequences / ROWNUM / window functions / row limits, and only well-known built-in functions). The WITH
- * goes where the dialect accepts it for the statement kind (before INSERT in SQL Server and SQLite).
+ * <p>Only subqueries that mean the same thing everywhere are factored. Nothing may refer to the outer query:
+ * a derived table in FROM / JOIN cannot (only LATERAL and APPLY can), and in an expression subquery every
+ * column must be qualified by a table of the subquery or provably belong to one of its tables (metadata).
+ * Nothing in it may change between evaluations (no SYSDATE / NOW / random / sequences / ROWNUM / row
+ * limits). Two things are allowed with a stated edge case: a window function that numbers rows
+ * (ROW_NUMBER, LAG…), which may order ties differently in each copy, and a function Amber does not know,
+ * which is assumed to return the same value for the same arguments. The WITH goes where the dialect accepts
+ * it for the statement kind (before INSERT in SQL Server and SQLite).
  *
  * @Author: Fred Feng
  * @Date: 07/11/2026
@@ -37,7 +41,7 @@ final class RepeatedSubqueryRule implements RewriteRule {
     private static final Set<String> VOLATILE = Set.of("SYSDATE", "SYSTIMESTAMP", "NOW", "CURRENT_TIMESTAMP",
             "CURRENT_DATE", "CURRENT_TIME", "LOCALTIMESTAMP", "LOCALTIME", "GETDATE", "GETUTCDATE", "SYSDATETIME",
             "RAND", "RANDOM", "NEWID", "NEXTVAL", "CURRVAL", "ROWNUM", "SYS_GUID", "UUID", "DBMS_RANDOM", "NEXT",
-            "OVER", "TOP", "LIMIT", "FETCH", "OFFSET", "LEVEL", "CURRENT", "USER", "CONNECT", "SAMPLE", "TABLESAMPLE");
+            "TOP", "LIMIT", "FETCH", "OFFSET", "LEVEL", "CURRENT", "USER", "CONNECT", "SAMPLE", "TABLESAMPLE");
     private static final Set<String> FUNCTIONS = Set.of("COUNT", "SUM", "AVG", "MIN", "MAX", "COALESCE", "NVL", "NVL2",
             "ISNULL", "IFNULL", "NULLIF", "CAST", "CONVERT", "UPPER", "LOWER", "TRIM", "LTRIM", "RTRIM", "SUBSTR",
             "SUBSTRING", "LENGTH", "LEN", "CONCAT", "REPLACE", "ROUND", "TRUNC", "FLOOR", "CEIL", "CEILING", "ABS", "MOD",
@@ -47,7 +51,14 @@ final class RepeatedSubqueryRule implements RewriteRule {
     private static final Set<String> KEYWORDS = Set.of("SELECT", "FROM", "WHERE", "AND", "OR", "NOT", "IN", "IS",
             "NULL", "AS", "ON", "JOIN", "LEFT", "RIGHT", "INNER", "OUTER", "FULL", "CROSS", "GROUP", "BY", "ORDER",
             "HAVING", "DISTINCT", "ALL", "UNION", "EXCEPT", "INTERSECT", "MINUS", "CASE", "WHEN", "THEN", "ELSE", "END",
-            "BETWEEN", "LIKE", "EXISTS", "ASC", "DESC", "NULLS", "TRUE", "FALSE", "ESCAPE", "ANY", "SOME", "USING");
+            "BETWEEN", "LIKE", "EXISTS", "ASC", "DESC", "NULLS", "TRUE", "FALSE", "ESCAPE", "ANY", "SOME", "USING",
+            "PARTITION", "ROWS", "RANGE", "UNBOUNDED", "PRECEDING", "FOLLOWING", "ROW");
+    /** Window functions whose result depends on how ties are ordered. */
+    private static final Set<String> TIE_SENSITIVE = Set.of("ROW_NUMBER", "NTILE", "LAG", "LEAD", "FIRST_VALUE",
+            "LAST_VALUE", "NTH_VALUE");
+    /** Window functions that give the same result whatever the order of ties. */
+    private static final Set<String> WINDOW = Set.of("RANK", "DENSE_RANK", "PERCENT_RANK", "CUME_DIST",
+            "RATIO_TO_REPORT");
     /** Words that are keywords only in typed positions and may otherwise be column names. */
     private static final Set<String> UNITS = Set.of("DAY", "MONTH", "YEAR", "HOUR", "MINUTE", "SECOND");
 
@@ -87,7 +98,10 @@ final class RepeatedSubqueryRule implements RewriteRule {
     private Candidate rewrite(RewriteContext ctx, Sql sql, List<Integer> opens) {
         int open = opens.get(0);
         int close = sql.close(open);
-        if (!selfContained(ctx, sql, open, close)) {
+        // A derived table (not LATERAL / APPLY) cannot see the outer query, whatever its columns look like.
+        boolean derivedOnly = opens.stream().allMatch(o -> derived(sql, o) && !sql.wordIn(o - 1, Set.of("APPLY", "LATERAL")));
+        List<String> caveats = caveats(ctx, sql, open, close, derivedOnly);
+        if (caveats == null) {
             return null;
         }
         Placement place = placement(ctx, sql);
@@ -119,10 +133,12 @@ final class RepeatedSubqueryRule implements RewriteRule {
                         + RewriteContext.kw("FROM", ref) + " " + name));
             }
         }
+        Safety safety = caveats.isEmpty() ? Safety.EQUIVALENT : Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES;
+        String note = caveats.isEmpty() ? Messages.t("rewrite.repeatedSubquery.safety", opens.size())
+                : String.join(" ", caveats);
         return new Candidate(id(), Messages.t("rewrite.repeatedSubquery.title"),
                 Messages.t("rewrite.repeatedSubquery.explanation", opens.size(), name),
-                edits, Safety.EQUIVALENT, Messages.t("rewrite.repeatedSubquery.safety", opens.size()),
-                List.of("Ordering and row limits:"));
+                edits, safety, note, List.of("Ordering and row limits:"));
     }
 
     // ----- checks -----------------------------------------------------------------------------------
@@ -142,8 +158,13 @@ final class RepeatedSubqueryRule implements RewriteRule {
         return ranges.stream().anyMatch(r -> o >= r[0] && o <= r[1]);
     }
 
-    /** No reference to the outer query, nothing volatile, only known functions. */
-    private static boolean selfContained(RewriteContext ctx, Sql sql, int open, int close) {
+    /**
+     * Null when the subquery cannot be shared (it refers to the outer query or uses something volatile);
+     * otherwise the edge cases sharing it brings, empty when there are none.
+     */
+    private static List<String> caveats(RewriteContext ctx, Sql sql, int open, int close, boolean derivedOnly) {
+        Set<String> tieSensitive = new TreeSet<>();
+        Set<String> unknown = new TreeSet<>();
         Set<String> names = new HashSet<>();
         Set<Integer> sourceTokens = new HashSet<>();
         Set<String> aliases = new HashSet<>();
@@ -153,11 +174,14 @@ final class RepeatedSubqueryRule implements RewriteRule {
                 continue;
             }
             if (b.limited || b.exotic || b.connectBy >= 0 || b.forClause >= 0) {
-                return false;
+                return null;
             }
             for (Source s : b.sources()) {
                 if (s.exposed(sql) == null) {
-                    return false;
+                    if (derivedOnly) {
+                        continue;                   // an inner derived table without an alias: nothing refers to it
+                    }
+                    return null;
                 }
                 names.add(s.exposed(sql));
                 sources.add(s);
@@ -179,14 +203,14 @@ final class RepeatedSubqueryRule implements RewriteRule {
         for (int j = open + 1; j < close; j++) {
             ScanToken t = sql.tok(j);
             if (t.type() == ScanToken.Type.UNTERMINATED) {
-                return false;
+                return null;
             }
             if (!sql.isName(j) || sourceTokens.contains(j)) {
                 continue;
             }
             String key = Sql.key(t.text());
             if (t.type() == ScanToken.Type.WORD && VOLATILE.contains(key)) {
-                return false;
+                return null;
             }
             if (sql.sym(j - 1, '.') || sql.sym(j - 1, ':') || t.text().startsWith("@") || sql.word(j - 1, "AS")) {
                 continue;                           // a qualified part, a bind variable, an alias or a type
@@ -195,14 +219,20 @@ final class RepeatedSubqueryRule implements RewriteRule {
                 continue;
             }
             if (sql.sym(j + 1, '(')) {
-                if (!FUNCTIONS.contains(key) && !sql.wordIn(j, Set.of("IN", "EXISTS", "ANY", "SOME", "ALL", "AS"))) {
-                    return false;
+                if (TIE_SENSITIVE.contains(key)) {
+                    tieSensitive.add(key);
+                } else if (!FUNCTIONS.contains(key) && !WINDOW.contains(key)
+                        && !sql.wordIn(j, Set.of("IN", "EXISTS", "ANY", "SOME", "ALL", "AS", "OVER"))) {
+                    unknown.add(t.text());
                 }
                 continue;
             }
+            if (derivedOnly) {
+                continue;                           // a column: it can only belong to the subquery's own tables
+            }
             if (sql.sym(j + 1, '.')) {
                 if (!names.contains(key)) {
-                    return false;                   // qualified by a name the subquery does not define
+                    return null;                   // qualified by a name the subquery does not define
                 }
                 continue;
             }
@@ -210,10 +240,17 @@ final class RepeatedSubqueryRule implements RewriteRule {
                 continue;
             }
             if (!innerColumn(ctx, sources, key)) {
-                return false;
+                return null;
             }
         }
-        return true;
+        List<String> out = new ArrayList<>();
+        if (!tieSensitive.isEmpty()) {
+            out.add(Messages.t("rewrite.repeatedSubquery.ties", String.join(", ", tieSensitive)));
+        }
+        if (!unknown.isEmpty()) {
+            out.add(Messages.t("rewrite.repeatedSubquery.functions", String.join(", ", unknown)));
+        }
+        return out;
     }
 
     /** True when the word at {@code j} is used as a keyword here, not as a column name. */
@@ -285,9 +322,15 @@ final class RepeatedSubqueryRule implements RewriteRule {
                     q = i + 1;
                     break;
                 }
+                // CREATE TABLE t AS ( SELECT … ): WITH … ( SELECT … ) parses, ( WITH … SELECT … ) does not
+                if (sql.depth[i] == 0 && sql.word(i, "AS") && sql.sym(i + 1, '(') && sql.close(i + 1) == lastToken(sql)
+                        && (sql.word(i + 2, "SELECT") || sql.word(i + 2, "WITH"))) {
+                    q = sql.word(i + 2, "WITH") ? i + 2 : i + 1;
+                    break;
+                }
             }
         }
-        if (q < 0 || !(sql.word(q, "SELECT") || sql.word(q, "WITH") || (q == 0 && sql.word(q, "INSERT")))) {
+        if (q < 0 || !(sql.word(q, "SELECT") || sql.word(q, "WITH") || sql.sym(q, '(') || (q == 0 && sql.word(q, "INSERT")))) {
             return null;
         }
         String indent = indent(sql, q);
@@ -328,6 +371,12 @@ final class RepeatedSubqueryRule implements RewriteRule {
             i++;
         }
         return new Placement(-1, lastClose, indent, bodies);
+    }
+
+    /** The last token of the statement, a trailing ';' not counted. */
+    private static int lastToken(Sql sql) {
+        int last = sql.size() - 1;
+        return sql.sym(last, ';') ? last - 1 : last;
     }
 
     private static int firstAtDepth0(Sql sql, int from, Set<String> words) {

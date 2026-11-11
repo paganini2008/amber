@@ -1,0 +1,27 @@
+// osascript -l JavaScript input-source.jxa [get | english | <input source id>]
+// Prints the current keyboard input source id, or selects one and prints it: `english` picks an enabled plain
+// keyboard layout (ABC or U.S. first, else any com.apple.keylayout.*), so typed text is not composed by an input method.
+ObjC.import('Carbon')
+ObjC.bindFunction('TISCopyCurrentKeyboardInputSource', ['void *', []])
+ObjC.bindFunction('TISGetInputSourceProperty', ['void *', ['void *', 'void *']])
+ObjC.bindFunction('TISCreateInputSourceList', ['void *', ['void *', 'bool']])
+ObjC.bindFunction('TISSelectInputSource', ['int', ['void *']])
+function idOf(src) {
+  return ObjC.castRefToObject($.TISGetInputSourceProperty(src, $.kTISPropertyInputSourceID)).js
+}
+function run(argv) {
+  const want = argv[0]
+  if (!want || want === 'get') return idOf($.TISCopyCurrentKeyboardInputSource())
+  const all = ObjC.castRefToObject($.TISCreateInputSourceList(null, false))
+  let hit = null
+  for (let i = 0; i < all.count; i++) {
+    const src = ObjC.castObjectToRef(all.objectAtIndex(i))
+    const id = idOf(src)
+    if (want === 'english' ? id.startsWith('com.apple.keylayout.') && (!hit || /\.(ABC|US)$/.test(id)) : id === want) hit = src
+    if (hit && want !== 'english') break
+  }
+  if (!hit) throw new Error(`input source not enabled: ${want}`)
+  $.TISSelectInputSource(hit)
+  delay(0.3)
+  return idOf($.TISCopyCurrentKeyboardInputSource())
+}

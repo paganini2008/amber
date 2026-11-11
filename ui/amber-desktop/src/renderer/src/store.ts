@@ -16,7 +16,7 @@ import { canApplyFindingSql, sortChanges, statementChange } from './lib/optimize
 import { upgradedRelationships } from './lib/er'
 import { buildPlan, BRANCH_KINDS, type BranchDecision, type PlanStep } from './lib/playback'
 
-export type ViewId = 'outline' | 'lifecycle' | 'dataflow' | 'lineage' | 'er' | 'statement' | 'structure' | 'playback' | 'diff'
+export type ViewId = 'outline' | 'suggestions' | 'lifecycle' | 'dataflow' | 'lineage' | 'er' | 'statement' | 'structure' | 'playback' | 'diff'
 export type Selection = { type: 'statement'; id: number } | { type: 'object'; key: string } | null
 export type SelectionSource = 'editor' | 'view' | 'playback'
 export type DialogName = 'settings' | 'about' | 'paste' | 'handover'
@@ -234,6 +234,8 @@ interface State {
   closeReferences(): void
   /** Formats the script or the statements the selection overlaps, in the editor only. */
   formatScript(scope: 'script' | 'selection'): Promise<void>
+  /** Replaces the whole script in the editor with one undoable change (a prepared refactoring). */
+  replaceScriptText(text: string, label: string): void
   setEditorSelection(from: number, to: number): void
   loadRewrites(): Promise<void>
   previewRewrite(id: string | null): void
@@ -243,6 +245,8 @@ interface State {
   applyOptimized(statementIds: number[]): void
   /** Replaces a finding's statement with the finding's optimized SQL (single-statement rewrites only). */
   applyFindingSql(findingIndex: number): void
+  /** Replaces one statement with checked SQL (an AI fix); one undoable step in the editor. */
+  applyStatementSql(statement: number, sql: string): void
   loadRuleCatalog(): Promise<void>
   /** Fetches the ER model for the current analysis (keeps the previous one on screen meanwhile). */
   loadEr(): Promise<void>
@@ -757,6 +761,12 @@ export const useStore = create<State>((set, get) => ({
     })
   },
 
+  replaceScriptText(text, label) {
+    const doc = get().doc
+    if (!doc || doc.text === text) return
+    set({ beforeFixes: get().beforeFixes ?? { name: doc.name, text: doc.text }, editorEdits: { nonce: Date.now(), changes: minimalChanges(doc.text, text), label, baseText: doc.text } })
+  },
+
   async loadRewrites() {
     const { doc, analysis, dialect, settings, usedFallback } = get()
     const previous = get().rewrites.requestId
@@ -851,6 +861,22 @@ export const useStore = create<State>((set, get) => ({
     }
     const label = t('optimize.toast.applied', { count: 1 })
     set({ beforeFixes: get().beforeFixes ?? { name: doc.name, text: doc.text }, optimizedPreview: null, editorEdits: { nonce: Date.now(), changes: [change], label, baseText: doc.text } })
+  },
+
+  applyStatementSql(statement, sql) {
+    const { doc, index } = get()
+    const range = index?.byId.get(statement)?.range
+    if (!doc || !range || doc.edited) {
+      get().toast(t('app.toast.fixesStale'), 'error')
+      return
+    }
+    const change = statementChange(doc.text, range, doc.text.slice(range.start.offset, range.end.offset), sql)
+    if (!change) {
+      get().toast(t('optimize.toast.noMatch'), 'error')
+      return
+    }
+    const label = t('optimize.toast.applied', { count: 1 })
+    set({ beforeFixes: get().beforeFixes ?? { name: doc.name, text: doc.text }, editorEdits: { nonce: Date.now(), changes: [change], label, baseText: doc.text } })
   },
 
   async loadEr() {

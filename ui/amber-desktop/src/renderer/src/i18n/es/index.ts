@@ -34,6 +34,8 @@ import { online } from './online'
 import { samples } from './samples'
 import { details } from './details'
 import { fixes } from './fixes'
+import { suggestions } from './suggestions'
+import { refactor } from './refactor'
 import { references } from './references'
 import { editor } from './editor'
 import { diff } from './diff'
@@ -64,6 +66,8 @@ export const es: En = {
   samples,
   details,
   fixes,
+  suggestions,
+  refactor,
   references,
   editor,
   diff,

@@ -159,7 +159,9 @@ final class DateRangeRule implements RewriteRule {
             note = Messages.t(between ? "rewrite.dateRange.safety.wholeDays" : "rewrite.dateRange.safety.wholeDay",
                     col, type, value);
         }
-        return new Candidate(id(), Messages.t("rewrite.dateRange.title"), explanation, List.of(edit), safety, note);
+        // the function on the column becomes a range on the column: a new condition, proven equal by this rule
+        return new Candidate(id(), Messages.t("rewrite.dateRange.title"), explanation, List.of(edit), safety, note,
+                List.of("Conditions", "Literal values"));
     }
 
     // ----- the truncation ---------------------------------------------------------------------------

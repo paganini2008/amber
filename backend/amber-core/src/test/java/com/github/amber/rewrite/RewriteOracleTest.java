@@ -30,6 +30,112 @@ class RewriteOracleTest {
             create table blocked (cust_id number not null, reason varchar2(20));
             """;
 
+    // ----- legacy report patterns: copied holder subqueries, sorted derived tables, parenthesized CTAS ----------
+
+    /** The same numbered derived table joined once per position (holder 1, holder 2…), inside CREATE TABLE AS ( … ). */
+    private static final String HOLDERS = """
+            create table rpt_holders as
+            (
+            select a.acct_id,
+                   h1.cust_name as holder1, h2.cust_name as holder2, h3.cust_name as holder3
+              from accounts a
+              left join
+                (select acct_id, cust_name, check_flag(cust_ref) as ok,
+                        row_number() over (partition by acct_id order by cust_ref) as seq
+                   from account_holders
+                   left join (select cust_ref as ref2, region from customer_region where active = 'Y')
+                     on cust_ref = ref2
+                  where snapshot_dt = 20251031
+                  order by acct_id, seq) h1
+                on h1.acct_id = a.acct_id and h1.seq = 1
+              left join
+                (select acct_id, cust_name, check_flag(cust_ref) as ok,
+                        row_number() over (partition by acct_id order by cust_ref) as seq
+                   from account_holders
+                   left join (select cust_ref as ref2, region from customer_region where active = 'Y')
+                     on cust_ref = ref2
+                  where snapshot_dt = 20251031
+                  order by acct_id, seq) h2
+                on h2.acct_id = a.acct_id and h2.seq = 2
+              left join
+                (select acct_id, cust_name, check_flag(cust_ref) as ok,
+                        row_number() over (partition by acct_id order by cust_ref) as seq
+                   from account_holders
+                   left join (select cust_ref as ref2, region from customer_region where active = 'Y')
+                     on cust_ref = ref2
+                  where snapshot_dt = 20251031
+                  order by acct_id, seq) h3
+                on h3.acct_id = a.acct_id and h3.seq = 3
+            );
+            """;
+
+    @Test
+    void copiedDerivedTablesBecomeOneCteBeforeTheParenthesizedQuery() {
+        Rewrite cte = only(suggest(D, HOLDERS), "AMB-D002");
+        String out = cte.rewrittenStatement();
+        assertTrue(out.startsWith("create table rpt_holders as\nwith shared_q1 as (select acct_id, cust_name"), out);
+        assertTrue(out.contains("left join\n    shared_q1 h1"), out);
+        assertTrue(out.contains("shared_q1 h3"), out);
+        assertEquals(1, out.split("from account_holders", -1).length - 1, "the body is written once");
+        // Unqualified columns are fine in a derived table: it cannot see the outer query.
+        assertEquals(Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES, cte.safety());
+        assertTrue(cte.safetyNote().contains("ROW_NUMBER"), cte.safetyNote());
+        assertTrue(cte.safetyNote().contains("check_flag"), cte.safetyNote());
+    }
+
+    @Test
+    void sortedDerivedTablesLoseTheirOrderByDespiteWindowsInTheOtherCopies() {
+        List<Rewrite> orders = of(suggest(D, HOLDERS), "AMB-S012");
+        assertEquals(3, orders.size());
+        for (Rewrite r : orders) {
+            assertEquals(Safety.EQUIVALENT, r.safety());
+        }
+        assertTrue(!orders.get(0).rewrittenStatement().contains("order by acct_id, seq) h1"));
+    }
+
+    @Test
+    void anOrderByStaysWhenTheQueryReadingItNumbersRows() {
+        String sql = """
+                select acct_id, row_number() over (order by acct_id) as rn
+                  from (select acct_id from accounts order by acct_id) x;
+                """;
+        none(suggest(D, sql), "AMB-S012");
+    }
+
+    @Test
+    void identicalDerivedTablesWithoutCaveatsAreSafe() {
+        String sql = """
+                select a.acct_id, x.total, y.total
+                  from accounts a
+                  join (select acct_id, sum(amount) as total from payments group by acct_id) x on x.acct_id = a.acct_id
+                  join (select acct_id, sum(amount) as total from payments group by acct_id) y on y.acct_id = a.parent_id;
+                """;
+        Rewrite cte = only(suggest(D, sql), "AMB-D002");
+        assertEquals(Safety.EQUIVALENT, cte.safety());
+    }
+
+    // ----- R001 always-true placeholder ----------------------------------------------------------------
+
+    @Test
+    void alwaysTrueConditionsAreRemoved() {
+        Rewrite lead = only(suggest(D, "select id from orders where 1=1 and status = 'A' and cust_id > 0;"), "AMB-R001");
+        assertEquals("select id from orders where status = 'A' and cust_id > 0", lead.rewrittenStatement());
+        assertEquals(Safety.EQUIVALENT, lead.safety());
+        Rewrite alone = only(suggest(D, "select id from orders where 1 = 1;"), "AMB-R001");
+        assertEquals("select id from orders", alone.rewrittenStatement());
+        Rewrite tail = only(suggest(D, "select id from orders where status = 'A' and 1=1;"), "AMB-R001");
+        assertEquals("select id from orders where status = 'A'", tail.rewrittenStatement());
+        Rewrite inner = only(suggest(D, "select * from (select id from orders where 1=1 and status = 'A') x;"), "AMB-R001");
+        assertEquals("select * from (select id from orders where status = 'A') x", inner.rewrittenStatement());
+    }
+
+    @Test
+    void conditionsThatOnlyLookAlwaysTrueStay() {
+        none(suggest(D, "select id from orders where 1=1 or status = 'A';"), "AMB-R001");
+        none(suggest(D, "select id from orders where 1=2 and status = 'A';"), "AMB-R001");
+        none(suggest(D, "select id from orders where 1=1+0 and status = 'A';"), "AMB-R001");
+    }
+
     // ----- S002 --------------------------------------------------------------------------------------
 
     @Test
@@ -150,7 +256,10 @@ class RewriteOracleTest {
                  where not exists (select 1 from blocked b where b.reason = 'FRAUD' and b.cust_id = o.cust_id)""",
                 r.rewrittenStatement());
         assertEquals(Safety.EQUIVALENT_WITH_METADATA, r.safety());
-        assertEquals("STRUCTURE_PRESERVED", r.check());
+        // the condition is written differently (proven equal by the rule); the logic check lists it
+        assertEquals("STRUCTURE_CHANGED", r.check());
+        assertTrue(r.checkDifferences().stream().allMatch(d -> d.startsWith("Conditions") || d.startsWith("Literal values")),
+                r.checkDifferences()::toString);
     }
 
     @Test
@@ -225,7 +334,10 @@ class RewriteOracleTest {
         assertEquals("select id from orders where created >= DATE '2024-02-29' AND created < DATE '2024-03-01'",
                 r.rewrittenStatement());
         assertEquals(Safety.EQUIVALENT_WITH_METADATA, r.safety());
-        assertEquals("STRUCTURE_PRESERVED", r.check());
+        // the condition is written differently (proven equal by the rule); the logic check lists it
+        assertEquals("STRUCTURE_CHANGED", r.check());
+        assertTrue(r.checkDifferences().stream().allMatch(d -> d.startsWith("Conditions") || d.startsWith("Literal values")),
+                r.checkDifferences()::toString);
     }
 
     @Test
@@ -289,6 +401,45 @@ class RewriteOracleTest {
     // ----- S009 --------------------------------------------------------------------------------------
 
     @Test
+    void unionAllSameTableKeyAndDifferentFilters() {
+        // the same row of orders (same id) has one status, so it reaches one branch at most
+        Rewrite keyed = only(suggest(D, DDL + "select id, cust_id from orders where status = 'A' union "
+                + "select id, cust_id from orders o where 'B' = o.status;"), "AMB-S009");
+        assertEquals(Safety.EQUIVALENT_WITH_METADATA, keyed.safety());
+        assertTrue(keyed.safetyNote().contains("STATUS") && keyed.safetyNote().contains("ID"), keyed.safetyNote());
+        List<Rewrite> numbers = suggest(D, DDL + "select id from orders where cust_id = 10 union "
+                + "select id from orders where cust_id = 20 union select id from orders where cust_id = 30;");
+        assertEquals(2, numbers.size());                    // one per UNION
+        assertTrue(numbers.stream().allMatch(r -> r.safety() == Safety.EQUIVALENT_WITH_METADATA), numbers.toString());
+
+        String[] unproven = {
+            // '010' and '10' are the same NUMBER after implicit conversion
+            "select id from orders where cust_id = '010' union select id from orders where cust_id = '10';",
+            // the same value in both branches
+            "select id from orders where status = 'A' union select id from orders where status = 'a';",
+            // non-ASCII text: collations may ignore accents
+            "select id from orders where status = 'caf\u00e9' union select id from orders where status = 'cafe';",
+            // the key at different positions
+            "select id, cust_id from orders where status = 'A' union select cust_id, id from orders where status = 'B';",
+            // OR: the filter does not hold for every row of the branch
+            "select id from orders where status = 'A' or cust_id = 1 union select id from orders where status = 'B';",
+            // different tables
+            "select cust_id from blocked where reason = 'A' union select id from orders where status = 'B';",
+            // a column of another alias
+            "select o.id from orders o where x.status = 'A' union select o.id from orders o where x.status = 'B';",
+            // a date column compared with text: the formats may convert to the same date
+            "select id from orders where created = '2024-01-01' union select id from orders where created = '01-JAN-2024';",
+        };
+        for (String sql : unproven) {
+            assertEquals(Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES, only(suggest(D, DDL + sql), "AMB-S009").safety(), sql);
+        }
+        // without metadata no key is known
+        assertEquals(Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES, only(suggest(D, "select id from orders where status = 'A' "
+                + "union select id from orders where status = 'B';"), "AMB-S009").safety());
+    }
+
+
+    @Test
     void unionAllSafetyLevels() {
         Rewrite plain = only(suggest(D, "select id from orders union select cust_id from blocked;"), "AMB-S009");
         assertEquals("select id from orders union all select cust_id from blocked", plain.rewrittenStatement());
@@ -310,8 +461,9 @@ class RewriteOracleTest {
         String filtered = DDL + "select status, id from orders where status = 'A' union select status, id from orders "
                 + "where 'B' = status;";
         assertEquals(Safety.EQUIVALENT_WITH_METADATA, only(suggest(D, filtered), "AMB-S009").safety());
-        // filtered column not selected: rows from different filters can still be equal
-        String hidden = DDL + "select id from orders where status = 'A' union select id from orders where status = 'B';";
+        // filtered column not selected and no key selected: rows from different filters can still be equal
+        String hidden = DDL + "select cust_id from orders where status = 'A' union select cust_id from orders "
+                + "where status = 'B';";
         assertEquals(Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES, only(suggest(D, hidden), "AMB-S009").safety());
         // discriminator equal ignoring case and trailing blanks: not provably disjoint
         String sameish = DDL + "select 'a' k, id from orders union select 'A  ' k, id from orders;";

@@ -1,0 +1,42 @@
+import type { En } from '../en'
+
+export const suggestions: En['suggestions'] = {
+  title: '{count} 个发现',
+  inStatements: '分布在 {count} 条语句中',
+  none: '没有发现。Amber 对这个脚本没有建议。',
+  notAvailable: '当前引擎不提供发现。',
+  loadingFixes: '正在查找修复…',
+  applySafe: '应用 {count} 个安全修复',
+  triageFixable: '{count} 个问题 Amber 可以在本地修复',
+  triageUnfixed: '{count} 个问题需要 AI 或手动修改',
+  filter: '显示',
+  filterAll: '全部（{count}）',
+  filterFixable: '可本地修复（{count}）',
+  filterUnfixed: '需要 AI（{count}）',
+  filterEmpty: '这一组没有内容。',
+  stale: '脚本在分析后已被修改。请重新分析以更新建议。',
+  optimized: '优化版本：合并应用了 {count} 个修复',
+  compare: '对比',
+  review: '查看',
+  apply: '应用',
+  places: '{count} 处',
+  details: '显示详情',
+  noLocalFix: '无本地修复',
+  aiFix: '让 AI 修复',
+  aiFixAll: '{count, plural, =1 {让 AI 修复} other {让 AI 修复全部 # 个}}',
+  aiHint: '{count} 个问题没有本地修复。',
+  ai: {
+    title: 'AI 修复',
+    building: '正在准备上下文…',
+    waiting: '正在等待 {model}…',
+    checking: '正在校验回答…',
+    showContext: '查看将发送的内容',
+    noRewrite: 'AI 没有返回改写后的语句。',
+    showAnswer: '查看回答',
+    changed: 'Amber 发现逻辑有差异（见下方列表），因此不能应用这个改写。只有完全没有差异的改写才能应用。',
+    invalid: 'Amber 无法解析这段 SQL，因此不能应用。',
+    applyTitle: '替换编辑器中的这条语句。可用 Cmd/Ctrl+Z 撤销。',
+    compareDescription: '当前语句与 AI 改写后的语句。Amber 已校验改写结果，请检查后再应用。',
+    after: 'AI 改写后'
+  }
+}

@@ -701,7 +701,7 @@ derived from the same tokens. Themes are defined in one file so more can be adde
 
 General (theme, font size), Analysis (default dialect, encoding, `allowFallback`), Metadata
 (packs, imports), Connections, AI (providers, masking, token budget), Updates (check on start-up:
-on/off).
+on/off; check now, download progress, restart to update).
 
 ---
 
@@ -761,9 +761,15 @@ how to open an unsigned app on macOS (Gatekeeper) and Windows (SmartScreen).
 - **Users always get the latest release.** Artifact names carry no version, so the download page
   links to stable URLs:
   `https://github.com/paganini2008/amber/releases/latest/download/Amber-macos-arm64.dmg`.
-- **In-app update check**: on start-up (can be turned off for intranet use), Amber asks the
-  GitHub API for the latest release and, if newer, shows a notice with a download link. It does
-  not self-update while the app is unsigned.
+- **In-app updates**: on start-up (can be turned off for intranet use), Amber asks the GitHub API
+  for the newest release (a pre-release build also follows newer pre-releases). If it is newer:
+  - **Windows and Linux (.deb/.rpm)**: electron-updater downloads it in the background from the
+    same release (`latest.yml` / `latest-linux.yml`, SHA-512 checked) and installs it when Amber
+    restarts or quits; a notice offers "Restart to update".
+  - **macOS**: a notice links to the download page. Squirrel.Mac installs only updates signed with
+    an Apple Developer ID, so self-update waits for signing.
+  - The version compared is the app's own (set from the release tag at build time) against the
+    release tags on GitHub; nothing is fixed in the code.
 
 ### 14.4 Third-party licenses
 

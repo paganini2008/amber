@@ -201,14 +201,14 @@ class LocalizedMethodsTest {
                 assertNotEquals(e, es.get("findings").get(i).get(f).asText(), "es " + f + " " + e);
             }
         }
-        assertEquals("笛卡尔积", zh.get("findings").get(0).get("title").asText());
+        assertEquals(Messages.of("zh-CN").text("rule.AMB-S001.title"), zh.get("findings").get(0).get("title").asText());
         assertEquals("Producto cartesiano", es.get("findings").get(0).get("title").asText());
         for (int i = 0; i < en.get("statements").size(); i++) {
             String summary = en.get("statements").get(i).get("summary").asText();
             assertNotEquals(summary, zh.get("statements").get(i).get("summary").asText());
             assertNotEquals(summary, es.get("statements").get(i).get("summary").asText());
         }
-        assertTrue(zh.get("statements").get(0).get("summary").asText().startsWith("查询 "),
+        assertTrue(zh.get("statements").get(0).get("summary").asText().startsWith(Messages.of("zh-CN").text("summary.SELECT", "", "").strip() + " "),
                 zh.get("statements").get(0).toString());
         assertTrue(es.get("statements").get(0).get("summary").asText().startsWith("Consulta "));
     }
@@ -217,7 +217,7 @@ class LocalizedMethodsTest {
     void engineRulesComeInTheRequestedLanguage() throws Exception {
         JsonNode zh = call("engine.rules", "{}", "zh-CN");
         JsonNode es = call("engine.rules", "{}", "es");
-        assertEquals("笛卡尔积", zh.get("rules").get(0).get("title").asText());
+        assertEquals(Messages.of("zh-CN").text("rule.AMB-S001.title"), zh.get("rules").get(0).get("title").asText());
         assertEquals("Producto cartesiano", es.get("rules").get(0).get("title").asText());
         assertEquals("Cartesian product", call("engine.rules", "{}", null).get("rules").get(0).get("title").asText());
         assertEquals("Cartesian product", MAPPER.valueToTree(HANDLERS.get("engine.rules").handle(null))
@@ -318,7 +318,7 @@ class LocalizedMethodsTest {
             int id = r.get("id").asInt();
             String title = r.get("result").get(id == 99 ? "rules" : "findings").get(0).get("title").asText();
             String want = id == 99 ? "Cartesian product"
-                    : List.of("笛卡尔积", "Producto cartesiano", "Cartesian product").get(id % 3);
+                    : List.of(Messages.of("zh-CN").text("rule.AMB-S001.title"), "Producto cartesiano", "Cartesian product").get(id % 3);
             assertEquals(want, title, "response " + id);
         }
         assertFalse(responses.isEmpty());

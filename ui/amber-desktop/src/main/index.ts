@@ -1,5 +1,7 @@
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { BrowserWindow, Menu, app, nativeTheme, safeStorage, session, shell } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import type { MenuCommand, Settings } from '../shared/api'
 import { resolveTheme } from '../shared/themes'
 import { loadDevEnv, logs, readConfig } from './config'
@@ -8,6 +10,8 @@ import { isSafeExternalUrl, registerIpc } from './ipc'
 import { mainLanguage, setMainLanguage } from './i18n'
 import { buildMenu } from './menu'
 import { SettingsStore } from './settings/store'
+import { AutoUpdates, canInstallUpdates } from './updates/auto'
+import { isPrerelease } from './updates/check'
 
 // Development only: ui/amber-desktop/.env supplies dev wiring and defaults, never overriding the
 // real environment. A packaged app does not read any .env.
@@ -147,6 +151,18 @@ app.on('web-contents-created', (_event, contents) => {
   contents.on('will-attach-webview', (event) => event.preventDefault())
 })
 
+/** In-app updates on Windows and Linux .deb/.rpm; null on macOS and in development (see updates/auto.ts). */
+function createAutoUpdates(): AutoUpdates | null {
+  const resources = process.resourcesPath
+  const packageTypeFile = join(resources, 'package-type')
+  const packageType = existsSync(packageTypeFile) ? readFileSync(packageTypeFile, 'utf8').trim() : null
+  if (!canInstallUpdates(process.platform, app.isPackaged, packageType, existsSync(join(resources, 'app-update.yml')))) return null
+  const [owner = 'paganini2008', repo = 'amber'] = config.updateRepo.split('/')
+  autoUpdater.setFeedURL({ provider: 'github', owner, repo })
+  autoUpdater.logger = null
+  return new AutoUpdates(autoUpdater, (status) => mainWindow?.webContents.send('app:updateStatus', status), isPrerelease(app.getVersion()))
+}
+
 void app.whenReady().then(() => {
   if (isMac && !app.isPackaged) app.dock?.setIcon(join(app.getAppPath(), 'build', 'icon.png'))
   app.setAboutPanelOptions({ applicationName: 'Amber', copyright: 'Apache License 2.0' })
@@ -154,7 +170,7 @@ void app.whenReady().then(() => {
   session.defaultSession.setPermissionRequestHandler((_wc, _permission, callback) => callback(false))
 
   setMainLanguage(settings.get().language)
-  registerIpc({ config, engine, settings, getWindow: () => mainWindow, applyTheme, applyLanguage })
+  registerIpc({ config, engine, settings, getWindow: () => mainWindow, applyTheme, applyLanguage, updates: createAutoUpdates() })
   installMenu()
   createWindow()
   applyTheme(settings.get())

@@ -101,11 +101,32 @@ class AiTest {
                 + "where o.customer_id in (select c.id from customer c) group by o.customer_id";
         Catalog catalog = Catalog.of(List.of());
 
+        // New aliases and layout keep the logic: same conditions, same values.
         var same = AiCheck.check(Dialect.POSTGRESQL, original,
+                "select ord.customer_id, sum(ord.amount) total\n  from orders ord\n where ord.customer_id in "
+                        + "(select cu.id from customer cu)\n group by ord.customer_id",
+                Map.of(), catalog);
+        assertEquals(AiCheck.Label.STRUCTURE_PRESERVED, same.label(), same.differences()::toString);
+        // IN rewritten as EXISTS: plausible, but the check cannot prove it, so it is never applied as is.
+        var exists = AiCheck.check(Dialect.POSTGRESQL, original,
                 "select o.customer_id, sum(o.amount) total from orders o "
                         + "where exists (select 1 from customer c where c.id = o.customer_id) group by o.customer_id",
                 Map.of(), catalog);
-        assertEquals(AiCheck.Label.STRUCTURE_PRESERVED, same.label(), same.differences()::toString);
+        assertEquals(AiCheck.Label.STRUCTURE_CHANGED, exists.label());
+        assertTrue(exists.differences().stream().anyMatch(d -> d.startsWith("Conditions:")), exists.differences()::toString);
+        // A changed value is a changed result.
+        var value = AiCheck.check(Dialect.POSTGRESQL, "select id from orders where status = 'A' and amount > 100",
+                "select id from orders where amount > 100 and status = 'B'", Map.of(), catalog);
+        assertEquals(AiCheck.Label.STRUCTURE_CHANGED, value.label());
+        assertTrue(value.differences().stream().anyMatch(d -> d.startsWith("Literal values:") && d.contains("'B'")),
+                value.differences()::toString);
+        var operator = AiCheck.check(Dialect.POSTGRESQL, "select id from orders where amount > 100",
+                "select id from orders where amount >= 100", Map.of(), catalog);
+        assertEquals(AiCheck.Label.STRUCTURE_CHANGED, operator.label());
+        // Conditions may move, swap sides or lose the legacy 1=1.
+        var moved = AiCheck.check(Dialect.POSTGRESQL, "select o.id from orders o, customer c where 1=1 and o.cust_id = c.id and o.amount > 100",
+                "select o.id from orders o join customer c on c.id = o.cust_id where 100 < o.amount", Map.of(), catalog);
+        assertEquals(AiCheck.Label.STRUCTURE_PRESERVED, moved.label(), moved.differences()::toString);
 
         var changed = AiCheck.check(Dialect.POSTGRESQL, original,
                 "select o.customer_id, max(o.amount) total, o.status from orders o group by o.customer_id, o.status",
@@ -144,9 +165,14 @@ class AiTest {
     void aMissingFinalSemicolonIsNotInvalid() {
         String original = "select o.id from shop.orders o where date(o.created_at) = @d;";
         var r = AiCheck.check(Dialect.MYSQL, original,
-                "select o.id from shop.orders o where o.created_at >= @d and o.created_at < date_add(@d, interval 1 day)",
+                "select ord.id from shop.orders ord where date(ord.created_at) = @d",
                 Map.of(), Catalog.of(List.of()));
         assertEquals(AiCheck.Label.STRUCTURE_PRESERVED, r.label(), () -> r.diagnostics() + " " + r.differences());
+        // A date function turned into a range depends on the column type: not provable here.
+        var range = AiCheck.check(Dialect.MYSQL, original,
+                "select o.id from shop.orders o where o.created_at >= @d and o.created_at < date_add(@d, interval 1 day)",
+                Map.of(), Catalog.of(List.of()));
+        assertEquals(AiCheck.Label.STRUCTURE_CHANGED, range.label());
     }
 
     @Test

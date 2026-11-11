@@ -161,7 +161,7 @@ export const settings: En['settings'] = {
   },
   updates: {
     onStart: 'Comprobar al iniciar',
-    onStartHint: 'Consulta a GitHub la última versión cuando Amber se inicia. No se envía nada más. Desactívelo en redes sin acceso a internet.',
+    onStartHint: 'Consulta a GitHub la última versión cuando Amber se inicia. No se envía nada más. En Windows y Linux, la nueva versión se descarga y se instala cuando reinicia Amber; en macOS, Amber enlaza a la página de descarga. Desactívelo en redes sin acceso a internet.',
     onStartLabel: 'Buscar actualizaciones al iniciar',
     now: 'Ahora'
   },
