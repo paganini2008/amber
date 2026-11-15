@@ -334,6 +334,9 @@ always entered in Settings and stored encrypted by the OS keychain, never in a `
 | `OPENAI_API_KEY` | — | Enables the optional real-model test `LlmIT` |
 | `AMBER_IT_OPENAI_BASE_URL` | `https://api.openai.com/v1` | Endpoint for `LlmIT` |
 | `AMBER_IT_OPENAI_MODEL` | `gpt-6-luna` | Model for `LlmIT` |
+| `AMBER_IT_OLLAMA_URL` | `http://localhost:11434` | Ollama for `LlmIT` |
+| `AMBER_IT_OLLAMA_MODEL` | first chat model listed | Ollama model for `LlmIT` |
+| `AMBER_IT_OLLAMA_API_KEY` | — | Bearer token for an Ollama behind an authenticating proxy |
 
 **Desktop app (development): `ui/amber-desktop/.env`**
 
