@@ -16,7 +16,9 @@ import java.util.regex.Pattern;
  * {@code CAST(d AS DATE) = x} / {@code CONVERT(DATE, d) = x} (SQL Server), {@code d::date = x} /
  * {@code date_trunc('day', d) = x} (PostgreSQL), {@code DATE(d) = x} (MySQL, MariaDB, Db2, SQLite),
  * becomes a range on the bare column, {@code d >= x AND d < x + 1 day}, which an index on {@code d}
- * can serve. {@code >=, <, >, <=} and {@code BETWEEN} are rewritten the same way. Functions that do not
+ * can serve. {@code >=, <, >, <=} and {@code BETWEEN} are rewritten the same way. The year of a column compared
+ * with a literal year ({@code YEAR(d) = 2024}, {@code EXTRACT(YEAR FROM d)}, {@code date_part('year', d)},
+ * Oracle's {@code TO_CHAR(d, 'YYYY')}) becomes a range of whole years the same way. Functions that do not
  * map to a range ({@code UPPER(col) = 'X'}, …) are never rewritten.
  *
  * <p>Equivalent when {@code d} is a date/time column (known from metadata) and {@code x} has no time of
@@ -35,7 +37,14 @@ final class DateRangeRule implements RewriteRule {
             "FOR", "WINDOW", "QUALIFY", "RETURNING", "INTO", "LOOP", "UNTIL");
     private static final Pattern ISO_DATE = Pattern.compile("'\\d{4}-\\d{2}-\\d{2}'");
     private static final Pattern DATE_TYPE = Pattern.compile("(?i).*\\b(DATE|DATETIME\\d?|DATETIMEOFFSET|SMALLDATETIME|TIMESTAMP\\w*|TIMESTAMPTZ)\\b.*");
-    private static final Pattern ZONED_TYPE = Pattern.compile("(?i).*(TIME\\s+ZONE|DATETIMEOFFSET).*");
+    private static final Pattern ZONED_TYPE = Pattern.compile("(?i).*(TIME\\s+ZONE|DATETIMEOFFSET|TIMESTAMPTZ|TIMETZ).*");
+
+    /**
+     * A recognized year of one column: tokens [start, end) and the column inside; {@code toChar} for Oracle's
+     * {@code TO_CHAR(col, 'YYYY')}, which compares text.
+     */
+    private record YearOf(int start, int end, int colStart, int colEnd, boolean toChar) {
+    }
 
     /** A recognized day-truncation of one column: tokens [start, end) and the column inside. */
     private record DayOf(int start, int end, int colStart, int colEnd) {
@@ -56,6 +65,12 @@ final class DateRangeRule implements RewriteRule {
             }
             DayOf f = dayOf(sql, i);
             if (f == null) {
+                YearOf y = yearOf(sql, i);
+                Candidate c = y == null ? null : rewriteYear(ctx, sql, y);
+                if (c != null) {
+                    out.add(c);
+                    i = y.end;
+                }
                 continue;
             }
             Candidate c = rewrite(ctx, sql, f);
@@ -162,6 +177,173 @@ final class DateRangeRule implements RewriteRule {
         // the function on the column becomes a range on the column: a new condition, proven equal by this rule
         return new Candidate(id(), Messages.t("rewrite.dateRange.title"), explanation, List.of(edit), safety, note,
                 List.of("Conditions", "Literal values"));
+    }
+
+    // ----- the year of a column ---------------------------------------------------------------------
+
+    /**
+     * {@code YEAR(col) op n}, {@code EXTRACT(YEAR FROM col) op n}, {@code date_part('year', col) op n} or
+     * {@code TO_CHAR(col, 'YYYY') op 'n'}: the same filter as a range of whole years on the bare column. Only
+     * literal four-digit years are rewritten.
+     */
+    private Candidate rewriteYear(RewriteContext ctx, Sql sql, YearOf f) {
+        int k = f.end;
+        String op;
+        int vStart;
+        if (sql.sym(k, '=')) {
+            op = "=";
+            vStart = k + 1;
+        } else if ((sql.sym(k, '>') || sql.sym(k, '<')) && sql.sym(k + 1, '=')
+                && sql.tok(k + 1).start() == sql.tok(k).end()) {
+            op = sql.tok(k).text() + "=";
+            vStart = k + 2;
+        } else if ((sql.sym(k, '>') || sql.sym(k, '<')) && !sql.sym(k + 1, '>') && !sql.sym(k + 1, '=')) {
+            op = sql.tok(k).text();
+            vStart = k + 1;
+        } else if (sql.word(k, "BETWEEN")) {
+            op = "BETWEEN";
+            vStart = k + 1;
+        } else {
+            return null;
+        }
+        boolean between = op.equals("BETWEEN");
+        int d = sql.depth[f.start];
+        Integer lo = year(sql, vStart, f.toChar);
+        if (lo == null) {
+            return null;
+        }
+        int last = vStart;
+        Integer hi = lo;
+        if (between) {
+            if (!sql.word(vStart + 1, "AND")) {
+                return null;
+            }
+            hi = year(sql, vStart + 2, f.toChar);
+            if (hi == null || hi < lo) {
+                return null;
+            }
+            last = vStart + 2;
+        }
+        int after = last + 1;
+        if (after < sql.size() && sql.depth[after] == d && !(sql.wordIn(after, VALUE_END) || sql.sym(after, ';')
+                || sql.sym(after, ')'))) {
+            return null;                            // the literal is part of a longer expression (2024 + 1 …)
+        }
+        if (after < sql.size() && sql.depth[after] < d && !sql.sym(after, ')')) {
+            return null;
+        }
+        if ((op.equals("=") || op.equals(">") || op.equals("<=") || between) && hi + 1 > 9999) {
+            return null;
+        }
+        ScanToken ref = sql.tok(f.start);
+        Dialect dialect = ctx.dialect();
+        String col = sql.slice(f.colStart, f.colEnd);
+        String ge = " >= ";
+        String and = " " + RewriteContext.kw("AND", ref) + " ";
+        String replacement = switch (op) {
+            case "=" -> col + ge + yearStart(dialect, lo, ref) + and + col + " < " + yearStart(dialect, lo + 1, ref);
+            case ">=" -> col + ge + yearStart(dialect, lo, ref);
+            case "<" -> col + " < " + yearStart(dialect, lo, ref);
+            case ">" -> col + ge + yearStart(dialect, lo + 1, ref);
+            case "<=" -> col + " < " + yearStart(dialect, lo + 1, ref);
+            default -> col + ge + yearStart(dialect, lo, ref) + and + col + " < " + yearStart(dialect, hi + 1, ref);
+        };
+        if ((op.equals("=") || between) && (sql.word(f.start - 1, "NOT") || sql.word(f.start - 1, "OR")
+                || (sql.word(last + 1, "OR") && sql.depth[last + 1] == d))) {
+            replacement = "(" + replacement + ")";
+        }
+        Edit edit = ctx.edit(sql.tok(f.start).start(), sql.tok(last).end(), replacement);
+        Source owner = owner(ctx, sql, new DayOf(f.start, f.end, f.colStart, f.colEnd));
+        String type = owner == null ? null : ctx.type(owner, sql.tok(f.colEnd).text());
+        if (type != null && !DATE_TYPE.matcher(type).matches()) {
+            return null;                            // not a date/time column: YEAR / TO_CHAR mean something else
+        }
+        String explanation = Messages.t("rewrite.dateRange.explanation", sql.slice(f.start, f.end - 1), col);
+        String value = between ? Messages.t("rewrite.dateRange.between", lo, hi) : String.valueOf(lo);
+        Safety safety;
+        String note;
+        if (f.toChar) {
+            safety = Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES;
+            note = Messages.t("rewrite.dateRange.safety.toCharYear", col);
+        } else if (type == null) {
+            safety = Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES;
+            note = Messages.t("rewrite.dateRange.safety.unknownType", col);
+        } else if (ZONED_TYPE.matcher(type).matches()) {
+            safety = Safety.CHANGES_BEHAVIOR_IN_EDGE_CASES;
+            note = Messages.t("rewrite.dateRange.safety.zonedYear", col, type);
+        } else {
+            safety = Safety.EQUIVALENT_WITH_METADATA;
+            note = Messages.t("rewrite.dateRange.safety.wholeYear", col, type, value);
+        }
+        return new Candidate(id(), Messages.t("rewrite.dateRange.title"), explanation, List.of(edit), safety, note,
+                List.of("Conditions", "Literal values"));
+    }
+
+    /** A literal year from 1000 to 9999 at {@code i}: a number, or for TO_CHAR also four digits in quotes. */
+    private static Integer year(Sql sql, int i, boolean toChar) {
+        if (i >= sql.size()) {
+            return null;
+        }
+        ScanToken t = sql.tok(i);
+        String digits = null;
+        if (t.type() == ScanToken.Type.NUMBER) {
+            digits = t.text();
+        } else if (toChar && t.type() == ScanToken.Type.STRING && t.text().matches("'\\d{4}'")) {
+            digits = t.text().substring(1, 5);
+        }
+        if (digits == null || !digits.matches("[1-9]\\d{3}")) {
+            return null;
+        }
+        return Integer.valueOf(digits);
+    }
+
+    /** Midnight on 1 January of {@code y} as a literal of the dialect. */
+    static String yearStart(Dialect d, int y, ScanToken ref) {
+        String iso = y + "-01-01";
+        return switch (d) {
+            case SQLSERVER -> "'" + y + "0101'";        // yyyymmdd: read the same under every DATEFORMAT / language
+            case DB2 -> RewriteContext.kw("DATE", ref) + "('" + iso + "')";
+            case MYSQL, MARIADB -> "'" + iso + "'";     // compared as a date with DATE / DATETIME / TIMESTAMP
+            default -> RewriteContext.kw("DATE", ref) + " '" + iso + "'";
+        };
+    }
+
+    /** The year of a column starting at {@code i}, per dialect, or null. */
+    private static YearOf yearOf(Sql sql, int i) {
+        Dialect d = sql.dialect;
+        if (!sql.isName(i) || !sql.sym(i + 1, '(')) {
+            return null;
+        }
+        String fn = sql.tok(i).upper();
+        int close = sql.close(i + 1);
+        if (close < 0) {
+            return null;
+        }
+        // YEAR ( col )
+        if (fn.equals("YEAR") && Set.of(Dialect.MYSQL, Dialect.MARIADB, Dialect.SQLSERVER, Dialect.DB2, Dialect.H2)
+                .contains(d)) {
+            int c = sql.nameEnd(i + 2);
+            return c > 0 && c + 1 == close ? new YearOf(i, close + 1, i + 2, c, false) : null;
+        }
+        // EXTRACT ( YEAR FROM col )
+        if (fn.equals("EXTRACT") && d != Dialect.SQLSERVER && d != Dialect.SQLITE && sql.word(i + 2, "YEAR")
+                && sql.word(i + 3, "FROM")) {
+            int c = sql.nameEnd(i + 4);
+            return c > 0 && c + 1 == close ? new YearOf(i, close + 1, i + 4, c, false) : null;
+        }
+        // date_part ( 'year' , col )
+        if (fn.equals("DATE_PART") && d == Dialect.POSTGRESQL && sql.tok(i + 2).text().equalsIgnoreCase("'year'")
+                && sql.sym(i + 3, ',')) {
+            int c = sql.nameEnd(i + 4);
+            return c > 0 && c + 1 == close ? new YearOf(i, close + 1, i + 4, c, false) : null;
+        }
+        // TO_CHAR ( col , 'YYYY' )
+        if (fn.equals("TO_CHAR") && d == Dialect.ORACLE) {
+            int c = sql.nameEnd(i + 2);
+            return c > 0 && sql.sym(c + 1, ',') && c + 3 == close && sql.tok(c + 2).upper().equals("'YYYY'")
+                    ? new YearOf(i, close + 1, i + 2, c, true) : null;
+        }
+        return null;
     }
 
     // ----- the truncation ---------------------------------------------------------------------------

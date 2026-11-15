@@ -74,18 +74,20 @@ class LlmIT {
 
     /**
      * Ollama's native {@code /api/chat}, as the desktop app calls it. {@code AMBER_IT_OLLAMA_URL} (default
-     * http://localhost:11434) and {@code AMBER_IT_OLLAMA_MODEL} (default: the first chat model the server lists).
+     * http://localhost:11434), {@code AMBER_IT_OLLAMA_MODEL} (default: the first chat model the server lists) and
+     * {@code AMBER_IT_OLLAMA_API_KEY}, sent as a bearer token to an Ollama behind an authenticating proxy.
      * Skipped when no Ollama answers.
      */
     @Test
     void ollamaMaskedContextAnswerAndCheck() throws Exception {
         Env env = Env.get();
         String base = env.value("AMBER_IT_OLLAMA_URL", "http://localhost:11434").replaceAll("/+$", "");
+        String key = env.value("AMBER_IT_OLLAMA_API_KEY");
         ObjectMapper json = new ObjectMapper();
         JsonNode tags;
         try {
-            HttpResponse<String> r = HTTP.send(HttpRequest.newBuilder(URI.create(base + "/api/tags")).timeout(Duration.ofSeconds(5))
-                    .GET().build(), HttpResponse.BodyHandlers.ofString());
+            HttpResponse<String> r = HTTP.send(authorized(HttpRequest.newBuilder(URI.create(base + "/api/tags")), key)
+                    .timeout(Duration.ofSeconds(5)).GET().build(), HttpResponse.BodyHandlers.ofString());
             Assumptions.assumeTrue(r.statusCode() == 200, "Ollama at " + base + " answered " + r.statusCode() + "; skipped");
             tags = json.readTree(r.body()).path("models");
         } catch (IOException e) {
@@ -106,7 +108,7 @@ class LlmIT {
         roundTrip(model, (mapper, body) -> {
             ObjectNode request = (ObjectNode) mapper.readTree(body);
             request.put("stream", false);
-            HttpResponse<String> response = HTTP.send(HttpRequest.newBuilder(URI.create(base + "/api/chat"))
+            HttpResponse<String> response = HTTP.send(authorized(HttpRequest.newBuilder(URI.create(base + "/api/chat")), key)
                     .timeout(Duration.ofMinutes(10)).header("Content-Type", "application/json")
                     .POST(HttpRequest.BodyPublishers.ofString(mapper.writeValueAsString(request))).build(),
                     HttpResponse.BodyHandlers.ofString());
@@ -116,6 +118,11 @@ class LlmIT {
     }
 
     private static final HttpClient HTTP = HttpClient.newHttpClient();
+
+    /** Adds {@code Authorization: Bearer <key>} when a key is set (never logged). */
+    private static HttpRequest.Builder authorized(HttpRequest.Builder b, String key) {
+        return key == null || key.isBlank() ? b : b.header("Authorization", "Bearer " + key.strip());
+    }
 
     /** Sends a chat request body and returns the model's answer text. */
     private interface Chat {
